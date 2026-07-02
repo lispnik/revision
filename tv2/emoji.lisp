@@ -51,7 +51,7 @@ that don't support it)."
     (#x1F485 . #x1F487) #x1F48F #x1F491 #x1F4AA (#x1F574 . #x1F575) #x1F57A #x1F590
     (#x1F595 . #x1F596) (#x1F645 . #x1F647) (#x1F64B . #x1F64F) #x1F6A3 (#x1F6B4 . #x1F6B6)
     #x1F6C0 #x1F6CC #x1F90C #x1F90F (#x1F918 . #x1F91F) #x1F926 (#x1F930 . #x1F939)
-    (#x1F93C . #x1F93E) #x1F977 (#x1F9B5 . #x1F9B6) (#x1F9B8 . #x1F9B9) #x1F9BB
+    (#x1F93D . #x1F93E) #x1F977 (#x1F9B5 . #x1F9B6) (#x1F9B8 . #x1F9B9) #x1F9BB
     (#x1F9CD . #x1F9CF) (#x1F9D1 . #x1F9DD) (#x1FAC3 . #x1FAC5) (#x1FAF0 . #x1FAF8))
   "Unicode Emoji_Modifier_Base codepoints/ranges (emoji that accept a skin tone).")
 

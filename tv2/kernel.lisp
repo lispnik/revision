@@ -134,10 +134,11 @@
 ;;; clipped to the view's bounds).
 ;;; ---------------------------------------------------------------------------
 
-(defun %put-cell (x y char attr)
+(defun %put-code (x y code attr)
   (when tvision:*screen*
-    (tvision:screen-cell-set tvision:*screen* x y
-                             (tvision::cell-make-code (char-code char) attr))))
+    (tvision:screen-cell-set tvision:*screen* x y (tvision::cell-make-code code attr))))
+
+(defun %put-cell (x y char attr) (%put-code x y (char-code char) attr))
 
 (defun %put-code (x y code attr)
   "Like %PUT-CELL but writes a raw character CODE (e.g. tvision::+wide-cont+, the
@@ -146,12 +147,23 @@ sentinel marking the second cell of a double-width glyph)."
     (tvision:screen-cell-set tvision:*screen* x y (tvision::cell-make-code code attr))))
 
 (defun draw-text (view col row string attr)
-  "Write STRING at view-local (COL,ROW), clipped to VIEW's width."
+  "Write STRING at view-local (COL,ROW), clipped to VIEW's width.  Grapheme-aware:
+a multi-code-point cluster (skin-tone / ZWJ emoji, combining marks) is interned as
+one display unit, and a double-width glyph reserves its second cell with the
++wide-cont+ sentinel (so the flush doesn't overwrite its right half)."
   (let* ((b (view-bounds view))
-         (gx (+ (tvision::rect-ax b) col)) (gy (+ (tvision::rect-ay b) row))
-         (w (tvision::rect-width b)))
-    (loop for i below (min (length string) (max 0 (- w col)))
-          do (%put-cell (+ gx i) gy (char string i) attr))))
+         (ax (tvision::rect-ax b)) (gy (+ (tvision::rect-ay b) row))
+         (w (tvision::rect-width b))
+         (n (length string)) (i 0) (x col))
+    (loop while (and (< i n) (< x w)) do
+      (let* ((j (tvision::next-grapheme-col string i))       ; end of the grapheme at I
+             (g (subseq string i j))
+             (code (if (= (- j i) 1) (char-code (char string i)) (tvision::intern-grapheme g)))
+             (cw (max 1 (tvision::grapheme-width g))))
+        (%put-code (+ ax x) gy code attr)
+        (when (and (= cw 2) (< (1+ x) w))                     ; wide glyph: reserve the 2nd cell
+          (%put-code (+ ax x 1) gy tvision::+wide-cont+ attr))
+        (setf i j) (incf x cw)))))
 
 (defun %hclip (s hl) (if (< hl (length s)) (subseq s hl) ""))   ; drop HL leading columns (horizontal scroll)
 
