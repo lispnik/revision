@@ -76,9 +76,11 @@ case-insensitive substring (type-ahead)."
                 bc)))
     (invalidate d)))
 (defun %fd-goto (fd dir)
-  (setf (fd-cur fd) (uiop:ensure-directory-pathname dir)) (%fd-refill fd)
-  (let ((d (fd-dialog fd)))                              ; return focus to Filter so type-ahead keeps working
-    (when (eq (fd-mode fd) :open) (setf (container-focus d) (find-view d 'pat)) (invalidate d))))
+  (setf (fd-cur fd) (uiop:ensure-directory-pathname dir))
+  (let ((d (fd-dialog fd)) (pat (find-view (fd-dialog fd) 'pat)))
+    (when (eq (fd-mode fd) :open)                        ; entering a directory resets the type-ahead filter
+      (setf (input-text pat) "" (input-caret pat) 0 (container-focus d) pat))
+    (%fd-refill fd) (invalidate d)))
 
 (define-command fd-hidden (v e)
   (when *fd* (setf (fd-show-hidden *fd*) (not (fd-show-hidden *fd*))) (%fd-refill *fd*)))
