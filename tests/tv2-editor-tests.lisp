@@ -144,9 +144,15 @@
   (handle-event lb (make-instance 'key-event :keysym :back :modifiers 0))
   (check "list-box on-type forwards a printable key + Backspace" (equal got '(:back #\x))))
 ;;; emoji palette
-(check "emoji palette has named glyphs (from SBCL char-name)" (> (length (%emoji-chars)) 500))
-(check "an emoji pair is (CHAR . NAME)"
-       (let ((p (find #\🎉 (%emoji-chars) :key #'car))) (and p (search "PARTY" (cdr p)))))
+(let ((emoji (%emoji-chars)))
+  (check "emoji palette has named glyphs (from SBCL char-name)" (> (length emoji) 500))
+  (check "an emoji pair is (EMOJI-STRING . NAME)"
+         (let ((p (find "🎉" emoji :key #'car :test #'string=))) (and p (search "PARTY" (cdr p)))))
+  (check "includes a skin-tone variant" (find-if (lambda (p) (search "medium skin tone" (cdr p))) emoji))
+  (check "skin-tone variant is one grapheme"
+         (let ((p (find-if (lambda (p) (search ": medium skin tone" (cdr p))) emoji)))
+           (and p (= (%next-col (car p) 0) (length (car p))))))
+  (check "includes a gender (man/woman) variant" (find-if (lambda (p) (search ": woman" (cdr p))) emoji)))
 (check "base64 encodes correctly (OSC 52)" (string= (%base64 (sb-ext:string-to-octets "A")) "QQ=="))
 (let ((lb (make-instance 'list-box :items (list (make-string 80 :initial-element #\z) "short"))))
   (setf (view-bounds lb) (rect 0 0 30 5))

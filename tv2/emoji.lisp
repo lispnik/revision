@@ -39,14 +39,47 @@ that don't support it)."
     (#x2600 . #x26FF)   (#x2700 . #x27BF))                         ; misc symbols, dingbats
   "Codepoint ranges scanned for emoji.")
 
+(defparameter *skin-tones*
+  '((#x1F3FB . "light skin tone")       (#x1F3FC . "medium-light skin tone")
+    (#x1F3FD . "medium skin tone")      (#x1F3FE . "medium-dark skin tone")
+    (#x1F3FF . "dark skin tone"))
+  "The five Fitzpatrick emoji-modifier codepoints + their names.")
+
+(defparameter *modifier-base*
+  '(#x261D #x26F9 (#x270A . #x270D) #x1F385 (#x1F3C2 . #x1F3C4) #x1F3C7 (#x1F3CA . #x1F3CC)
+    (#x1F442 . #x1F443) (#x1F446 . #x1F450) (#x1F466 . #x1F478) #x1F47C (#x1F481 . #x1F483)
+    (#x1F485 . #x1F487) #x1F48F #x1F491 #x1F4AA (#x1F574 . #x1F575) #x1F57A #x1F590
+    (#x1F595 . #x1F596) (#x1F645 . #x1F647) (#x1F64B . #x1F64F) #x1F6A3 (#x1F6B4 . #x1F6B6)
+    #x1F6C0 #x1F6CC #x1F90C #x1F90F (#x1F918 . #x1F91F) #x1F926 (#x1F930 . #x1F939)
+    (#x1F93C . #x1F93E) #x1F977 (#x1F9B5 . #x1F9B6) (#x1F9B8 . #x1F9B9) #x1F9BB
+    (#x1F9CD . #x1F9CF) (#x1F9D1 . #x1F9DD) (#x1FAC3 . #x1FAC5) (#x1FAF0 . #x1FAF8))
+  "Unicode Emoji_Modifier_Base codepoints/ranges (emoji that accept a skin tone).")
+
+(defun %modifier-base-p (cp)
+  "T if the codepoint CP accepts a skin-tone modifier (a UAX-#29 grapheme test is
+useless here — the modifier is an Extend char that joins any base)."
+  (some (lambda (e) (if (consp e) (<= (car e) cp (cdr e)) (= e cp))) *modifier-base*))
+
 (defun %emoji-chars ()
-  "List of (CHAR . NAME) for every assigned, named codepoint in *EMOJI-RANGES*."
+  "List of (EMOJI-STRING . NAME): every named codepoint in *EMOJI-RANGES*, plus
+skin-tone variants for modifier bases and man/woman variants for \"PERSON …\"
+emoji (via ZWJ + gender sign)."
   (let ((out '()))
-    (dolist (r *emoji-ranges*)
-      (loop for cp from (car r) to (cdr r)
-            for ch = (ignore-errors (code-char cp))
-            for name = (and ch (char-name ch))
-            when name do (push (cons ch name) out)))
+    (flet ((emit (str name) (push (cons str name) out)))
+      (dolist (r *emoji-ranges*)
+        (loop for cp from (car r) to (cdr r)
+              for ch = (ignore-errors (code-char cp))
+              for name = (and ch (char-name ch) (substitute #\Space #\_ (char-name ch)))   ; spaces read/filter cleanly
+              when name do
+                (emit (string ch) name)                            ; the base glyph
+                (when (%modifier-base-p cp)                        ; + skin tones
+                  (dolist (st *skin-tones*)
+                    (emit (coerce (list ch (code-char (car st))) 'string)
+                          (format nil "~a: ~a" name (cdr st)))))
+                (when (search "PERSON" name)                       ; + gender (ZWJ ♂/♀ VS16)
+                  (dolist (g '((#x2642 . "man") (#x2640 . "woman")))
+                    (emit (coerce (list ch (code-char #x200D) (code-char (car g)) (code-char #xFE0F)) 'string)
+                          (format nil "~a: ~a" name (cdr g))))))))
     (nreverse out)))
 
 ;;; --- the window -------------------------------------------------------------
