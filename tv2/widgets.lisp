@@ -131,6 +131,11 @@ and return T."
         (let ((ctrl (%label-linked-view lbl)))
           (when ctrl (setf (container-focus (view-root c)) ctrl) (invalidate c) t))))))
 
+(defmethod handle-event ((v label) (e mouse-down))   ; click a label to focus its linked control (TLabel)
+  (let ((ctrl (%label-linked-view v)))
+    (when ctrl (setf (container-focus (view-root v)) ctrl) (invalidate (view-root v))))
+  (setf (handled-p e) t))
+
 ;;; --- input-line: an editable single-line text field -------------------------
 ;;; Text/caret/scroll are reactive (edits repaint), and an ON-CHANGE closure
 ;;; (a first-class handler) fires whenever the text changes -- data binding
