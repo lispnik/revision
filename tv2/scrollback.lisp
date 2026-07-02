@@ -13,6 +13,8 @@
   ((lines   :initform (make-array 0 :adjustable t :fill-pointer 0) :accessor sb-lines)
    (pending :initform "" :accessor sb-pending)        ; incomplete trailing line (no newline yet)
    (top     :initform 0 :accessor sb-top)             ; first visible row
+   (hleft   :initform 0 :accessor sb-hleft)           ; horizontal scroll offset (chars)
+   (maxw    :initform 0 :accessor sb-maxw)            ; widest line seen (chars) -> h-scrollbar extent
    (follow  :initform t :accessor sb-follow)          ; stick to the tail as new text arrives
    ;; SLY-style presentations: line-index -> live object, so a printed result can
    ;; be clicked to inspect the actual object (the REPL uses this).
@@ -63,9 +65,12 @@ transcript, holding any trailing partial line in PENDING for the next chunk."
   (let ((s (concatenate 'string (sb-pending sb) text)) (start 0))
     (loop for nl = (position #\Newline s :start start)
           while nl
-          do (vector-push-extend (subseq s start nl) (sb-lines sb))
+          do (let ((ln (subseq s start nl)))
+               (vector-push-extend ln (sb-lines sb))
+               (setf (sb-maxw sb) (max (sb-maxw sb) (length ln))))
              (setf start (1+ nl)))
-    (setf (sb-pending sb) (subseq s start)))
+    (setf (sb-pending sb) (subseq s start)
+          (sb-maxw sb) (max (sb-maxw sb) (length (sb-pending sb)))))
   (when (sb-follow sb) (sb-scroll-end sb))
   (invalidate sb))
 
@@ -79,7 +84,7 @@ occupies as a presentation of the live OBJECT, so clicking them fires ON-PRESENT
 
 (defun scrollback-clear (sb)
   (setf (fill-pointer (sb-lines sb)) 0
-        (sb-pending sb) "" (sb-top sb) 0 (sb-follow sb) t)
+        (sb-pending sb) "" (sb-top sb) 0 (sb-hleft sb) 0 (sb-maxw sb) 0 (sb-follow sb) t)
   (clrhash (sb-presentations sb))
   (invalidate sb))
 
@@ -102,7 +107,9 @@ occupies as a presentation of the live OBJECT, so clicking them fires ON-PRESENT
            (draw-text sb (1+ (length (sb-iprompt sb))) row (sb-input sb) attr))
           (t (let ((a (if (nth-value 1 (gethash i (sb-presentations sb))) pres attr)))  ; presentations stand out
                (fill-row sb 0 row w a)
-               (when (< i total) (draw-text sb 0 row (sb-row sb i) a)))))))
+               (when (< i total)
+                 (let ((s (sb-row sb i)) (hl (sb-hleft sb)))     ; horizontal scroll offset
+                   (draw-text sb 0 row (if (< hl (length s)) (subseq s hl) "") a))))))))
     (when (and iidx (view-focused-p sb) tvision:*screen*)   ; the text cursor sits in the input
       (let ((row (- iidx top)))
         (when (<= 0 row (1- h))
@@ -155,4 +162,6 @@ bubbles to the window keymap: Up/Down history, Tab completion, Ctrl-R, Esc quit)
       ((and (not (sb-iactive sb)) (eql ks :down)) (sb-scroll sb 1)  (setf (handled-p e) t))
       ((and (not (sb-iactive sb)) (eql ks :home)) (setf (sb-top sb) 0 (sb-follow sb) nil) (invalidate sb) (setf (handled-p e) t))
       ((and (not (sb-iactive sb)) (eql ks :end))  (setf (sb-follow sb) t) (sb-scroll-end sb) (invalidate sb) (setf (handled-p e) t))
+      ((and (not (sb-iactive sb)) (eql ks :left))  (scroll-hto sb (- (sb-hleft sb) 8)) (setf (handled-p e) t))
+      ((and (not (sb-iactive sb)) (eql ks :right)) (scroll-hto sb (+ (sb-hleft sb) 8)) (setf (handled-p e) t))
       (t (call-next-method)))))                       ; Up/Down (history), Tab, Ctrl-R, q/Esc bubble
