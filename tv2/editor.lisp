@@ -734,8 +734,12 @@ sole candidate, or pop up a chooser when there are several."
   (format nil " ~d:~d~:[~; *~] ~a " (1+ (te-cy te)) (1+ (te-cx te))
           (te-modified te) (if (te-overwrite te) "OVR" "INS")))
 
+(defun %editor-title (te)
+  (format nil " ~a~:[~; ●~] " (if (te-filename te) (file-namestring (te-filename te)) "*scratch*") (te-modified te)))
+
 (defun %editor-status (win)
   (let ((te (find-view win 'edit)) (st (find-view win 'status)))
+    (when te (setf (window-title win) (%editor-title te)))   ; title tracks the file name + modified marker
     (when (and te st)
       (setf (static-text-text st)
             (if (te-isearch te)
@@ -819,7 +823,7 @@ sole candidate, or pop up a chooser when there are several."
   "Build a text-editor window for PATH (or a scratch buffer).  Return (values
 WINDOW FOCUS)."
   (let* ((win (make-instance 'editor-window
-                             :title " tv2 — Text editor (a real tvlisp window, ported) " :keymap *global-keys*))
+                             :title " *scratch* " :keymap *global-keys*))
          (body (ui (stack
                      (:fill (text-edit :name 'edit))
                      (1 (static-text :name 'status :role :status :text ""))))))

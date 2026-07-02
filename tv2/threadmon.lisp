@@ -102,7 +102,7 @@ not terminate it.  Refuses the UI thread."
   "Build a thread-monitor window.  Return (values WINDOW FOCUS OPEN); OPEN starts
 the background refresher (keyed off the window, not *root*, so it works hosted)
 and returns a cleanup thunk that stops it when the window closes."
-  (let ((win (ui (window (:title " tv2 — Thread monitor (a real tvlisp window, ported) "
+  (let ((win (ui (window (:title " Thread monitor "
                           :keymap *global-keys*)
                    (stack
                      (1 (static-text :role :label :text " Live SBCL threads (auto-refreshing every 1.5s): "))

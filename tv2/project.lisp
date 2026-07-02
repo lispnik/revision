@@ -314,7 +314,7 @@ so MAKE-PATHNAME won't inherit a type from anything it is merged against."
   "Build a project-manager window for DIR.  Return (values WINDOW FOCUS)."
   (let* ((win (make-instance 'project-window
                              :dir (uiop:ensure-directory-pathname dir)
-                             :title " tv2 — Project manager (a real tvlisp window, ported) "
+                             :title " Project manager "
                              :keymap *global-keys*))
          (body (ui (stack
                      (1 (row (9 (static-text :role :label :text " Filter: "))

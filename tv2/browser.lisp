@@ -42,7 +42,7 @@ writes the detail line.  Return (values WINDOW FOCUS)."
 (defun make-packages ()
   "Browse all packages (a real tvlisp Packages window)."
   (make-browser
-   " tv2 — Package browser (a real tvlisp window, ported) "
+   " Package browser "
    (sort (mapcar #'package-name (list-all-packages)) #'string<)
    (lambda (name set)
      (let ((p (find-package name)) (n 0))
@@ -54,7 +54,7 @@ writes the detail line.  Return (values WINDOW FOCUS)."
 (defun make-systems ()
   "Browse the registered ASDF systems (a real tvlisp Systems window)."
   (make-browser
-   " tv2 — ASDF system browser (a real tvlisp window, ported) "
+   " ASDF systems "
    (sort (copy-list (ignore-errors (asdf:registered-systems))) #'string<)
    (lambda (name set)
      (let ((sys (ignore-errors (asdf:find-system name nil))))

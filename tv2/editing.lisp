@@ -215,7 +215,6 @@ count.  Undoable; keeps the cursor near its original offset."
 ;;; --- an Edit menu -----------------------------------------------------------
 
 (push (lambda (dt)
-        (declare (ignore dt))
         (flet ((cur () (%focused-editor))
                (pe (op) (lambda () (%editor-paredit (%focused-editor) op))))
           (list "Edit"
@@ -232,6 +231,8 @@ count.  Undoable; keeps the cursor near its original offset."
                 (list "Insert snippet…"     (lambda () (%insert-snippet (cur))))
                 :--
                 (list "Incremental search"  (lambda () (let ((te (cur))) (when te (te-isearch-start te)))))
+                (list "History search"      (lambda () (let ((r (and dt (%dt-repl dt))))   ; REPL input history (Ctrl-R)
+                                                         (when r (%repl-history-search (find-view r 'transcript))))))
                 (list "Go to line…"         (lambda () (%editor-goto-line (cur))))
                 (list "Reorder args…"       (lambda () (do-reorder-args)))
                 (list "Rename symbol…"      (lambda () (do-rename-symbol)))

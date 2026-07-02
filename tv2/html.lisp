@@ -502,7 +502,7 @@ REPL and editor.</p>
 (defun make-html (&optional (page "index"))
   "Build an HTML-browser window over the built-in demo site.  Return (values
 WINDOW FOCUS)."
-  (let* ((win (ui (window (:title " tv2 — HTML browser (a real tvlisp window, ported) " :keymap *global-keys*)
+  (let* ((win (ui (window (:title " HTML browser " :keymap *global-keys*)
                     (stack
                       (:fill (html-view :name 'doc))
                       (1 (static-text :name 'status :role :status :text ""))))))

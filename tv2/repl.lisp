@@ -314,11 +314,13 @@ the listener's package): insert the sole candidate, or pop up a chooser."
         (dt-open *desktop* (lambda () (make-inspector object label)))
         (multiple-value-bind (w f) (make-inspector object label) (run-view w :focus f)))))
 
+(defvar *repl-counter* 0 "Numbers REPL windows so several are distinguishable.")
+
 (defun make-repl (&optional (package :cl-user))
   "Build a Lisp REPL window.  Return (values WINDOW FOCUS OPEN); OPEN's cleanup
 stops the per-listener worker thread when the window closes."
   (let* ((win  (make-instance 'repl-window
-                              :title " tv2 — Lisp REPL (a real tvlisp window, ported) "
+                              :title (format nil " Lisp REPL ~d " (incf *repl-counter*))
                               :keymap *global-keys*
                               :package (or (find-package package) (find-package :cl-user))))
          ;; the transcript carries the inline prompt/input (SLIME-style): output
@@ -327,7 +329,7 @@ stops the per-listener worker thread when the window closes."
                      (:fill (scrollback :name 'transcript :keymap *repl-input-keys*
                               :on-present #'%repl-present-inspect))
                      (1 (static-text :role :status
-                          :text " Enter: eval · Tab: complete · ↑/↓: history · Ctrl-R: search · Esc: close "))))))
+                          :text " Enter: eval · Tab: complete · ↑/↓: history · Ctrl-R: search · F2: new REPL · Esc: close "))))))
     (add-subview win body)
     (let ((tr (find-view win 'transcript)))
       (scrollback-append tr

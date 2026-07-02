@@ -830,7 +830,7 @@ editor buffer text."
              :--
              (list "Exit"           (lambda () (setf *app-done* t)) (ctrl #\q)))
        (list "Tools"                                      ; open tool windows
-             (list "Lisp REPL"       (lambda () (dt-open dt :repl)) (ctrl #\r))
+             (list "Lisp REPL"       (lambda () (dt-open dt :repl)) :f2)   ; F2 = new REPL (Ctrl-R stays history-search)
              (list "Project manager" (lambda () (dt-open dt :project)))
              (list "Package browser" (lambda () (dt-open dt :packages)))
              (list "ASDF systems"    (lambda () (dt-open dt :systems)))
