@@ -68,7 +68,12 @@ case-insensitive substring (type-ahead)."
           ;; opens/enters the match instead of navigating up
           (list-selected lb) (if (and (plusp (length ta)) (> (length (list-items lb)) 1)) 1 0)
           (list-top lb) 0 (list-hleft lb) 0
-          (static-text-text (find-view d 'dir)) (%fd-breadcrumb (fd-cur fd)))
+          ;; show the active mask as a hint while the Filter field is empty
+          (static-text-text (find-view d 'dir))
+          (let ((bc (%fd-breadcrumb (fd-cur fd))))
+            (if (and (fd-mask fd) (not (string= (fd-mask fd) "*")) (zerop (length ta)))
+                (format nil "~a   (~a)" bc (fd-mask fd))
+                bc)))
     (invalidate d)))
 (defun %fd-goto (fd dir)
   (setf (fd-cur fd) (uiop:ensure-directory-pathname dir)) (%fd-refill fd)
