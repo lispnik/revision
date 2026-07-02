@@ -110,6 +110,13 @@ type-ahead.  Returns a pathname, or NIL on cancel."
                  (savep (let ((f (field d))) (and (plusp (length f)) (merge-pathnames (%expand-user f) (fd-cur fd)))))
                  (t (let* ((lb (find-view d 'files)) (sel (nth (list-selected lb) (list-items lb))))
                       (and sel (not (%dir-item-p sel)) (merge-pathnames sel (fd-cur fd)))))))
+         (fd-type (lb ch)                               ; forward a keystroke from the list to the Filter field
+           (let* ((d (view-root lb)) (inp (find-view d 'pat)) (txt (input-text inp)))
+             (setf (input-text inp) (if (eq ch :back)
+                                        (if (plusp (length txt)) (subseq txt 0 (1- (length txt))) txt)
+                                        (concatenate 'string txt (string ch)))
+                   (input-caret inp) (length (input-text inp)))
+             (%fd-refill fd)))
          (activate (lb item)
            (let ((d (view-root lb)))
              (cond ((string= item "../") (%fd-goto fd (uiop:pathname-parent-directory-pathname (fd-cur fd))))
@@ -139,7 +146,8 @@ type-ahead.  Returns a pathname, or NIL on cancel."
                                         :text (if savep (or default-name "") "")     ; Filter is pure type-ahead
                                         :on-change (lambda (il) (declare (ignore il))
                                                      (unless savep (%fd-refill fd)))))))
-                       (:fill (list-box :name 'files :on-activate #'activate))
+                       (:fill (list-box :name 'files :on-activate #'activate
+                                        :on-type (unless savep #'fd-type)))    ; type-ahead from the list
                        (1 (static-text :name 'msg :role :error :text ""))
                        (1 (row (:fill (static-text :text ""))
                                (11 (button :label "Hidden" :command 'fd-hidden))

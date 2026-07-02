@@ -137,6 +137,12 @@
 (let ((e (make-instance 'outline)))                                    ; empty must not error
   (setf (view-bounds e) (rect 0 0 30 5))
   (check "empty outline hmax = 0 (no error)" (= 0 (scroll-hmax e))))
+(let* ((got '()) (lb (make-instance 'list-box :items '("a" "b")
+                                    :on-type (lambda (lb ch) (declare (ignore lb)) (push ch got)))))
+  (setf (view-bounds lb) (rect 0 0 10 5))
+  (handle-event lb (make-instance 'key-event :keysym #\x :modifiers 0))
+  (handle-event lb (make-instance 'key-event :keysym :back :modifiers 0))
+  (check "list-box on-type forwards a printable key + Backspace" (equal got '(:back #\x))))
 (let ((lb (make-instance 'list-box :items (list (make-string 80 :initial-element #\z) "short"))))
   (setf (view-bounds lb) (rect 0 0 30 5))
   (check "list-box hmax > 0 for a wide item" (> (scroll-hmax lb) 0))

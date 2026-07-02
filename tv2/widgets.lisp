@@ -254,7 +254,8 @@ and return T."
    (top         :initform 0 :accessor list-top)            ; first visible row
    (hleft       :initform 0 :accessor list-hleft)          ; horizontal scroll offset (cols)
    (on-activate :initarg :on-activate :initform nil :accessor list-on-activate)
-   (on-select   :initarg :on-select   :initform nil :accessor list-on-select))   ; fired when selection moves
+   (on-select   :initarg :on-select   :initform nil :accessor list-on-select)     ; fired when selection moves
+   (on-type     :initarg :on-type     :initform nil :accessor list-on-type))      ; (lb CHAR|:back) -> type-ahead
   (:metaclass reactive-class))
 
 (defmethod focusable-p ((lb list-box)) t)
@@ -299,6 +300,11 @@ and return T."
       ((eql ks :enter) (when (and (list-on-activate lb) (< (list-selected lb) n))
                          (funcall (list-on-activate lb) lb (nth (list-selected lb) (list-items lb))))
                        (setf (handled-p e) t))
+      ;; type-ahead: forward printable keys / Backspace to an owner (e.g. a filter field)
+      ((and (list-on-type lb) (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))
+       (funcall (list-on-type lb) lb ks) (setf (handled-p e) t))
+      ((and (list-on-type lb) (eql ks :back))
+       (funcall (list-on-type lb) lb :back) (setf (handled-p e) t))
       (t (call-next-method)))))
 
 ;;; --- mouse: click to focus/select/press, wheel to scroll -------------------
