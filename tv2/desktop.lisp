@@ -437,7 +437,11 @@ desktop content area."
 (defun %dt-save-as (dt)
   (let ((te (%focused-te dt)))
     (when te
-      (let ((p (make-file-dialog :dir *project-dir* :title " Save as ")))
+      (let* ((cur (and (te-filename te) (te-filename te)))
+             (p (make-file-dialog :mode :save
+                                  :dir (if cur (uiop:pathname-directory-pathname cur) *project-dir*)
+                                  :default-name (if cur (file-namestring cur) "untitled.lisp")
+                                  :mask "*.lisp")))
         (when p (setf (te-filename te) p) (te-save te)
               (%tool-note (format nil "saved ~a" (file-namestring p))))))))
 
@@ -463,13 +467,13 @@ desktop content area."
 (defun %dt-save-transcript (dt)
   (let ((r (%dt-repl dt)))
     (if (null r) (%tool-note "no REPL open")
-        (let ((p (make-file-dialog :dir *project-dir* :title " Save transcript ")))
+        (let ((p (make-file-dialog :dir *project-dir* :mode :save :default-name "transcript.txt")))
           (when p (%repl-save-transcript r p) (%tool-note (format nil "transcript → ~a" (file-namestring p))))))))
 
 (defun %dt-save-script (dt)
   (let ((r (%dt-repl dt)))
     (if (null r) (%tool-note "no REPL open")
-        (let ((p (make-file-dialog :dir *project-dir* :title " Save Lisp script ")))
+        (let ((p (make-file-dialog :dir *project-dir* :mode :save :default-name "session.lisp" :mask "*.lisp")))
           (when p (%repl-save-script r p) (%tool-note (format nil "script → ~a" (file-namestring p))))))))
 
 (defun %dt-clear-repl (dt)

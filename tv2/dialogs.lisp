@@ -8,46 +8,142 @@
 
 ;;; --- file / directory picker ------------------------------------------------
 
-(defun %dir-entries (dir dirs-only)
-  "Listing of DIR: \"../\", then subdirectories (with a trailing /), then files."
-  (let ((subs (sort (mapcar (lambda (p) (format nil "~a/" (car (last (pathname-directory p)))))
-                            (ignore-errors (uiop:subdirectories dir))) #'string<))
-        (files (unless dirs-only
-                 (sort (mapcar #'file-namestring (ignore-errors (uiop:directory-files dir))) #'string<))))
-    (append (list "../") subs files)))
+(defun %glob-match (pat str)
+  "Case-insensitive glob match: * = any run, ? = any char."
+  (let ((p (string-downcase pat)) (s (string-downcase str)))
+    (labels ((m (i j)
+               (cond ((= i (length p)) (= j (length s)))
+                     ((char= (char p i) #\*) (or (m (1+ i) j) (and (< j (length s)) (m i (1+ j)))))
+                     ((= j (length s)) nil)
+                     ((or (char= (char p i) #\?) (char= (char p i) (char s j))) (m (1+ i) (1+ j)))
+                     (t nil))))
+      (m 0 0))))
 
-(defun make-file-dialog (&key (dir (uiop:getcwd)) dirs-only (title " Open file "))
-  "Modal file/directory picker.  Navigate by activating directory rows; activate
-a file (or click Open) to choose it.  Return a pathname, or NIL on cancel."
-  (let ((cur (list (uiop:ensure-directory-pathname dir))))
-    (labels ((refill (d)
-               (let ((lb (find-view d 'files)) (inp (find-view d 'path)) (ns (namestring (car cur))))
-                 (setf (list-items lb) (%dir-entries (car cur) dirs-only)
-                       (list-selected lb) 0 (list-top lb) 0
-                       (input-text inp) ns (input-caret inp) (length ns))
-                 (invalidate d)))
-             (activate (lb item)
-               (let ((d (view-root lb)))
-                 (cond
-                   ((string= item "../")
-                    (setf (car cur) (uiop:pathname-parent-directory-pathname (car cur))) (refill d))
-                   ((and (plusp (length item)) (char= (char item (1- (length item))) #\/))
-                    (setf (car cur) (uiop:ensure-directory-pathname
-                                     (merge-pathnames (subseq item 0 (1- (length item))) (car cur))))
-                    (refill d))
-                   (t (setf (input-text (find-view d 'path)) (namestring (merge-pathnames item (car cur))))
-                      (perform 'accept lb nil))))))
-      (let ((d (ui (dialog (:title title :keymap *dialog-keys*
-                            :value-fn (lambda (d) (input-text (find-view d 'path))))
+(defun %pattern-is-glob (p) (and p (or (find #\* p) (find #\? p))))
+
+(defun %file-matches-p (name pattern)
+  "Does NAME pass filter PATTERN?  Empty/\"*\" = all; glob if it has */?; otherwise a
+case-insensitive substring (type-ahead)."
+  (cond ((or (null pattern) (zerop (length pattern)) (string= pattern "*")) t)
+        ((%pattern-is-glob pattern) (%glob-match pattern name))
+        (t (and (search (string-downcase pattern) (string-downcase name)) t))))
+
+(defun %hidden-name-p (n) (and (plusp (length n)) (char= (char n 0) #\.)))
+(defun %typeahead-match (name ta)                       ; live substring from the Filter field
+  (or (null ta) (zerop (length ta)) (and (search (string-downcase ta) (string-downcase name)) t)))
+
+(defun %dir-entries (dir dirs-only mask typeahead show-hidden)
+  "\"../\", then subdirectories (trailing /), then files.  MASK (a glob like
+\"*.lisp\") filters files; TYPEAHEAD (a substring) filters both dirs and files."
+  (flet ((keep-dir (n) (and (or show-hidden (not (%hidden-name-p n))) (%typeahead-match n typeahead)))
+         (keep-file (n) (and (or show-hidden (not (%hidden-name-p n)))
+                             (%file-matches-p n mask) (%typeahead-match n typeahead))))
+    (let ((subs (sort (loop for p in (ignore-errors (uiop:subdirectories dir))
+                            for n = (format nil "~a/" (car (last (pathname-directory p))))
+                            when (keep-dir n) collect n) #'string<))
+          (files (unless dirs-only
+                   (sort (loop for p in (ignore-errors (uiop:directory-files dir))
+                               for n = (file-namestring p) when (keep-file n) collect n) #'string<))))
+      (append (list "../") subs files))))
+
+(defun %expand-user (s)
+  "Expand a leading ~ to the user's home directory."
+  (if (and (plusp (length s)) (char= (char s 0) #\~))
+      (namestring (merge-pathnames (subseq s (if (and (> (length s) 1) (char= (char s 1) #\/)) 2 1))
+                                   (user-homedir-pathname)))
+      s))
+
+;;; File-dialog state shared with the global toggle-hidden / new-folder commands,
+;;; bound dynamically around EXEC-VIEW (so a button can reach the live dialog).
+(defstruct fd cur mode mask dirs-only show-hidden dialog)
+(defvar *fd* nil)
+
+(defun %fd-breadcrumb (dir)
+  (let ((s (namestring dir))) (if (> (length s) 62) (concatenate 'string "…" (subseq s (- (length s) 61))) s)))
+(defun %fd-refill (fd)
+  (let* ((d (fd-dialog fd)) (lb (find-view d 'files))
+         (ta (if (eq (fd-mode fd) :save) "" (input-text (find-view d 'pat)))))   ; :save field is a name, not a filter
+    (setf (list-items lb) (%dir-entries (fd-cur fd) (fd-dirs-only fd) (fd-mask fd) ta (fd-show-hidden fd))
+          ;; while filtering, pre-select the first real entry (skip "../") so Enter
+          ;; opens/enters the match instead of navigating up
+          (list-selected lb) (if (and (plusp (length ta)) (> (length (list-items lb)) 1)) 1 0)
+          (list-top lb) 0 (list-hleft lb) 0
+          (static-text-text (find-view d 'dir)) (%fd-breadcrumb (fd-cur fd)))
+    (invalidate d)))
+(defun %fd-goto (fd dir)
+  (setf (fd-cur fd) (uiop:ensure-directory-pathname dir)) (%fd-refill fd)
+  (let ((d (fd-dialog fd)))                              ; return focus to Filter so type-ahead keeps working
+    (when (eq (fd-mode fd) :open) (setf (container-focus d) (find-view d 'pat)) (invalidate d))))
+
+(define-command fd-hidden (v e)
+  (when *fd* (setf (fd-show-hidden *fd*) (not (fd-show-hidden *fd*))) (%fd-refill *fd*)))
+(define-command fd-mkdir (v e)
+  (when *fd*
+    (let ((name (prompt-string " New folder " "Name:")))
+      (when (and name (plusp (length (string-trim " " name))))
+        (ignore-errors (ensure-directories-exist
+                        (uiop:ensure-directory-pathname (merge-pathnames (string-trim " " name) (fd-cur *fd*)))))
+        (%fd-refill *fd*)))))
+
+(defun %dir-item-p (item)
+  (or (string= item "../") (and (plusp (length item)) (char= (char item (1- (length item))) #\/))))
+
+(defun make-file-dialog (&key (dir (uiop:getcwd)) dirs-only (mode :open) (mask "*") default-name
+                              (title (case mode (:save " Save file ")
+                                       (t (if dirs-only " Choose directory " " Open file ")))))
+  "Modal file picker.  MODE :open returns an existing file (or the current directory
+when DIRS-ONLY); MODE :save returns a name to write, confirming an overwrite.  MASK
+filters the file list (a glob like \"*.lisp\"); the Filter/Name field also does
+type-ahead.  Returns a pathname, or NIL on cancel."
+  (let* ((fd (make-fd :cur (uiop:ensure-directory-pathname dir) :mode mode :mask mask
+                      :dirs-only dirs-only :show-hidden nil))
+         (savep (eq mode :save)))
+    (labels
+        ((field (d) (string-trim " " (input-text (find-view d 'pat))))
+         (target (d)                                    ; the pathname the user is choosing
+           (cond (dirs-only (fd-cur fd))                ; Change-dir: the current directory
+                 (savep (let ((f (field d))) (and (plusp (length f)) (merge-pathnames (%expand-user f) (fd-cur fd)))))
+                 (t (let* ((lb (find-view d 'files)) (sel (nth (list-selected lb) (list-items lb))))
+                      (and sel (not (%dir-item-p sel)) (merge-pathnames sel (fd-cur fd)))))))
+         (activate (lb item)
+           (let ((d (view-root lb)))
+             (cond ((string= item "../") (%fd-goto fd (uiop:pathname-parent-directory-pathname (fd-cur fd))))
+                   ((%dir-item-p item) (%fd-goto fd (merge-pathnames (subseq item 0 (1- (length item))) (fd-cur fd))))
+                   (savep (setf (input-text (find-view d 'pat)) item) (perform 'accept lb nil))  ; click-to-overwrite
+                   (t (perform 'accept lb nil)))))
+         (validate (d)
+           (let ((tp (target d)))
+             (cond
+               ((and savep (zerop (length (field d)))) (fail-validation " Enter a file name. "))
+               ((null tp) (fail-validation " Select a file. "))
+               ((uiop:directory-exists-p (uiop:ensure-directory-pathname tp))   ; a directory -> navigate into it
+                (unless dirs-only (%fd-goto fd tp)
+                        (setf (input-text (find-view d 'pat)) (if savep (or default-name "") "")) (fail-validation "")))
+               ((and savep (not (uiop:directory-exists-p (uiop:pathname-directory-pathname tp))))
+                (fail-validation " No such directory. "))
+               ((and savep (probe-file tp)
+                     (not (%confirm (format nil " ~a exists.  Overwrite it? " (file-namestring tp)))))
+                (fail-validation ""))
+               ((and (not savep) (not dirs-only) (not (probe-file tp))) (fail-validation " No such file. "))))))
+      (let ((d (ui (dialog (:title title :keymap *dialog-keys* :validator #'validate
+                            :value-fn (lambda (d) (let ((tp (target d))) (and tp (namestring tp)))))
                      (stack
-                       (1 (row (7 (static-text :role :label :text " Path: "))
-                               (:fill (input-line :name 'path :history-id :file))))
+                       (1 (static-text :name 'dir :role :label :text ""))
+                       (1 (row (9 (static-text :role :label :text (if savep " Name:   " " Filter: ")))
+                               (:fill (input-line :name 'pat :history-id :file
+                                        :text (if savep (or default-name "") "")     ; Filter is pure type-ahead
+                                        :on-change (lambda (il) (declare (ignore il))
+                                                     (unless savep (%fd-refill fd)))))))
                        (:fill (list-box :name 'files :on-activate #'activate))
+                       (1 (static-text :name 'msg :role :error :text ""))
                        (1 (row (:fill (static-text :text ""))
-                               (8  (button :label "Open"   :command 'accept))
-                               (12 (button :label "Cancel" :command 'cancel)))))))))
-        (refill d)
-        (let ((r (exec-view d :width 66 :height 20)))
+                               (11 (button :label "Hidden" :command 'fd-hidden))
+                               (11 (button :label "Folder" :command 'fd-mkdir))
+                               (10 (button :label (cond (savep "Save") (dirs-only "Choose") (t "Open")) :command 'accept))
+                               (10 (button :label "Cancel" :command 'cancel)))))))))
+        (setf (fd-dialog fd) d)
+        (%fd-refill fd)
+        (let* ((*fd* fd) (r (exec-view d :width 72 :height 22)))
           (if (eq r :cancel) nil (ignore-errors (pathname r))))))))
 
 ;;; --- colour customiser (visual swatches + live preview of *THEME*) ----------
