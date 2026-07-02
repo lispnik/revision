@@ -836,7 +836,8 @@ editor buffer text."
              (list "ASDF systems"    (lambda () (dt-open dt :systems)))
              (list "Thread monitor"  (lambda () (dt-open dt :threads)))
              (list "HTML browser"    (lambda () (dt-open dt :html)))
-             (list "Package table"   (lambda () (dt-open dt :ptable))))
+             (list "Package table"   (lambda () (dt-open dt :ptable)))
+             (list "Emoji palette"   (lambda () (dt-open dt :emoji))))
        (list "Window"                                     ; window management
              (list "Size/move"       (lambda () (let ((top (dt-top dt)))
                                                   (when top (setf *sizemove-win* top)

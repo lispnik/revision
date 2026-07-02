@@ -143,6 +143,11 @@
   (handle-event lb (make-instance 'key-event :keysym #\x :modifiers 0))
   (handle-event lb (make-instance 'key-event :keysym :back :modifiers 0))
   (check "list-box on-type forwards a printable key + Backspace" (equal got '(:back #\x))))
+;;; emoji palette
+(check "emoji palette has named glyphs (from SBCL char-name)" (> (length (%emoji-chars)) 500))
+(check "an emoji pair is (CHAR . NAME)"
+       (let ((p (find #\🎉 (%emoji-chars) :key #'car))) (and p (search "PARTY" (cdr p)))))
+(check "base64 encodes correctly (OSC 52)" (string= (%base64 (sb-ext:string-to-octets "A")) "QQ=="))
 (let ((lb (make-instance 'list-box :items (list (make-string 80 :initial-element #\z) "short"))))
   (setf (view-bounds lb) (rect 0 0 30 5))
   (check "list-box hmax > 0 for a wide item" (> (scroll-hmax lb) 0))
