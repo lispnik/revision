@@ -153,6 +153,8 @@ sentinel marking the second cell of a double-width glyph)."
     (loop for i below (min (length string) (max 0 (- w col)))
           do (%put-cell (+ gx i) gy (char string i) attr))))
 
+(defun %hclip (s hl) (if (< hl (length s)) (subseq s hl) ""))   ; drop HL leading columns (horizontal scroll)
+
 (defun fill-row (view col row width attr)
   (let* ((b (view-bounds view))
          (gx (+ (tvision::rect-ax b) col)) (gy (+ (tvision::rect-ay b) row)))
@@ -171,7 +173,11 @@ sentinel marking the second cell of a double-width glyph)."
         (cons tvision:+kb-pgup+ :pgup) (cons tvision:+kb-pgdn+ :pgdn)
         (cons tvision:+kb-tab+ :tab)   (cons tvision:+kb-shift-tab+ :shift-tab)
         (cons tvision::+kb-back+ :back) (cons tvision::+kb-del+ :del)
-        (cons tvision::+kb-ins+ :ins) (cons tvision::+kb-f1+ :f1) (cons tvision::+kb-f5+ :f5)))
+        (cons tvision::+kb-ins+ :ins)
+        (cons tvision::+kb-f1+ :f1) (cons tvision::+kb-f2+ :f2) (cons tvision::+kb-f3+ :f3)
+        (cons tvision::+kb-f4+ :f4) (cons tvision::+kb-f5+ :f5) (cons tvision::+kb-f6+ :f6)
+        (cons tvision::+kb-f7+ :f7) (cons tvision::+kb-f8+ :f8) (cons tvision::+kb-f9+ :f9)
+        (cons tvision::+kb-f10+ :f10)))
 
 (defun translate (tev)
   "Translate a tvision event struct into a tv2 event object, or NIL to ignore."

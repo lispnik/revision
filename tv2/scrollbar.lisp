@@ -13,6 +13,10 @@
 (defmethod scroll-pos  ((v list-box))  (list-top v))
 (defmethod scroll-max  ((v list-box))  (max 0 (- (length (list-items v)) (%page-h v))))
 (defmethod scroll-to   ((v list-box) pos) (setf (list-top v) (max 0 (min pos (scroll-max v)))) (invalidate v))
+(defmethod scroll-hpage ((v list-box)) (max 1 (if (view-bounds v) (r-w (view-bounds v)) 1)))
+(defmethod scroll-hpos  ((v list-box)) (list-hleft v))
+(defmethod scroll-hmax  ((v list-box)) (max 0 (- (%list-maxwidth v) (scroll-hpage v))))
+(defmethod scroll-hto   ((v list-box) pos) (setf (list-hleft v) (max 0 (min pos (scroll-hmax v)))) (invalidate v))
 
 (defmethod scroll-page ((v outline))  (%page-h v))
 (defmethod scroll-pos  ((v outline))  (outline-top v))

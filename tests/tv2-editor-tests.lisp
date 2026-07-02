@@ -137,6 +137,12 @@
 (let ((e (make-instance 'outline)))                                    ; empty must not error
   (setf (view-bounds e) (rect 0 0 30 5))
   (check "empty outline hmax = 0 (no error)" (= 0 (scroll-hmax e))))
+(let ((lb (make-instance 'list-box :items (list (make-string 80 :initial-element #\z) "short"))))
+  (setf (view-bounds lb) (rect 0 0 30 5))
+  (check "list-box hmax > 0 for a wide item" (> (scroll-hmax lb) 0))
+  (scroll-hto lb 999) (check "list-box hpos clamps to hmax" (= (scroll-hpos lb) (scroll-hmax lb)))
+  (check "empty list-box hmax = 0"
+         (let ((el (make-instance 'list-box))) (setf (view-bounds el) (rect 0 0 30 5)) (= 0 (scroll-hmax el)))))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)

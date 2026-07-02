@@ -42,7 +42,6 @@
   (with-output-to-string (s) (dolist (c (table-columns tv)) (write-string (%pad (first c) (second c)) s))))
 (defun %table-row-string (tv rowdata)
   (with-output-to-string (s) (dolist (c (table-columns tv)) (write-string (%pad (funcall (third c) rowdata) (second c)) s))))
-(defun %hclip (s hl) (if (< hl (length s)) (subseq s hl) ""))   ; drop HL leading columns
 
 (defmethod draw ((tv table-view))
   (let* ((b (view-bounds tv)) (h (r-h b)) (w (r-w b)) (active (view-focused-p tv))

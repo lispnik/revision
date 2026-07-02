@@ -104,12 +104,25 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
 (defun menu-items   (mb) (cdr (nth (menu-active mb) (menu-menus mb))))
 (defun menu-hotkey  (m)  (and (plusp (length (car m))) (char-downcase (char (car m) 0))))
 
-(defun accel-label (ks)
-  (cond ((null ks) "")
-        ((and (characterp ks) (< (char-code ks) 32)) (format nil "^~a" (code-char (+ 64 (char-code ks)))))
-        ((eql ks :f1) "F1")
-        ((characterp ks) (string ks))
-        (t (string-downcase (string ks)))))
+;;; An accelerator is a keysym (e.g. :f5, or a Ctrl char like (ctrl #\o)) or a
+;;; (KEYSYM . MODIFIER-FLAGS) cons for modified keys (e.g. (:f6 . shift) for
+;;; Shift-F6).  ACCEL-MODS is the modifier set an accel expects to match against.
+(defun accel-key  (a) (if (consp a) (car a) a))
+(defun accel-mods (a)
+  (cond ((consp a) (cdr a))
+        ((and (characterp a) (< (char-code a) 32)) tvision::+md-ctrl+)   ; a Ctrl char carries Ctrl intrinsically
+        (t 0)))
+
+(defun accel-label (a)
+  (if (null a) ""
+      (let ((ks (accel-key a)) (m (if (consp a) (cdr a) 0)))
+        (concatenate 'string
+                     (if (logtest m tvision::+md-ctrl+)  "Ctrl+"  "")
+                     (if (logtest m tvision::+md-alt+)   "Alt+"   "")
+                     (if (logtest m tvision::+md-shift+) "Shift+" "")
+                     (cond ((and (characterp ks) (< (char-code ks) 32)) (format nil "Ctrl+~a" (code-char (+ 64 (char-code ks)))))
+                           ((characterp ks) (string ks))
+                           (t (string-upcase (string ks))))))))
 
 (defun menu-dropdown-width (items)
   (+ 4 (reduce #'max items :initial-value 8
@@ -197,11 +210,15 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
 (defun menu-hotkey-index (mb ch)
   (position (char-downcase ch) (menu-menus mb) :key #'menu-hotkey))
 
-(defun menu-accel-thunk (mb ks)
-  "Thunk for an enabled item whose accelerator is KS, anywhere in the menus."
+(defun menu-accel-thunk (mb ks mods)
+  "Thunk for an enabled item whose accelerator matches keysym KS + modifier set
+MODS, anywhere in the menus."
   (loop for menu in (menu-menus mb) thereis
         (loop for it in (cdr menu)
-              when (and (not (item-submenu-p it)) (item-accel it) (eql (item-accel it) ks) (item-enabled it))
+              when (and (not (item-submenu-p it)) (item-accel it)
+                        (eql (accel-key (item-accel it)) ks)
+                        (= (accel-mods (item-accel it)) mods)
+                        (item-enabled it))
                 return (item-thunk it))))
 
 (defun menu-title-x (mb i)
@@ -499,17 +516,19 @@ desktop content area."
 
 (defmethod handle-event ((dt desktop) (e key-event))
   (let* ((mb (dt-menubar dt)) (top (dt-top dt)) (ks (event-keysym e))
-         (alt (logtest (event-modifiers e) tvision::+md-alt+)))
+         (mods (event-modifiers e)) (alt (logtest mods tvision::+md-alt+)))
     (cond
       (*sizemove-win*                                        ; interactive keyboard size/move mode
        (cond ((member ks '(:enter :esc)) (setf *sizemove-win* nil) (%tool-note "size/move done"))
              ((member ks '(:up :down :left :right))
-              (%sizemove-step dt *sizemove-win* ks (logtest (event-modifiers e) tvision::+md-shift+)))))
+              (%sizemove-step dt *sizemove-win* ks (logtest mods tvision::+md-shift+)))))
       ((and alt (characterp ks) (digit-char-p ks) (char/= ks #\0))   ; Alt-1..9 selects that window
        (dt-select-number dt (digit-char-p ks)))
+      ((and alt (eql ks #\0))                                ; Alt-0: window list (classic TV) — caught here
+       (let ((th (menu-accel-thunk mb #\0 tvision::+md-alt+))) (when th (funcall th))))   ; before the editor eats "0"
       ((and alt (characterp ks) (menu-hotkey-index mb ks))   ; Alt-<hotkey> opens that menu
        (setf (menu-active mb) (menu-hotkey-index mb ks) (menu-sel mb) 0) (invalidate mb))
-      ((and (eql ks :f5) top) (dt-zoom dt top))             ; F5: zoom/unzoom the top window
+      ((and (eql ks :f5) (zerop mods) top) (dt-zoom dt top)) ; F5: zoom/unzoom (plain; Ctrl-F5 = Size/move accel)
       ((eql ks :f1) (dt-help dt))                            ; F1: contextual help
       (top
        (cond
@@ -519,8 +538,8 @@ desktop content area."
          (t (setf *running* t) (handle-event top e)          ; otherwise the focused widget gets the key
             (cond ((not *running*) (dt-close-window dt top))
                   ((not (handled-p e))                       ; ignored -> try a global accelerator
-                   (let ((th (menu-accel-thunk mb ks))) (when th (funcall th))))))))
-      (t (let ((th (menu-accel-thunk mb ks)))                ; no window: accelerators first, then the menu
+                   (let ((th (menu-accel-thunk mb ks mods))) (when th (funcall th))))))))
+      (t (let ((th (menu-accel-thunk mb ks mods)))           ; no window: accelerators first, then the menu
            (if th (funcall th) (handle-event mb e)))))))
 
 (defun dt-window-at (dt x y)
@@ -817,14 +836,17 @@ editor buffer text."
        (list "Window"                                     ; window management
              (list "Size/move"       (lambda () (let ((top (dt-top dt)))
                                                   (when top (setf *sizemove-win* top)
-                                                        (%tool-note "Size/move: arrows move · Shift+arrows resize · Enter/Esc done")))) nil (any-win))
+                                                        (%tool-note "Size/move: arrows move · Shift+arrows resize · Enter/Esc done"))))
+                   (cons :f5 tvision::+md-ctrl+) (any-win))                       ; Ctrl-F5
              (list "Zoom"            (lambda () (let ((top (dt-top dt))) (when top (dt-zoom dt top)))) :f5 (any-win))
-             (list "Next"            (lambda () (dt-next dt) (dt-refocus dt)) nil (any-win))
-             (list "Previous"        (lambda () (dt-prev dt) (dt-refocus dt)) nil (any-win))
+             (list "Next"            (lambda () (dt-next dt) (dt-refocus dt)) :f6 (any-win))
+             (list "Previous"        (lambda () (dt-prev dt) (dt-refocus dt))
+                   (cons :f6 tvision::+md-shift+) (any-win))                      ; Shift-F6
              (list "Tile"            (lambda () (dt-tile dt) (dt-refocus dt)) nil (any-win))
              (list "Cascade"         (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))
-             (list "List…"           (lambda () (%dt-window-list dt)) nil (any-win))
-             (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top)))) nil (any-win)))
+             (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 tvision::+md-alt+) (any-win))  ; Alt-0
+             (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
+                   (cons :f3 tvision::+md-alt+) (any-win)))                       ; Alt-F3
        (list "Options"
              (list "Settings…"       (lambda () (dt-open dt :options)))
              (list "Colours…"        (lambda () (make-color-dialog)))

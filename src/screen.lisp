@@ -472,6 +472,10 @@ or (values nil nil) when more bytes are required."
                        (#\C (key-event +kb-right+)) (#\D (key-event +kb-left+))
                        (#\H (key-event +kb-home+)) (#\F (key-event +kb-end+))
                        (#\Z (key-event +kb-shift-tab+))
+                       ;; modified F1-F4: xterm sends CSI 1;<mod> P/Q/R/S (n=1 guards
+                       ;; against a cursor-position report ESC[row;colR)
+                       (#\P (and (= n 1) (key-event +kb-f1+))) (#\Q (and (= n 1) (key-event +kb-f2+)))
+                       (#\R (and (= n 1) (key-event +kb-f3+))) (#\S (and (= n 1) (key-event +kb-f4+)))
                        (#\~ (case n
                               ((1 7) (key-event +kb-home+))
                               (2 (key-event +kb-ins+))

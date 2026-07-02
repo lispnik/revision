@@ -252,6 +252,7 @@ and return T."
   ((items       :initarg :items :initform '() :accessor list-items)
    (selected    :initform 0 :accessor list-selected)
    (top         :initform 0 :accessor list-top)            ; first visible row
+   (hleft       :initform 0 :accessor list-hleft)          ; horizontal scroll offset (cols)
    (on-activate :initarg :on-activate :initform nil :accessor list-on-activate)
    (on-select   :initarg :on-select   :initform nil :accessor list-on-select))   ; fired when selection moves
   (:metaclass reactive-class))
@@ -282,7 +283,9 @@ and return T."
              (attr (if sel (role :focused) (role :normal))))
         (fill-row lb 0 row w attr)
         (when (< i (length items))
-          (draw-text lb 1 row (nth i items) attr))))))
+          (draw-text lb 1 row (%hclip (nth i items) (list-hleft lb)) attr))))))
+
+(defun %list-maxwidth (lb) (1+ (reduce #'max (list-items lb) :key #'length :initial-value 0)))  ; +1 indent
 
 (defmethod handle-event ((lb list-box) (e key-event))
   (let ((ks (event-keysym e)) (n (length (list-items lb))))
@@ -291,6 +294,8 @@ and return T."
       ((eql ks :down)  (list-move lb 1)  (setf (handled-p e) t))
       ((eql ks :home)  (setf (list-selected lb) 0) (list-scroll-fix lb) (list-notify lb) (setf (handled-p e) t))
       ((eql ks :end)   (setf (list-selected lb) (max 0 (1- n))) (list-scroll-fix lb) (list-notify lb) (setf (handled-p e) t))
+      ((eql ks :left)  (scroll-hto lb (- (list-hleft lb) 8)) (setf (handled-p e) t))
+      ((eql ks :right) (scroll-hto lb (+ (list-hleft lb) 8)) (setf (handled-p e) t))
       ((eql ks :enter) (when (and (list-on-activate lb) (< (list-selected lb) n))
                          (funcall (list-on-activate lb) lb (nth (list-selected lb) (list-items lb))))
                        (setf (handled-p e) t))
