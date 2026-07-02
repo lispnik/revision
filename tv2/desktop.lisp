@@ -851,7 +851,10 @@ editor buffer text."
              (list "Cascade"         (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))
              (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 tvision::+md-alt+) (any-win))  ; Alt-0
              (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
-                   (cons :f3 tvision::+md-alt+) (any-win)))                       ; Alt-F3
+                   (cons :f3 tvision::+md-alt+) (any-win))                        ; Alt-F3
+             (list "Close all"       (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
+                                                (dt-refocus dt) (invalidate dt))
+                   nil (any-win)))
        (list "Options"
              (list "Settings…"       (lambda () (dt-open dt :options)))
              (list "Colours…"        (lambda () (make-color-dialog)))
