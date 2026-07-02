@@ -95,7 +95,7 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
               finally (return sel)))))
 
 (defparameter *menu-order*
-  '("≡" "File" "Edit" "Lisp" "Window" "Options" "Help")
+  '("≡" "File" "Edit" "Lisp" "Tools" "Window" "Options" "Help")
   "Left-to-right order of the menu bar; menus not listed fall to the right.")
 
 (defun %order-menus (menus)
@@ -786,6 +786,7 @@ editor buffer text."
        (list "≡"
              (list "About…"    (lambda () (%about-dialog))))
        (list "File"
+             (list "New"            (lambda () (dt-open dt :editor)) (ctrl #\n))
              (list "Open file…"     (lambda () (let ((p (make-file-dialog :dir *project-dir* :title " Open file ")))
                                                  (when p (dt-open dt (lambda () (make-editor p)))))) (ctrl #\o))
              (list "Change dir…"    (lambda () (let ((p (make-file-dialog :dir *project-dir* :dirs-only t :title " Change dir ")))
@@ -805,16 +806,15 @@ editor buffer text."
                                       (dt-load-layout dt)) nil (lambda () t))
              :--
              (list "Exit"           (lambda () (setf *app-done* t)) (ctrl #\q)))
-       (list "Window"                                     ; open tool windows + window management
+       (list "Tools"                                      ; open tool windows
              (list "Lisp REPL"       (lambda () (dt-open dt :repl)) (ctrl #\r))
-             (list "Text editor"     (lambda () (dt-open dt :editor)))
              (list "Project manager" (lambda () (dt-open dt :project)))
              (list "Package browser" (lambda () (dt-open dt :packages)))
              (list "ASDF systems"    (lambda () (dt-open dt :systems)))
              (list "Thread monitor"  (lambda () (dt-open dt :threads)))
              (list "HTML browser"    (lambda () (dt-open dt :html)))
-             (list "Package table"   (lambda () (dt-open dt :ptable)))
-             :--
+             (list "Package table"   (lambda () (dt-open dt :ptable))))
+       (list "Window"                                     ; window management
              (list "Size/move"       (lambda () (let ((top (dt-top dt)))
                                                   (when top (setf *sizemove-win* top)
                                                         (%tool-note "Size/move: arrows move · Shift+arrows resize · Enter/Esc done")))) nil (any-win))
