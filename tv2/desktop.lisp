@@ -95,7 +95,7 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
               finally (return sel)))))
 
 (defparameter *menu-order*
-  '("≡" "File" "Edit" "Lisp" "Tools" "Window" "Options" "Help")
+  '("≡" "File" "Edit" "Lisp" "Tools" "Options" "Window" "Help")
   "Left-to-right order of the menu bar; menus not listed fall to the right.")
 
 (defun %order-menus (menus)
