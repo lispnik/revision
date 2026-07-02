@@ -21,6 +21,7 @@
    (wrap     :initform nil :initarg :wrap :accessor te-wrap)   ; soft-wrap mode
    (tsub     :initform 0 :accessor te-tsub)                ; sub-row within TOP when wrapping
    (anchor   :initform nil :accessor te-anchor)           ; selection origin (cons line col) or NIL
+   (mark-mode :initform nil :accessor te-mark-mode)       ; C-Space mark set: plain arrows extend the selection
    (modified :initform nil :accessor te-modified)
    (filename :initform nil :initarg :filename :accessor te-filename)
    (undo     :initform '() :accessor te-undo)             ; snapshots: (lines-list cy cx)
@@ -175,10 +176,11 @@ selection / an empty selection."
           (values a b) (values b a)))))
 
 (defun te-mark (te e)
-  "Begin/extend selection on a Shift-move; collapse it on a plain move."
-  (if (shift-p e)
-      (unless (te-anchor te) (setf (te-anchor te) (cons (te-cy te) (te-cx te))))
-      (setf (te-anchor te) nil)))
+  "Begin/extend selection on a Shift-move (or any move while the C-Space mark is
+set); collapse it on a plain move."
+  (cond ((shift-p e) (unless (te-anchor te) (setf (te-anchor te) (cons (te-cy te) (te-cx te)))))
+        ((and (te-mark-mode te) (te-anchor te)))                  ; mark set: keep the anchor, extend
+        (t (setf (te-anchor te) nil (te-mark-mode te) nil))))     ; plain move: collapse + leave mark mode
 
 (defun te-selected-p (te line col)
   (multiple-value-bind (a b) (te-sel-ordered te)
@@ -636,6 +638,12 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
           (progn (setf (te-isearch te) nil) (invalidate te))))
     (macrolet ((done () '(setf (handled-p e) t)))
       (cond
+        ;; Ctrl-Space (C-@, code 0): set/clear the selection mark (terminal-portable
+        ;; selection when Shift+arrows aren't sent, e.g. macOS Terminal.app)
+        ((and cc (zerop cc))
+         (if (te-mark-mode te) (setf (te-mark-mode te) nil (te-anchor te) nil)
+             (setf (te-mark-mode te) t (te-anchor te) (cons (te-cy te) (te-cx te))))
+         (invalidate te) (done))
         ;; control chords (arrive as characters with code 1..26)
         ((and cc (<= 1 cc 26))
          (case (code-char (+ 96 cc))
@@ -746,9 +754,9 @@ sole candidate, or pop up a chooser when there are several."
                 (format nil " I-search~:[~;-fail~]: ~a▉   Ctrl-S: next · Enter: accept · Esc: cancel "
                         (te-isearch-fail te) (te-isearch te))
             ;; line:col + INS/OVR now live on the bottom frame (FRAME-INDICATOR)
-            (format nil " ~a~:[~;*~]~:[~; sel~]~:[~; wrap~]    C-s save · Ins: OVR/INS · Esc quit "
+            (format nil " ~a~:[~;*~]~:[~; sel~]~:[~; MARK~]~:[~; wrap~]    C-s save · C-Space: select · Esc quit "
                     (if (te-filename te) (file-namestring (te-filename te)) "scratch")
-                    (te-modified te) (te-selected-string te) (te-wrap te))))
+                    (te-modified te) (te-selected-string te) (te-mark-mode te) (te-wrap te))))
       (invalidate st))))
 
 (defun %editor-find (te)
