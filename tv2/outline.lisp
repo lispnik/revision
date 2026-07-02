@@ -13,7 +13,8 @@
 (defclass outline (view)
   ((roots   :initarg :roots :initform '() :accessor outline-roots)
    (focused :initform 0 :accessor outline-focused)
-   (top     :initform 0 :accessor outline-top))           ; first visible row
+   (top     :initform 0 :accessor outline-top)             ; first visible row
+   (hleft   :initform 0 :accessor outline-hleft))          ; horizontal scroll offset (cols)
   (:metaclass reactive-class)
   (:documentation "A collapsible tree; FOCUSED/TOP are reactive."))
 
@@ -46,14 +47,22 @@
         (fill-row ol 0 row w attr)
         (when nd
           (destructuring-bind (n . depth) nd
-            (draw-text ol 0 row
-                       (concatenate 'string
-                                    (make-string (* 2 depth) :initial-element #\Space)
-                                    (cond ((not (tvision:outline-node-expandable-p n)) "  ")
-                                          ((tvision:outline-node-expanded n) "- ")
-                                          (t "+ "))
-                                    (tvision:outline-node-text n))
-                       attr)))))))
+            (let ((s (%outline-row-string n depth)) (hl (outline-hleft ol)))
+              (draw-text ol 0 row (if (< hl (length s)) (subseq s hl) "") attr))))))))
+
+(defun %outline-row-string (n depth)
+  (concatenate 'string
+               (make-string (* 2 depth) :initial-element #\Space)
+               (cond ((not (tvision:outline-node-expandable-p n)) "  ")
+                     ((tvision:outline-node-expanded n) "- ")
+                     (t "+ "))
+               (tvision:outline-node-text n)))
+
+(defun %outline-maxwidth (ol)
+  "Widest visible row (chars), for the horizontal scrollbar extent (0 when empty)."
+  (let ((m 0))
+    (dolist (nd (ov-visible (outline-roots ol)) m)
+      (setf m (max m (length (%outline-row-string (car nd) (cdr nd))))))))
 
 ;;; --- navigation helpers (mutate reactive slots -> auto repaint) -------------
 

@@ -18,6 +18,10 @@
 (defmethod scroll-pos  ((v outline))  (outline-top v))
 (defmethod scroll-max  ((v outline))  (max 0 (- (length (ov-visible (outline-roots v))) (%page-h v))))
 (defmethod scroll-to   ((v outline) pos) (setf (outline-top v) (max 0 (min pos (scroll-max v)))) (invalidate v))
+(defmethod scroll-hpage ((v outline)) (max 1 (if (view-bounds v) (r-w (view-bounds v)) 1)))
+(defmethod scroll-hpos  ((v outline)) (outline-hleft v))
+(defmethod scroll-hmax  ((v outline)) (max 0 (- (%outline-maxwidth v) (scroll-hpage v))))
+(defmethod scroll-hto   ((v outline) pos) (setf (outline-hleft v) (max 0 (min pos (scroll-hmax v)))) (invalidate v))
 
 (defmethod scroll-page ((v scrollback))  (%page-h v))
 (defmethod scroll-hpage ((v scrollback)) (max 1 (if (view-bounds v) (r-w (view-bounds v)) 1)))

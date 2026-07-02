@@ -12,6 +12,7 @@
    (rows        :initarg :rows :initform '() :accessor table-rows)
    (selected    :initform 0 :accessor table-selected)
    (top         :initform 0 :accessor table-top)                           ; first visible data row
+   (hleft       :initform 0 :accessor table-hleft)                         ; horizontal scroll offset (cols)
    (on-activate :initarg :on-activate :initform nil :accessor table-on-activate))
   (:metaclass reactive-class))
 
@@ -36,21 +37,25 @@
       (setf (table-selected tv) (max 0 (min (1- n) (+ (table-selected tv) delta))))
       (table-scroll-fix tv))))
 
+(defun %table-width (tv) (reduce #'+ (table-columns tv) :key #'second :initial-value 0))
+(defun %table-header-string (tv)
+  (with-output-to-string (s) (dolist (c (table-columns tv)) (write-string (%pad (first c) (second c)) s))))
+(defun %table-row-string (tv rowdata)
+  (with-output-to-string (s) (dolist (c (table-columns tv)) (write-string (%pad (funcall (third c) rowdata) (second c)) s))))
+(defun %hclip (s hl) (if (< hl (length s)) (subseq s hl) ""))   ; drop HL leading columns
+
 (defmethod draw ((tv table-view))
   (let* ((b (view-bounds tv)) (h (r-h b)) (w (r-w b)) (active (view-focused-p tv))
-         (cols (table-columns tv)) (rows (table-rows tv)) (top (table-top tv)))
-    (let ((x 0) (hattr (role :label)))                          ; header
+         (rows (table-rows tv)) (top (table-top tv)) (hl (table-hleft tv)))
+    (let ((hattr (role :label)))                                ; header (scrolls with the rows)
       (fill-row tv 0 0 w hattr)
-      (dolist (c cols) (draw-text tv x 0 (%pad (first c) (second c)) hattr) (incf x (second c))))
+      (draw-text tv 0 0 (%hclip (%table-header-string tv) hl) hattr))
     (dotimes (row (1- h))                                       ; data rows
       (let* ((i (+ top row)) (y (1+ row))
              (attr (if (and (= i (table-selected tv)) active) (role :focused) (role :normal))))
         (fill-row tv 0 y w attr)
         (when (< i (length rows))
-          (let ((x 0) (rowdata (nth i rows)))
-            (dolist (c cols)
-              (draw-text tv x y (%pad (funcall (third c) rowdata) (second c)) attr)
-              (incf x (second c)))))))))
+          (draw-text tv 0 y (%hclip (%table-row-string tv (nth i rows)) hl) attr))))))
 
 (defun table-activate (tv)
   (when (and (table-on-activate tv) (< (table-selected tv) (length (table-rows tv))))
@@ -65,6 +70,8 @@
       ((eql ks :pgdn)  (table-move tv (table-page tv)) (setf (handled-p e) t))
       ((eql ks :home)  (setf (table-selected tv) 0) (table-scroll-fix tv) (setf (handled-p e) t))
       ((eql ks :end)   (setf (table-selected tv) (max 0 (1- n))) (table-scroll-fix tv) (setf (handled-p e) t))
+      ((eql ks :left)  (scroll-hto tv (- (table-hleft tv) 8)) (setf (handled-p e) t))
+      ((eql ks :right) (scroll-hto tv (+ (table-hleft tv) 8)) (setf (handled-p e) t))
       ((eql ks :enter) (table-activate tv) (setf (handled-p e) t))
       (t (call-next-method)))))
 
@@ -82,3 +89,7 @@
 (defmethod scroll-pos  ((tv table-view)) (table-top tv))
 (defmethod scroll-max  ((tv table-view)) (max 0 (- (length (table-rows tv)) (table-page tv))))
 (defmethod scroll-to   ((tv table-view) pos) (setf (table-top tv) (max 0 (min pos (scroll-max tv)))) (invalidate tv))
+(defmethod scroll-hpage ((tv table-view)) (max 1 (if (view-bounds tv) (r-w (view-bounds tv)) 1)))
+(defmethod scroll-hpos  ((tv table-view)) (table-hleft tv))
+(defmethod scroll-hmax  ((tv table-view)) (max 0 (- (%table-width tv) (scroll-hpage tv))))
+(defmethod scroll-hto   ((tv table-view) pos) (setf (table-hleft tv) (max 0 (min pos (scroll-hmax tv)))) (invalidate tv))

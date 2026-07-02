@@ -118,5 +118,26 @@
   (check "cursor sits at the cluster start"       (= (te-cx te) 1)))
 
 ;;; ===========================================================================
+(format t "~%## horizontal scrolling (scrollback / table-view / outline)~%")
+(let ((sb (make-instance 'scrollback)))
+  (setf (view-bounds sb) (rect 0 0 20 5))
+  (scrollback-append sb (format nil "~a~%" (make-string 100 :initial-element #\x)))
+  (check "scrollback hmax > 0 for a wide line" (> (scroll-hmax sb) 0))
+  (scroll-hto sb 999) (check "scrollback hpos clamps to hmax" (= (scroll-hpos sb) (scroll-hmax sb)))
+  (scrollback-clear sb) (check "scrollback-clear resets hleft + maxw" (and (= (sb-hleft sb) 0) (= (scroll-hmax sb) 0))))
+(let ((tv (make-instance 'table-view :columns (list (list "A" 50 #'identity) (list "B" 50 #'identity))
+                                     :rows (list "r1" "r2"))))
+  (setf (view-bounds tv) (rect 0 0 30 5))
+  (check "table hmax > 0 when columns exceed the width" (> (scroll-hmax tv) 0))    ; 100 cols - 30
+  (scroll-hto tv 999) (check "table hpos clamps to hmax" (= (scroll-hpos tv) (scroll-hmax tv))))
+(let ((ol (make-instance 'outline :roots (list (%tv2-object->outline (make-string 90 :initial-element #\Q) "v")))))
+  (setf (view-bounds ol) (rect 0 0 30 5))
+  (check "outline hmax > 0 for a wide node" (> (scroll-hmax ol) 0))
+  (scroll-hto ol 999) (check "outline hpos clamps to hmax" (= (scroll-hpos ol) (scroll-hmax ol))))
+(let ((e (make-instance 'outline)))                                    ; empty must not error
+  (setf (view-bounds e) (rect 0 0 30 5))
+  (check "empty outline hmax = 0 (no error)" (= 0 (scroll-hmax e))))
+
+;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))
