@@ -11,9 +11,18 @@
 
 (asdf:defsystem "tv2"
   :description "Experimental CLOS-native kernel for the tvision TUI framework."
-  :depends-on ("tvision")
+  :depends-on ()
   :serial t
-  :components ((:module "tv2"
+  :components ((:module "base"                     ; the foundation tv2 owns (was tvision's lower half):
+                :serial t                           ; terminal driver, cell/colour model, geometry, events,
+                :components ((:file "package")       ; the Unicode/grapheme engine, and the outline-node struct.
+                             (:file "geometry")
+                             (:file "colors")
+                             (:file "draw-buffer")
+                             (:file "events")
+                             (:file "screen")
+                             (:file "outline-node")))
+               (:module "tv2"
                 :serial t
                 :components ((:file "package")
                              (:file "kernel")

@@ -833,7 +833,7 @@ broadcasts and drawing); return the control."
       (ok "relative dir name navigates into src"
           (search "/src/" (namestring (tvision::fd-dir d))))
       (ok "listing updates to src contents"
-          (member "package.lisp" (items) :test #'string=))
+          (member "view.lisp" (items) :test #'string=))
       (ok "a directory is never accepted as a file"
           (not (member "src" (items) :test #'string=)))  ; we moved, didn't accept
       ;; a typed parent path navigates back up
@@ -858,7 +858,7 @@ broadcasts and drawing); return the control."
         (ok "Enter on a directory entry navigates into it"
             (search "/src/" (namestring (tvision::fd-dir d))))
         (ok "listing now shows that directory"
-            (member "package.lisp" (items) :test #'string=))
+            (member "view.lisp" (items) :test #'string=))
         (ok "highlight reset to the top (..) after navigating"
             (= (list-focused (tvision::fd-list d)) 0)))
       ;; Enter on ".." (row 0) goes back up

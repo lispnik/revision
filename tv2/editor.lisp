@@ -93,13 +93,13 @@
 ;;; --- display width (wide CJK / emoji occupy two columns) --------------------
 ;;; The cursor is a CODE-POINT index (TE-CX); its on-screen position, the wrap
 ;;; break points and the horizontal scroll are all DISPLAY columns.  Reuse
-;;; tvision's East-Asian width machinery (src/draw-buffer.lisp) so wide glyphs
+;;; tvision's East-Asian width machinery (base/draw-buffer.lisp) so wide glyphs
 ;;; line up instead of shoving the rest of the line one column right per glyph.
 (defun %cw (ch) (tvision:char-width ch))                         ; 1 or 2 display columns
 ;; Column math is GRAPHEME-aware: a cluster (combining marks, ZWJ / skin-tone /
 ;; flag emoji) counts as one display unit of its base width, and the cursor
 ;; lands only on cluster boundaries.  visual-col / col-at-vcol / next- and
-;; prev-grapheme-col are tvision's (src/draw-buffer.lisp); they fast-path simple
+;; prev-grapheme-col are tvision's (base/draw-buffer.lisp); they fast-path simple
 ;; lines to per-code-point, so ASCII / CJK are unaffected.
 (defun %col->vc (line col) (tvision::visual-col line 0 col))     ; display column of code-point index COL
 (defun %vwidth (line) (tvision::visual-col line 0 (length line)))  ; full display width

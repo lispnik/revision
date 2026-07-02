@@ -8,17 +8,11 @@
   :author "ported with Claude Code"
   :license "MIT"
   :version "0.1.0"
-  :depends-on ()
-  :serial t
-  :components ((:module "src"
+  :depends-on ("tv2")                       ; the foundation (package, geometry, colours, draw-buffer,
+  :serial t                                 ; events, screen, outline-node) now lives in the tv2 system;
+  :components ((:module "src"               ; this system is only the classic view hierarchy on top of it.
                 :serial t
-                :components ((:file "package")
-                             (:file "geometry")
-                             (:file "colors")
-                             (:file "draw-buffer")
-                             (:file "events")
-                             (:file "screen")
-                             (:file "concurrency")
+                :components ((:file "concurrency")
                              (:file "view")
                              (:file "group")
                              (:file "frame")

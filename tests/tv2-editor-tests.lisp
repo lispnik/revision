@@ -2,7 +2,7 @@
 ;;;;
 ;;;; The tv2 editor stores the cursor as a code-point index but lays out text in
 ;;;; DISPLAY columns, so wide East-Asian glyphs and emoji occupy two cells and
-;;;; the rest of the line stays aligned (mirrors src/draw-buffer.lisp).  These
+;;;; the rest of the line stays aligned (mirrors base/draw-buffer.lisp).  These
 ;;;; exercise that column math directly -- no UI needed.
 ;;;;
 ;;;; Run from the repo root:  sbcl --script tests/tv2-editor-tests.lisp
