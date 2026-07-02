@@ -11,7 +11,8 @@
   ((items  :initarg :items :initform '() :accessor cluster-items)
    (mode   :initarg :mode  :initform :check :accessor cluster-mode)   ; :check | :radio
    (value  :initarg :value :initform nil :accessor cluster-value)     ; :check -> list of idx; :radio -> idx
-   (cursor :initform 0 :accessor cluster-cursor))
+   (cursor :initform 0 :accessor cluster-cursor)
+   (on-change :initarg :on-change :initform nil :accessor cluster-on-change))  ; (cluster) after a toggle
   (:metaclass reactive-class))
 
 (defmethod focusable-p ((c cluster)) t)
@@ -25,7 +26,8 @@
         (setf (cluster-value c) i)
         (setf (cluster-value c) (if (member i (cluster-value c))
                                     (remove i (cluster-value c))
-                                    (sort (cons i (cluster-value c)) #'<))))))
+                                    (sort (cons i (cluster-value c)) #'<)))))
+  (when (cluster-on-change c) (funcall (cluster-on-change c) c)))
 
 (defmethod draw ((c cluster))
   (let ((w (r-w (view-bounds c))) (focused (view-focused-p c)))

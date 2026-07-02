@@ -291,11 +291,15 @@ box's top-border row; its items occupy rows SY0+1 .. SY0+COUNT."
 (defvar *window-builders* nil "Keyword -> 0-arg make-* builder (populated below); drives layout restore.")
 
 (defun dt-cascade-rect (dt)
-  "A cascade-offset window rectangle for the Nth open window."
+  "A cascade-offset rectangle for the Nth window, kept *fully* on the desktop:
+the size is capped to the content area, then the offset origin is shifted back
+from the edge (rather than clamping the far corner and squashing the window)."
   (let* ((c (dt-content dt)) (n (length (dt-windows dt)))
-         (cw (max 40 (floor (* (r-w c) 4) 5))) (ch (max 8 (floor (* (r-h c) 4) 5)))
-         (ox (+ (tvision::rect-ax c) (* (mod n 6) 3))) (oy (+ (tvision::rect-ay c) (* (mod n 6) 2))))
-    (rect ox oy (min (+ ox cw) (tvision::rect-bx c)) (min (+ oy ch) (tvision::rect-by c)))))
+         (cw (min (r-w c) (max 40 (floor (* (r-w c) 4) 5))))
+         (ch (min (r-h c) (max 8  (floor (* (r-h c) 4) 5))))
+         (ox (min (+ (tvision::rect-ax c) (* (mod n 6) 3)) (- (tvision::rect-bx c) cw)))
+         (oy (min (+ (tvision::rect-ay c) (* (mod n 6) 2)) (- (tvision::rect-by c) ch))))
+    (rect ox oy (+ ox cw) (+ oy ch))))
 
 (defun dt-add (dt win focus open kind bounds)
   "Host WIN at BOUNDS, recording its KIND (a keyword or NIL) for save/restore."
@@ -468,15 +472,30 @@ desktop content area."
         :input-focused   (tvision:make-attr 15 0)    :error           (tvision:make-attr 15 4)
         :desktop         (tvision:make-attr 8 0)     :scrollbar       (tvision:make-attr 7 8)
         :scrollbar-thumb (tvision:make-attr 15 8)))
-(defparameter *themes* (list (cons "Classic blue" *theme-classic*) (cons "Dark" *theme-dark*)))
+(defparameter *theme-light*
+  (list :normal          (tvision:make-attr 0 7)     :focused         (tvision:make-attr 15 1)
+        :frame           (tvision:make-attr 0 7)     :frame-inactive  (tvision:make-attr 8 7)
+        :menu-bar        (tvision:make-attr 0 7)     :menu            (tvision:make-attr 0 7)
+        :menu-selected   (tvision:make-attr 15 1)    :menu-hotkey     (tvision:make-attr 4 7)
+        :menu-disabled   (tvision:make-attr 8 7)     :status          (tvision:make-attr 0 3)
+        :button          (tvision:make-attr 15 1)    :button-focused  (tvision:make-attr 14 1)
+        :label           (tvision:make-attr 1 7)     :input           (tvision:make-attr 0 15)
+        :input-focused   (tvision:make-attr 0 15)    :error           (tvision:make-attr 15 4)
+        :desktop         (tvision:make-attr 8 7)     :scrollbar       (tvision:make-attr 0 7)
+        :scrollbar-thumb (tvision:make-attr 1 7)))
+(defparameter *themes* (list (cons "Blue" *theme-classic*) (cons "Dark" *theme-dark*) (cons "Light" *theme-light*)))
 (defvar *theme-index* 0)
 
-(defun cycle-theme (dt)
-  (setf *theme-index* (mod (1+ *theme-index*) (length *themes*)))
+(defun apply-theme (dt index &key note)
+  "Switch to theme INDEX (into *THEMES*) and redraw; optionally announce it."
+  (setf *theme-index* (mod index (length *themes*)))
   (destructuring-bind (name . palette) (nth *theme-index* *themes*)
     (setf *theme* palette)
     (invalidate dt)
-    (%tool-note (format nil "colour theme: ~a" name))))
+    (when note (%tool-note (format nil "colour theme: ~a" name)))))
+
+(defun cycle-theme (dt)
+  (apply-theme dt (1+ *theme-index*) :note t))
 
 (defmethod handle-event ((dt desktop) (e key-event))
   (let* ((mb (dt-menubar dt)) (top (dt-top dt)) (ks (event-keysym e))
@@ -629,22 +648,58 @@ plus the focused widget's own STATUS-HINTS, plus the always-on globals."
 
 ;;; --- a small window demonstrating the cluster controls ----------------------
 
+;;; --- editor feature defaults (wired live from the Settings window) ----------
+
+(defvar *ed-syntax* t)       (defvar *ed-wrap* nil)
+(defvar *ed-auto-indent* t)  (defvar *ed-line-numbers* nil)
+
+(defun %set-editor-features (te)
+  (setf (te-colorizer te)    (if *ed-syntax* #'lisp-colorize nil)
+        (te-wrap te)         *ed-wrap*
+        (te-indenter te)     (if *ed-auto-indent* *lisp-indenter* nil)
+        (te-line-numbers te) *ed-line-numbers*)
+  (when *ed-wrap* (setf (te-left te) 0))
+  (te-ensure-visible te) (invalidate te))
+
+(defun %features-value ()
+  "Checked-index list (0 syntax · 1 wrap · 2 auto-indent · 3 line-numbers) for the
+current defaults."
+  (let ((v '()))
+    (when *ed-line-numbers* (push 3 v)) (when *ed-auto-indent* (push 2 v))
+    (when *ed-wrap* (push 1 v)) (when *ed-syntax* (push 0 v))
+    v))
+
+(defun %apply-editor-features (dt cluster)
+  "Record the Features cluster as the defaults and apply it to every open editor."
+  (let ((v (cluster-value cluster)))
+    (setf *ed-syntax*       (and (member 0 v) t) *ed-wrap*        (and (member 1 v) t)
+          *ed-auto-indent*  (and (member 2 v) t) *ed-line-numbers* (and (member 3 v) t)))
+  (dolist (w (dt-windows dt))
+    (when (typep w 'editor-window)
+      (let ((te (find-view w 'edit))) (when te (%set-editor-features te)))))
+  (%tool-note "editor features applied"))
+
 (defun make-options ()
-  "IDE settings.  The status-note timeout is live — editing it applies at once."
-  (let* ((win (ui (window (:title " Settings " :keymap *global-keys*)
+  "IDE settings — every control applies live: a feature toggle updates all open
+editors, the theme radio re-skins the desktop, the timeout field is immediate."
+  (let* ((dt *desktop*)
+         (win (ui (window (:title " Settings " :keymap *global-keys*)
                     (stack
-                      (1 (static-text :role :label :text " Features — ↑/↓, Space or click toggles: "))
+                      (1 (static-text :role :label :text " Editor features — ↑/↓, Space or click toggles: "))
                       (4 (cluster :name 'features :mode :check
                            :items (list "Syntax highlight" "Word wrap" "Auto-indent" "Line numbers")
-                           :value (list 0)))
-                      (1 (static-text :role :label :text " Theme — radio: "))
-                      (3 (cluster :name 'theme :mode :radio :items (list "Blue" "Dark" "Light") :value 0))
+                           :value (%features-value)
+                           :on-change (lambda (c) (when dt (%apply-editor-features dt c)))))
+                      (1 (static-text :role :label :text " Colour theme — radio: "))
+                      (3 (cluster :name 'theme :mode :radio
+                           :items (mapcar #'car *themes*) :value *theme-index*
+                           :on-change (lambda (c) (when dt (apply-theme dt (cluster-value c))))))
                       (1 (row (30 (static-text :role :label :text " Status-note timeout (1–60 s): "))
                               (:fill (input-line :name 'ttl :text (princ-to-string *tool-message-ttl*)
                                        :on-change (lambda (il)
                                                     (let ((n (parse-integer (input-text il) :junk-allowed t)))
                                                       (when (and n (<= 1 n 60)) (setf *tool-message-ttl* n))))))))
-                      (:fill (static-text :name 'echo :role :status :text ""))
+                      (:fill (static-text :role :status :text ""))
                       (1 (static-text :role :status :text " Space/click toggles · type to set the timeout · Tab switches · Esc closes ")))))))
     (values win (find-view win 'features))))
 
