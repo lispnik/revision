@@ -53,16 +53,26 @@ the object inspector, line numbers, and a live HyperSpec lookup:
 
 ## Building views — the `ui` macro
 
-Structure is checked at macroexpansion; sizes are `:fill` or integers:
+`ui` builds a view tree from a nested spec, checked at macroexpansion.  A window
+holds a layout container — **`stack`** (splits vertically) or **`row`** (splits
+horizontally) — whose children are **sized cells** written `(SIZE child)`:
+
+- an **integer** is a *fixed* size in terminal cells — **rows** tall in a `stack`,
+  **columns** wide in a `row`;
+- **`:fill`** takes an equal share of whatever is left after the fixed cells.
+  Several `:fill` cells split the remainder evenly (`floor(slack / n)`), so two
+  `:fill`s around a fixed cell centre it, and one `:fill` soaks up the rest.
+
+Containers nest freely (a `row` inside a `stack` cell, and so on):
 
 ```lisp
 (ui (window (:title " Demo " :keymap *global-keys*)
-      (stack
-        (1     (row (9 (static-text :role :label :text " Filter: "))
-                    (:fill (input-line :name 'find :on-change #'my-handler))))
-        (:fill (outline :name 'tree :roots (demo-roots) :keymap *outline-keys*))
-        (1     (row (16 (button :label "Collapse all" :command 'collapse-all))
-                    (8  (button :label "Quit"         :command 'quit))
+      (stack                                                    ; vertical → numbers are ROWS
+        (1     (row (9 (static-text :role :label :text " Filter: "))   ; 9 columns wide
+                    (:fill (input-line :name 'find :on-change #'my-handler))))  ; fills the rest
+        (:fill (outline :name 'tree :roots (demo-roots) :keymap *outline-keys*)); fills the height
+        (1     (row (16 (button :label "Collapse all" :command 'collapse-all))  ; 16 columns
+                    (8  (button :label "Quit"         :command 'quit))          ; 8 columns
                     (:fill (static-text :name 'echo :role :status :text "")))))))
 ```
 
