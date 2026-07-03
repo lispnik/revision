@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    name: framework + tv2 tests
+    name: framework + revision tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
       - name: Restore Lisp dependencies
         run: ocicl install
 
-      # make test = test-tv2: tv2-sbcl-tests.lisp + tv2-editor-tests.lisp
+      # make test = test-revision: revision-sbcl-tests.lisp + revision-editor-tests.lisp
       # (headless: SBCL IDE features + editor display-width / widget layout)
       - name: Run tests
         run: make test

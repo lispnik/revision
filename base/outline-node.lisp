@@ -1,7 +1,7 @@
 ;;;; outline-node.lisp --- the collapsible-tree NODE data structure.
 ;;;;
 ;;;; Just the data model (a node + lazy-loader/expansion helpers); it carries no
-;;;; view dependencies, so both the classic TOUTLINE view and the tv2 outline
+;;;; view dependencies, so both the classic TOUTLINE view and the revision outline
 ;;;; widget build on it.  (The classic view lives in src/outline.lisp.)
 
 (in-package #:tvision)

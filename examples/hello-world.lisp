@@ -1,7 +1,7 @@
-;;;; hello-world.lisp --- the smallest tv2 program.
+;;;; hello-world.lisp --- the smallest revision program.
 ;;;;
 ;;;; Builds one window with a greeting and an OK button, then runs it full-screen
-;;;; until the user quits.  Shows the essentials of a standalone tv2 app: the UI
+;;;; until the user quits.  Shows the essentials of a standalone revision app: the UI
 ;;;; DSL (WINDOW / STACK / ROW / STATIC-TEXT / BUTTON), the global keymap (Esc / q
 ;;;; quit), a command on a button, and RUN-VIEW as the entry point.
 ;;;;
@@ -9,14 +9,14 @@
 ;;;; Quit with Esc, q, or the OK button.
 
 (require :asdf)
-(asdf:load-asd (truename "tv2.asd"))
-(handler-bind ((warning #'muffle-warning)) (asdf:load-system :tv2))
+(asdf:load-asd (truename "revision.asd"))
+(handler-bind ((warning #'muffle-warning)) (asdf:load-system :revision))
 
-(defpackage #:tv2-hello (:use #:common-lisp #:tv2))
-(in-package #:tv2-hello)
+(defpackage #:revision-hello (:use #:common-lisp #:revision))
+(in-package #:revision-hello)
 
 (defun hello-world ()
-  (let ((win (ui (window (:title " tv2 " :keymap *global-keys*)
+  (let ((win (ui (window (:title " revision " :keymap *global-keys*)
                    (stack
                      (:fill (static-text :text ""))                 ; top spacer
                      (1 (row (:fill (static-text :text ""))          ; centred greeting

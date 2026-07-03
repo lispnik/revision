@@ -1,4 +1,4 @@
-# Makefile --- the tv2 CLOS-native text-mode UI framework (a library).
+# Makefile --- the revision CLOS-native text-mode UI framework (a library).
 #
 # A library with no external dependencies; there is no binary to dump.  The
 # example application, `tvlisp', ships as a sibling project at ../tvlisp.
@@ -20,25 +20,25 @@ $(SBCL) --non-interactive \
 	--eval '(uiop:quit 0)'
 endef
 
-FRAMEWORK := tv2.asd $(wildcard base/*.lisp) $(wildcard tv2/*.lisp)
+FRAMEWORK := revision.asd $(wildcard base/*.lisp) $(wildcard revision/*.lisp)
 
 .DEFAULT_GOAL := all
-.PHONY: all clean test test-tv2 help
+.PHONY: all clean test test-revision help
 
-# Build check: compile and load the framework (base + tv2 kernel).
+# Build check: compile and load the framework (base + revision kernel).
 all: $(FRAMEWORK)
-	$(call asdf-load,(asdf:load-system :tv2))
+	$(call asdf-load,(asdf:load-system :revision))
 
-test: test-tv2
+test: test-revision
 
 # Headless tests: SBCL-specific IDE features and the editor's display-width
 # (wide CJK / emoji) + widget layout.
-test-tv2: $(FRAMEWORK) tests/tv2-sbcl-tests.lisp tests/tv2-editor-tests.lisp
-	$(SBCL) --script tests/tv2-sbcl-tests.lisp
-	$(SBCL) --script tests/tv2-editor-tests.lisp
+test-revision: $(FRAMEWORK) tests/revision-sbcl-tests.lisp tests/revision-editor-tests.lisp
+	$(SBCL) --script tests/revision-sbcl-tests.lisp
+	$(SBCL) --script tests/revision-editor-tests.lisp
 
 clean:
-	rm -rf $(HOME)/.cache/common-lisp/*tvision* $(HOME)/.cache/common-lisp/*tv2* 2>/dev/null || true
+	rm -rf $(HOME)/.cache/common-lisp/*tvision* $(HOME)/.cache/common-lisp/*revision* 2>/dev/null || true
 
 help:
-	@echo "Targets: all (default), test, test-tv2, clean"
+	@echo "Targets: all (default), test, test-revision, clean"

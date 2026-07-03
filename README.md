@@ -1,4 +1,4 @@
-# tv2 — a CLOS-native text-mode UI framework for Common Lisp
+# revision — a CLOS-native text-mode UI framework for Common Lisp
 
 A Turbo-Vision-inspired character-mode UI framework for Common Lisp (SBCL),
 rebuilt around CLOS.  It gives you overlapping movable windows, dialogs,
@@ -10,13 +10,13 @@ exact and themeable — and a view can also paint **arbitrary per-cell true
 colour** (`make-rgb`) when it wants a gradient or image.
 
 Where a classic Turbo Vision port hand-computes `TRect` bounds, dispatches on 138
-integer command constants and calls `draw-view` after every mutation, tv2 uses a
+integer command constants and calls `draw-view` after every mutation, revision uses a
 **reactive metaclass** (slot writes invalidate the screen), **CLOS event classes**
 dispatched by multimethods, named **commands** resolved through layered
-**keymaps**, and a **box-model layout DSL**.  See [`tv2/README.md`](tv2/README.md)
+**keymaps**, and a **box-model layout DSL**.  See [`revision/README.md`](revision/README.md)
 for the architecture in depth.
 
-![The tv2 IDE built on this framework — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
+![The revision IDE built on this framework — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
 
 ![True-colour rendering: exact VGA palette and live theme switching](media/truecolor.gif)
 
@@ -33,20 +33,20 @@ for the architecture in depth.
 
 The project loads through [ocicl](https://github.com/ocicl/ocicl) (the current
 directory is on the ASDF source registry via `~/.sbclrc`), so
-`(asdf:load-system :tv2)` just works.  Because there are no third-party
+`(asdf:load-system :revision)` just works.  Because there are no third-party
 dependencies there is nothing to `ocicl install`.
 
 ## Hello, world
 
-The smallest standalone tv2 program — one window with a greeting and an OK
+The smallest standalone revision program — one window with a greeting and an OK
 button (`examples/hello-world.lisp`, run it with `sbcl --script`):
 
 ```lisp
-(asdf:load-system "tv2")
-(in-package #:tv2)
+(asdf:load-system "revision")
+(in-package #:revision)
 
 (defun hello-world ()
-  (let ((win (ui (window (:title " tv2 " :keymap *global-keys*)
+  (let ((win (ui (window (:title " revision " :keymap *global-keys*)
                    (stack
                      (:fill (static-text :text ""))
                      (1 (row (:fill (static-text :text ""))
@@ -65,7 +65,7 @@ button (`examples/hello-world.lisp`, run it with `sbcl --script`):
 Structure is a box model: `stack` splits vertically, `row` horizontally, cells
 are `:fill` (take the rest) or an integer height/width.  Keys map to named
 commands; commands are methods on the command name; views react to slot changes
-automatically.  See [`tv2/README.md`](tv2/README.md) for the `ui` macro,
+automatically.  See [`revision/README.md`](revision/README.md) for the `ui` macro,
 keymaps, commands, theming, and the reactive metaclass.
 
 ## Structure
@@ -73,10 +73,10 @@ keymaps, commands, theming, and the reactive metaclass.
 | Module | Responsibility |
 |--------|----------------|
 | `base/` | the foundation: `geometry` (points/rects), `colors` (attribute byte ↔ ANSI SGR, RGB themes), `draw-buffer` (the cell model + the Unicode/grapheme/display-width engine), `events` (event records + key/mouse/command codes), `screen` (raw mode, alternate screen, diff-based ANSI rendering, input decoding), and the `outline-node` tree data structure |
-| `tv2/`  | the CLOS-native kernel: the reactive metaclass, CLOS event dispatch, keymaps → commands, the `ui` layout DSL, theming, MOP persistence, the worker→UI bridge, and the widget/window/dialog/menu set — plus the fully-featured windows (REPL, editor, HTML browser, project tree, inspector, …) that the example IDE composes |
+| `revision/`  | the CLOS-native kernel: the reactive metaclass, CLOS event dispatch, keymaps → commands, the `ui` layout DSL, theming, MOP persistence, the worker→UI bridge, and the widget/window/dialog/menu set — plus the fully-featured windows (REPL, editor, HTML browser, project tree, inspector, …) that the example IDE composes |
 
 The `tvision` **package** (defined in `base/package.lisp`) is the shared
-namespace for the foundation; the `tv2` package is the kernel.
+namespace for the foundation; the `revision` package is the kernel.
 
 ## Unicode
 
@@ -111,13 +111,13 @@ cd tvlisp && make && ./tvlisp
 It reaches this framework through a `systems/tvision` symlink to the sibling
 checkout, so the two build together with no global configuration.  Its
 framework-agnostic Lisp logic lives in a shared `tvlisp-logic` system, so the IDE
-reuses it directly on tv2.  See that project's README for the full feature tour.
+reuses it directly on revision.  See that project's README for the full feature tour.
 
 ## Testing
 
 ```sh
 make            # build check: compile + load the framework
-make test       # headless suites (tests/tv2-sbcl-tests.lisp + tv2-editor-tests.lisp)
+make test       # headless suites (tests/revision-sbcl-tests.lisp + revision-editor-tests.lisp)
 ```
 
 The headless suites cover the SBCL-specific IDE features and the editor's
