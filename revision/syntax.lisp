@@ -10,7 +10,7 @@
 
 (defun %lisp-symchar-p (c) (or (alphanumericp c) (find c "+-*/@$%^&_=<>.~!?:")))
 
-(defun %syn (fg) (tvision:make-attr fg (tvision::attr-bg (role :normal))))
+(defun %syn (fg) (revision:make-attr fg (revision::attr-bg (role :normal))))
 
 (defun lisp-colorize (line in-string)
   "Colour LINE as Lisp: comments, strings, char literals, and :keywords.

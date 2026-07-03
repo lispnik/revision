@@ -1,6 +1,6 @@
 ;;;; events.lisp --- Event records, key codes and command identifiers.
 
-(in-package #:tvision)
+(in-package #:revision)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Event classes (bit masks, so they can be combined for matching).
@@ -23,12 +23,12 @@
 (defconstant +mb-left+  #x01)
 (defconstant +mb-right+ #x02)
 
-;; keyboard / mouse modifier flags (event-modifiers)
+;; keyboard / mouse modifier flags (iev-modifiers)
 (defconstant +md-shift+ #x01)
 (defconstant +md-ctrl+  #x02)
 (defconstant +md-alt+   #x04)
 
-;; mouse wheel directions (event-wheel)
+;; mouse wheel directions (iev-wheel)
 (defconstant +mw-up+   -1)
 (defconstant +mw-down+ +1)
 
@@ -119,7 +119,7 @@
   "Set when the command set changes; the main loop broadcasts
 +cm-command-set-changed+ and clears it (TV's commandSetChanged contract).")
 
-(defun command-enabled-p (command)
+(defun %command-enabled-p (command)
   (not (gethash command *disabled-commands*)))
 
 (defun disable-command (command)
@@ -148,7 +148,7 @@
 ;;; The event record.
 ;;; ---------------------------------------------------------------------------
 
-(defstruct (event (:conc-name event-))
+(defstruct (input-event (:conc-name iev-))
   (type +ev-nothing+ :type fixnum)
   ;; keyboard
   (key-code 0 :type fixnum)
@@ -166,10 +166,10 @@
 
 (defun clear-event (e)
   "Mark event E as fully handled (TV convention: set type to ev-nothing)."
-  (setf (event-type e) +ev-nothing+
-        (event-info e) nil)
+  (setf (iev-type e) +ev-nothing+
+        (iev-info e) nil)
   e)
 
-(defun keyboard-event-p (e) (logtest (event-type e) +ev-keyboard+))
-(defun mouse-event-p (e) (logtest (event-type e) +ev-mouse+))
-(defun message-event-p (e) (logtest (event-type e) +ev-message+))
+(defun keyboard-event-p (e) (logtest (iev-type e) +ev-keyboard+))
+(defun mouse-event-p (e) (logtest (iev-type e) +ev-mouse+))
+(defun message-event-p (e) (logtest (iev-type e) +ev-message+))

@@ -25,14 +25,14 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
 
 (defmethod draw ((w window))
   (let* ((b (view-bounds w))
-         (x0 (tvision::rect-ax b)) (y0 (tvision::rect-ay b))
-         (x1 (1- (tvision::rect-bx b))) (y1 (1- (tvision::rect-by b)))
+         (x0 (revision::rect-ax b)) (y0 (revision::rect-ay b))
+         (x1 (1- (revision::rect-bx b))) (y1 (1- (revision::rect-by b)))
          (frame (if (window-active w) (role :frame) (role :frame-inactive))))
     (when (window-managed w) (%drop-shadow x0 y0 x1 y1))   ; TV-style drop shadow (under desktop windows)
     (loop for y from y0 to y1 do                       ; clear interior
       (loop for x from x0 to x1 do (%put-cell x y #\Space (role :normal))))
     (%box x0 y0 x1 y1 frame (window-active w))          ; double-line frame when active, single when not
-    (%text-at (+ x0 (max 1 (floor (- (tvision::rect-width b) (length (window-title w))) 2)))
+    (%text-at (+ x0 (max 1 (floor (- (revision::rect-width b) (length (window-title w))) 2)))
               y0 (window-title w) frame)
     (dolist (sv (subviews w)) (draw sv))               ; children paint over the interior
     (when (window-scroll-target w)                     ; scrollbars on the right + bottom frame edges
@@ -67,7 +67,7 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
 (defmethod draw ((b button))
   (let* ((bb (view-bounds b))
          (attr (if (view-focused-p b) (role :button-focused) (role :button))))
-    (fill-row b 0 0 (tvision::rect-width bb) attr)
+    (fill-row b 0 0 (revision::rect-width bb) attr)
     (draw-text b 0 0 (format nil "[ ~a ]" (button-label b)) attr)))
 
 (defmethod handle-event ((b button) (e key-event))
@@ -87,7 +87,7 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
   (let ((attr (if (and (zerop (length (static-text-text v))) (eq (static-text-role v) :error))
                   (role :normal)
                   (role (static-text-role v)))))
-    (fill-row v 0 0 (tvision::rect-width (view-bounds v)) attr)
+    (fill-row v 0 0 (revision::rect-width (view-bounds v)) attr)
     (draw-text v 0 0 (static-text-text v) attr)))
 
 ;;; --- label: static text linked to a control (TLabel) ------------------------
@@ -108,7 +108,7 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
   (and (label-link v) (find-view (view-root v) (label-link v))))
 
 (defmethod draw ((v label))
-  (let* ((b (view-bounds v)) (w (r-w b)) (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b))
+  (let* ((b (view-bounds v)) (w (r-w b)) (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
          (linked (%label-linked-view v))
          (text-c (role (if (and linked (view-focused-p linked)) :focused :label)))   ; brighten when linked control focused
          (hot-c  (role :menu-hotkey)))
@@ -179,7 +179,7 @@ and return T."
 (defun input-scroll-fix (il)
   (let ((b (view-bounds il)))
     (when b
-      (let ((w (tvision::rect-width b)) (c (input-caret il)) (sc (input-scroll il)))
+      (let ((w (revision::rect-width b)) (c (input-caret il)) (sc (input-scroll il)))
         (cond ((< c sc) (setf (input-scroll il) c))
               ((>= c (+ sc w)) (setf (input-scroll il) (1+ (- c w)))))))))
 
@@ -212,18 +212,18 @@ and return T."
   (input-scroll-fix il))
 
 (defmethod draw ((il input-line))
-  (let* ((b (view-bounds il)) (w (tvision::rect-width b))
+  (let* ((b (view-bounds il)) (w (revision::rect-width b))
          (focused (view-focused-p il))
          (attr (if focused (role :input-focused) (role :input)))
          (txt (input-text il)) (sc (input-scroll il))
          (vis (subseq txt (min sc (length txt)) (min (length txt) (+ sc w)))))
     (fill-row il 0 0 w attr)
     (draw-text il 0 0 vis attr)
-    (when (and focused tvision:*screen*)              ; own the hardware cursor while focused
-      (tvision:set-cursor-pos tvision:*screen*
-                              (+ (tvision::rect-ax b) (- (input-caret il) sc))
-                              (tvision::rect-ay b))
-      (tvision:show-cursor tvision:*screen*))))
+    (when (and focused revision:*screen*)              ; own the hardware cursor while focused
+      (revision:set-cursor-pos revision:*screen*
+                              (+ (revision::rect-ax b) (- (input-caret il) sc))
+                              (revision::rect-ay b))
+      (revision:show-cursor revision:*screen*))))
 
 (defmethod handle-event ((il input-line) (e key-event))
   (let ((ks (event-keysym e)))
@@ -276,7 +276,7 @@ and return T."
       (list-scroll-fix lb) (list-notify lb))))
 
 (defmethod draw ((lb list-box))
-  (let* ((b (view-bounds lb)) (h (tvision::rect-height b)) (w (tvision::rect-width b))
+  (let* ((b (view-bounds lb)) (h (revision::rect-height b)) (w (revision::rect-width b))
          (active (view-focused-p lb)) (items (list-items lb)) (top (list-top lb)))
     (dotimes (row h)
       (let* ((i (+ top row))
@@ -333,8 +333,8 @@ and return T."
     (when (typep ol 'outline)
       (dolist (root (outline-roots ol))           ; collapse everything below each root
         (labels ((collapse (n)
-                   (mapc #'collapse (tvision:outline-node-children n))
-                   (setf (tvision:outline-node-expanded n) nil)))
-          (mapc #'collapse (tvision:outline-node-children root))))
+                   (mapc #'collapse (revision:outline-node-children n))
+                   (setf (revision:outline-node-expanded n) nil)))
+          (mapc #'collapse (revision:outline-node-children root))))
       (setf (outline-focused ol) 0)
       (invalidate ol))))

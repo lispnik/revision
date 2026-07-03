@@ -4,7 +4,7 @@
 ;;;; command, no event-type COND, and no manual DRAW-VIEW calls.  Navigation
 ;;;; keys are data (a keymap), each maps to a named command, mutating a reactive
 ;;;; slot (FOCUSED/TOP) repaints automatically, and colours come from theme
-;;;; roles.  The lazy outline-node data structure is reused from tvision intact.
+;;;; roles.  The lazy outline-node data structure is reused from revision intact.
 
 (in-package #:revision)
 
@@ -26,23 +26,23 @@
     (labels ((walk (nodes depth)
                (dolist (n nodes)
                  (push (cons n depth) out)
-                 (when (tvision:outline-node-expanded n)
-                   (tvision:outline-ensure-children n)               ; lazy load
-                   (walk (tvision:outline-node-children n) (1+ depth))))))
+                 (when (revision:outline-node-expanded n)
+                   (revision:outline-ensure-children n)               ; lazy load
+                   (walk (revision:outline-node-children n) (1+ depth))))))
       (walk roots 0))
     (nreverse out)))
 
 (defmethod draw ((ol outline))
-  (let* ((b (view-bounds ol)) (h (tvision::rect-height b)) (w (tvision::rect-width b))
+  (let* ((b (view-bounds ol)) (h (revision::rect-height b)) (w (revision::rect-width b))
          (vis (ov-visible (outline-roots ol))) (top (outline-top ol))
          (active (or (null (view-owner ol)) (view-focused-p ol))))
     (dotimes (row h)
       (let* ((i (+ top row))
              (nd (and (< i (length vis)) (nth i vis)))
              (sel (and (= i (outline-focused ol)) active))
-             (color (and nd (tvision:outline-node-color (car nd))))
+             (color (and nd (revision:outline-node-color (car nd))))
              (attr (cond (sel (role :focused))
-                         (color (tvision:make-attr color 1))
+                         (color (revision:make-attr color 1))
                          (t (role :normal)))))
         (fill-row ol 0 row w attr)
         (when nd
@@ -53,10 +53,10 @@
 (defun %outline-row-string (n depth)
   (concatenate 'string
                (make-string (* 2 depth) :initial-element #\Space)
-               (cond ((not (tvision:outline-node-expandable-p n)) "  ")
-                     ((tvision:outline-node-expanded n) "- ")
+               (cond ((not (revision:outline-node-expandable-p n)) "  ")
+                     ((revision:outline-node-expanded n) "- ")
                      (t "+ "))
-               (tvision:outline-node-text n)))
+               (revision:outline-node-text n)))
 
 (defun %outline-maxwidth (ol)
   "Widest visible row (chars), for the horizontal scrollbar extent (0 when empty)."
@@ -71,7 +71,7 @@
     (and (< (outline-focused ol) (length vis)) (car (nth (outline-focused ol) vis)))))
 
 (defun ov-scroll-to-focus (ol)
-  (let ((h (tvision::rect-height (view-bounds ol))) (f (outline-focused ol)) (top (outline-top ol)))
+  (let ((h (revision::rect-height (view-bounds ol))) (f (outline-focused ol)) (top (outline-top ol)))
     (cond ((< f top) (setf (outline-top ol) f))
           ((>= f (+ top h)) (setf (outline-top ol) (1+ (- f h)))))))
 
@@ -98,15 +98,15 @@
 
 (define-command activate (v e)
   (let ((n (ov-current v)))
-    (when (and n (tvision:outline-node-expandable-p n))
-      (setf (tvision:outline-node-expanded n) (not (tvision:outline-node-expanded n)))
-      (when (tvision:outline-node-expanded n) (tvision:outline-ensure-children n))
+    (when (and n (revision:outline-node-expandable-p n))
+      (setf (revision:outline-node-expanded n) (not (revision:outline-node-expanded n)))
+      (when (revision:outline-node-expanded n) (revision:outline-ensure-children n))
       (invalidate v))))                ; the node is a struct (not reactive) -> repaint by hand
 
 (define-command collapse (v e)
   (let ((n (ov-current v)))
-    (if (and n (tvision:outline-node-expandable-p n) (tvision:outline-node-expanded n))
-        (progn (setf (tvision:outline-node-expanded n) nil) (invalidate v))
+    (if (and n (revision:outline-node-expandable-p n) (revision:outline-node-expanded n))
+        (progn (setf (revision:outline-node-expanded n) nil) (invalidate v))
         (ov-move v -1))))
 
 (defkeymap *global-keys* ()
@@ -125,18 +125,18 @@
 (defun demo-roots ()
   "A small hand-built tree, including a lazily-loaded directory and a tinted node."
   (flet ((file (name &optional color)
-           (let ((n (tvision:make-outline-node name nil :file)))
-             (when color (setf (tvision:outline-node-color n) color))
+           (let ((n (revision:make-outline-node name nil :file)))
+             (when color (setf (revision:outline-node-color n) color))
              n)))
-    (let* ((utils (tvision:make-outline-node "utils/" (list (file "strings.lisp")
+    (let* ((utils (revision:make-outline-node "utils/" (list (file "strings.lisp")
                                                             (file "math.lisp"))))
-           (lazy  (tvision:make-outline-node "vendor/  (lazy)")))
-      (setf (tvision:outline-node-loader lazy)
+           (lazy  (revision:make-outline-node "vendor/  (lazy)")))
+      (setf (revision:outline-node-loader lazy)
             (lambda () (list (file "big-lib.lisp") (file "more.lisp"))))
-      (let* ((src  (tvision:make-outline-node "src/" (list utils lazy (file "main.lisp" 14))))
-             (root (tvision:make-outline-node "my-project"
+      (let* ((src  (revision:make-outline-node "src/" (list utils lazy (file "main.lisp" 14))))
+             (root (revision:make-outline-node "my-project"
                                               (list src (file "README.md") (file ".gitignore")))))
-        (setf (tvision:outline-node-expanded utils) t
-              (tvision:outline-node-expanded src) t
-              (tvision:outline-node-expanded root) t)
+        (setf (revision:outline-node-expanded utils) t
+              (revision:outline-node-expanded src) t
+              (revision:outline-node-expanded root) t)
         (list root)))))

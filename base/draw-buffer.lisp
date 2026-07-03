@@ -6,7 +6,7 @@
 ;;;; value -- see colors.lisp.  This generalises Turbo Vision's word-per-cell
 ;;;; video memory while admitting any Unicode code point, not just the BMP.
 
-(in-package #:tvision)
+(in-package #:revision)
 
 (deftype cell () '(unsigned-byte 53))
 

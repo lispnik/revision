@@ -92,7 +92,7 @@
   "Phase-7 demo: everything from phases 0-6, plus the session (filter + outline
 line) restored from ~/.revision-session on start and saved on exit (MOP persistence),
 and a background thread driving the clock through the worker->UI bridge."
-  (tvision:with-screen (s)
+  (revision:with-screen (s)
     (let ((win (ui (window (:title " revision — MOP persistence (session) + worker->UI bridge (clock) "
                             :keymap *global-keys*)
                      (stack
@@ -121,7 +121,7 @@ and a background thread driving the clock through the worker->UI bridge."
                        (1 (static-text :role :status
                             :text " session restored from ~/.revision-session · clock driven from a bg thread via run-on-ui · Esc: save & exit "))))))
           (sess (or (load-object (session-file)) (make-instance 'session))))
-      (layout win (rect 0 0 (tvision:screen-width s) (tvision:screen-height s)))
+      (layout win (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
       ;; restore the persisted session (filter text + outline line)
       (let ((inp (find-view win 'find)) (ol (find-view win 'tree)))
         (setf (input-text inp) (session-filter sess))
@@ -146,10 +146,10 @@ and a background thread driving the clock through the worker->UI bridge."
       (loop while *running* do
         (drain-ui-callbacks)                           ; run thunks posted by other threads
         (when *dirty*
-          (tvision:hide-cursor s)
-          (draw win) (tvision:flush-screen s) (setf *dirty* nil))
-        (tvision::pump-input s 0.05)
-        (let ((tev (tvision::screen-next-event s)))
+          (revision:hide-cursor s)
+          (draw win) (revision:flush-screen s) (setf *dirty* nil))
+        (revision::pump-input s 0.05)
+        (let ((tev (revision::screen-next-event s)))
           (when tev
             (let ((e (translate tev)))
               (when e (handle-event win e))))))

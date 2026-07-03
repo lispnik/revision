@@ -1,4 +1,4 @@
-;;;; table.lisp --- a column/grid list viewer (tvision's TListViewer/TTableView).
+;;;; table.lisp --- a column/grid list viewer (revision's TListViewer/TTableView).
 ;;;;
 ;;;; COLUMNS is a list of (TITLE WIDTH ACCESSOR); ACCESSOR maps a row object to
 ;;;; its cell value.  Row 0 is a header; the rest are the scrollable, selectable

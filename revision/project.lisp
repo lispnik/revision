@@ -55,18 +55,18 @@ git status badge from STATUS (a relpath -> keyword hash, or NIL)."
         (let* ((es (nreverse (gethash head groups)))
                (file (and (= (length es) 1) (null (rest (car (first es)))) (first es))))
           (if file
-              (push (tvision:make-outline-node          ; DATA is the absolute path (works across roots)
+              (push (revision:make-outline-node          ; DATA is the absolute path (works across roots)
                      (concatenate 'string head (%pm-badge status (cdr file)))
                      nil (namestring (merge-pathnames head dir)))
                     nodes)
               (let* ((sub (uiop:ensure-directory-pathname (merge-pathnames head dir)))
                      (sub-entries (mapcar (lambda (e) (cons (rest (car e)) (cdr e))) es))
-                     (node (tvision:make-outline-node (format nil "~a/" head))))
-                (setf (tvision:outline-node-loader node) (lambda () (%fs-nodes sub-entries sub status)))
+                     (node (revision:make-outline-node (format nil "~a/" head))))
+                (setf (revision:outline-node-loader node) (lambda () (%fs-nodes sub-entries sub status)))
                 (push node nodes)))))
       (setf nodes (nreverse nodes))
-      (append (remove-if-not #'tvision:outline-node-loader nodes)     ; dirs first
-              (remove-if #'tvision:outline-node-loader nodes)))))
+      (append (remove-if-not #'revision:outline-node-loader nodes)     ; dirs first
+              (remove-if #'revision:outline-node-loader nodes)))))
 
 (defun %git-root (dir)
   "Return (values ROOT-NODE RELPATHS) for the git tree at DIR, with git status
@@ -76,12 +76,12 @@ badges on changed files (via *PROJECT-STATUS-FN* when bound)."
          (rels (or (%git-files dir) (%walk-files dir)))
          (entries (mapcar (lambda (r) (cons (uiop:split-string r :separator "/") r)) rels))
          (changed (and status (hash-table-count status)))
-         (root (tvision:make-outline-node
+         (root (revision:make-outline-node
                 (format nil "~a/  (~d files~@[, ~d changed~])"
                         (car (last (pathname-directory dir))) (length rels)
                         (and changed (plusp changed) changed))
                 (%fs-nodes entries dir status))))
-    (setf (tvision:outline-node-expanded root) t)
+    (setf (revision:outline-node-expanded root) t)
     (values root (mapcar (lambda (r) (namestring (merge-pathnames r dir))) rels))))   ; abspaths
 
 (defclass project-window (window)
@@ -111,7 +111,7 @@ the tree, preserving the filter."
         (let ((filter (and q (input-text q))))
           (setf (outline-roots ol)
                 (if (or (null filter) (zerop (length filter))) (pw-tree-node win)
-                    (mapcar (lambda (r) (tvision:make-outline-node (%pm-short win r) nil r))
+                    (mapcar (lambda (r) (revision:make-outline-node (%pm-short win r) nil r))
                             (fuzzy-filter filter rels :key (lambda (r) (%pm-short win r)))))
                 (outline-focused ol) 0 (outline-top ol) 0))
         (invalidate ol)))))
@@ -152,11 +152,11 @@ manager and source navigation so they never spawn a divergent second buffer."
   "Toggle the current directory node, or open the current file in an editor."
   (let* ((ol (find-view win 'tree)) (n (and ol (ov-current ol))))
     (when n
-      (if (tvision:outline-node-expandable-p n)
-          (progn (setf (tvision:outline-node-expanded n) (not (tvision:outline-node-expanded n)))
-                 (when (tvision:outline-node-expanded n) (tvision:outline-ensure-children n))
+      (if (revision:outline-node-expandable-p n)
+          (progn (setf (revision:outline-node-expanded n) (not (revision:outline-node-expanded n)))
+                 (when (revision:outline-node-expanded n) (revision:outline-ensure-children n))
                  (invalidate ol))
-          (let ((data (tvision:outline-node-data n)))
+          (let ((data (revision:outline-node-data n)))
             (when data (%pm-open-file win (princ-to-string data))))))))
 
 (define-command proj-open (v e)
@@ -225,8 +225,8 @@ chosen match at its line."
 (defun %pm-selected-file (win)
   "Absolute pathname of the selected file leaf, or NIL when a dir/none is focused."
   (let* ((ol (find-view win 'tree)) (n (and ol (ov-current ol))))
-    (when (and n (not (tvision:outline-node-expandable-p n)) (tvision:outline-node-data n))
-      (merge-pathnames (princ-to-string (tvision:outline-node-data n)) (pw-dir win)))))
+    (when (and n (not (revision:outline-node-expandable-p n)) (revision:outline-node-data n))
+      (merge-pathnames (princ-to-string (revision:outline-node-data n)) (pw-dir win)))))
 
 (defun %split-name-type (s)
   "(values NAME TYPE) for filename S.  TYPE is :UNSPECIFIC when S has no extension,
@@ -323,7 +323,7 @@ so MAKE-PATHNAME won't inherit a type from anything it is merged against."
                                                    (let* ((q (input-text il)) (w (view-root il)) (ol (find-view w 'tree)))
                                                      (setf (outline-roots ol)
                                                            (if (zerop (length q)) (pw-tree-node w)
-                                                               (mapcar (lambda (r) (tvision:make-outline-node (%pm-short w r) nil r))
+                                                               (mapcar (lambda (r) (revision:make-outline-node (%pm-short w r) nil r))
                                                                        (fuzzy-filter q (pw-rels w) :key (lambda (r) (%pm-short w r)))))
                                                            (outline-focused ol) 0 (outline-top ol) 0)
                                                      (invalidate ol)))))))

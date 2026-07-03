@@ -26,10 +26,10 @@
   "Best-effort: set the terminal's clipboard to S via OSC 52 (ignored by terminals
 that don't support it)."
   (ignore-errors
-    (when tvision:*screen*
+    (when revision:*screen*
       (let ((b64 (%base64 (sb-ext:string-to-octets s :external-format :utf-8))))
-        (tvision::%emit tvision:*screen* (format nil "~c]52;c;~a~c\\" #\Escape b64 #\Escape))
-        (tvision::%flush-out tvision:*screen*)))))
+        (revision::%emit revision:*screen* (format nil "~c]52;c;~a~c\\" #\Escape b64 #\Escape))
+        (revision::%flush-out revision:*screen*)))))
 
 ;;; --- the emoji set (single-codepoint, named glyphs from SBCL) ---------------
 

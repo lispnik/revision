@@ -160,7 +160,7 @@ window.  Return (values WINDOW FOCUS)."
 ;;; A drillable object tree.  The object -> outline-node builder is a hook: revision
 ;;; ships a compact built-in (works standalone); revl swaps in revl's
 ;;; richer OBJECT->OUTLINE (cycle detection, paging, slot setters, package/symbol
-;;; specialisation).  Either way the result is a tvision outline-node tree, which
+;;; specialisation).  Either way the result is a revision outline-node tree, which
 ;;; revision's OUTLINE renders directly.
 
 (defun %insp-repr (obj)
@@ -172,12 +172,12 @@ window.  Return (values WINDOW FOCUS)."
   "revision's built-in object -> outline-node tree (depth-limited, cycle-guarded,
 error-robust).  Overridable via *OBJECT->OUTLINE-FN*."
   (if (member obj path :test #'eq)
-      (tvision:make-outline-node (format nil "~a = ~a  [circular]" label (%insp-repr obj)) nil obj)
+      (revision:make-outline-node (format nil "~a = ~a  [circular]" label (%insp-repr obj)) nil obj)
       (let ((children '()) (path* (cons obj path)))
         (when (plusp depth)
           (flet ((kid (v lbl)
                    (push (handler-case (%revision-object->outline v lbl (1- depth) path*)
-                           (serious-condition (e) (tvision:make-outline-node (format nil "~a = <~a>" lbl (type-of e)))))
+                           (serious-condition (e) (revision:make-outline-node (format nil "~a = <~a>" lbl (type-of e)))))
                          children)))
             (handler-case
                 (typecase obj
@@ -191,8 +191,8 @@ error-robust).  Overridable via *OBJECT->OUTLINE-FN*."
                        (when (handler-case (slot-boundp obj name) (error () nil))
                          (kid (handler-case (slot-value obj name) (serious-condition (e) e)) (format nil "~a" name)))))))
               (serious-condition () nil))))
-        (let ((node (tvision:make-outline-node (format nil "~a = ~a" label (%insp-repr obj)) (nreverse children) obj)))
-          (setf (tvision:outline-node-expanded node) t)
+        (let ((node (revision:make-outline-node (format nil "~a = ~a" label (%insp-repr obj)) (nreverse children) obj)))
+          (setf (revision:outline-node-expanded node) t)
           node))))
 
 ;;; Set by an embedding app (revl) to revl's richer OBJECT->OUTLINE.
@@ -206,7 +206,7 @@ error-robust).  Overridable via *OBJECT->OUTLINE-FN*."
 
 (defun %node-label (node)
   "The label portion (before \" = \") of NODE's text."
-  (let* ((txt (tvision:outline-node-text node)) (sep (search " = " txt)))
+  (let* ((txt (revision:outline-node-text node)) (sep (search " = " txt)))
     (if sep (subseq txt 0 sep) "value")))
 
 (defun %insp-retitle (w)
@@ -231,7 +231,7 @@ error-robust).  Overridable via *OBJECT->OUTLINE-FN*."
 view for Back)."
   (let* ((w (view-root v)) (n (ov-current v)))
     (when n
-      (let ((val (tvision:outline-node-data n)))
+      (let ((val (revision:outline-node-data n)))
         (push (insp-current w) (insp-back w)) (setf (insp-fwd w) nil)
         (%insp-show w val (%node-label n))))))
 

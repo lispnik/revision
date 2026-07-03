@@ -110,14 +110,14 @@ occupies as a presentation of the live OBJECT, so clicking them fires ON-PRESENT
                (when (< i total)
                  (let ((s (sb-row sb i)) (hl (sb-hleft sb)))     ; horizontal scroll offset
                    (draw-text sb 0 row (if (< hl (length s)) (subseq s hl) "") a))))))))
-    (when (and iidx (view-focused-p sb) tvision:*screen*)   ; the text cursor sits in the input
+    (when (and iidx (view-focused-p sb) revision:*screen*)   ; the text cursor sits in the input
       (let ((row (- iidx top)))
         (when (<= 0 row (1- h))
-          (tvision:set-cursor-pos tvision:*screen*
-                                  (+ (tvision::rect-ax b) 1 (length (sb-iprompt sb)) (sb-icaret sb))
-                                  (+ (tvision::rect-ay b) row))
-          (tvision:set-cursor-shape :underline)
-          (tvision:show-cursor tvision:*screen*))))))
+          (revision:set-cursor-pos revision:*screen*
+                                  (+ (revision::rect-ax b) 1 (length (sb-iprompt sb)) (sb-icaret sb))
+                                  (+ (revision::rect-ay b) row))
+          (revision:set-cursor-shape :underline)
+          (revision:show-cursor revision:*screen*))))))
 
 (defmethod handle-event ((sb scrollback) (e mouse-down))
   (let ((i (+ (sb-top sb) (mouse-row sb e))))          ; click a presented result -> act on the live object

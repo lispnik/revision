@@ -4,7 +4,7 @@
 ;;;; foreground colour (0-15) and the high nibble is the background colour
 ;;;; (bits 4-6, 0-7) plus a blink bit (bit 7).
 
-(in-package #:tvision)
+(in-package #:revision)
 
 ;;; An attribute is a 32-bit value.  When bit 31 is clear it is a legacy 4-bit
 ;;; DOS byte (fg 0-15 / bg 0-7 / blink), resolved through a 16-colour theme.

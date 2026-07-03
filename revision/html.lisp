@@ -395,11 +395,11 @@ and jumping to the first.  Match columns are virtual columns = on-screen columns
   (if (html-run-link run)
       (if (eql (html-run-link run) (hv-focus v))
           (role :focused)                       ; focused link: highlighted
-          (tvision:make-attr 13 1))             ; link: light magenta on blue
+          (revision:make-attr 13 1))             ; link: light magenta on blue
       (case (html-run-style run)
-        (:heading (tvision:make-attr 14 1))     ; heading: yellow
-        (:code    (tvision:make-attr 10 1))     ; code: light green
-        (:emph    (tvision:make-attr 11 1))     ; emphasis: light cyan
+        (:heading (revision:make-attr 14 1))     ; heading: yellow
+        (:code    (revision:make-attr 10 1))     ; code: light green
+        (:emph    (revision:make-attr 11 1))     ; emphasis: light cyan
         (t        (role :normal)))))
 
 (defmethod draw ((v html-view))
@@ -420,11 +420,11 @@ and jumping to the first.  Match columns are virtual columns = on-screen columns
                     when (= (first m) li) do
                       (loop for c from (second m) below (min w (third m))
                             when (< c (length lt)) do
-                              (%put-cell (+ (tvision::rect-ax b) c) (+ (tvision::rect-ay b) row)
+                              (%put-cell (+ (revision::rect-ax b) c) (+ (revision::rect-ay b) row)
                                          (char lt c)
                                          (if (eql mi (hv-match-i v))
-                                             (tvision:make-attr 15 4)    ; current: white on red
-                                             (tvision:make-attr 0 6))))))))))))  ; others: black on cyan
+                                             (revision:make-attr 15 4)    ; current: white on red
+                                             (revision:make-attr 0 6))))))))))))  ; others: black on cyan
 
 (defun hv-link-at (v li col)
   "The link id at visual (LI,COL), or NIL."

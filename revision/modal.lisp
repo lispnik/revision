@@ -22,8 +22,8 @@
   (let ((*theme* *dialog-theme*)) (call-next-method))
   (let ((b (view-bounds d)))
     (when b
-      (%drop-shadow (tvision::rect-ax b) (tvision::rect-ay b)
-                    (1- (tvision::rect-bx b)) (1- (tvision::rect-by b))))))
+      (%drop-shadow (revision::rect-ax b) (revision::rect-ay b)
+                    (1- (revision::rect-bx b)) (1- (revision::rect-by b))))))
 
 (defun %dialog-input-lines (d)
   (let ((out '()))
@@ -65,20 +65,20 @@
 (defun exec-view (dialog &key (width 48) (height 9))
   "Run DIALOG modally, centred over the current *ROOT* (drawn behind it), until it
 finishes; return its result value, or :CANCEL."
-  (let* ((s tvision:*screen*)
-         (sw (tvision:screen-width s)) (sh (tvision:screen-height s))
+  (let* ((s revision:*screen*)
+         (sw (revision:screen-width s)) (sh (revision:screen-height s))
          (x (max 0 (floor (- sw width) 2))) (y (max 0 (floor (- sh height) 2))))
     (layout dialog (rect x y (+ x width) (+ y height)))
     (setf (container-focus dialog) (first (all-focusables dialog))
           (dialog-done dialog) nil)
     (loop until (dialog-done dialog) do
       (drain-ui-callbacks)                 ; keep background threads (the clock) live
-      (tvision:hide-cursor s)
+      (revision:hide-cursor s)
       (when *root* (draw *root*))          ; background
       (draw dialog)                        ; modal on top (centred, smaller)
-      (tvision:flush-screen s)
-      (tvision::pump-input s 0.05)
-      (let ((tev (tvision::screen-next-event s)))
+      (revision:flush-screen s)
+      (revision::pump-input s 0.05)
+      (let ((tev (revision::screen-next-event s)))
         (when tev (let ((ev (translate tev))) (when ev (handle-event dialog ev))))))
     (invalidate *root*)                    ; force the background to repaint cleanly
     (dialog-result dialog)))
@@ -122,23 +122,23 @@ finishes; return its result value, or :CANCEL."
   "Show a context menu of (LABEL . THUNK) items at screen (X,Y) and run the chosen
 thunk.  Modal: ↑/↓ navigate, Enter/click invokes, Esc / click-outside cancels."
   (when items
-    (let* ((s tvision:*screen*) (n (length items))
+    (let* ((s revision:*screen*) (n (length items))
            (w (+ 2 (reduce #'max items :key (lambda (it) (length (car it))) :initial-value 6)))
-           (sw (tvision:screen-width s)) (sh (tvision:screen-height s))
+           (sw (revision:screen-width s)) (sh (revision:screen-height s))
            (x (max 0 (min x (- sw w 2)))) (y (max 0 (min y (- sh n 1))))
            (sel 0) (chosen nil) (done nil))
       (loop until done do
         (drain-ui-callbacks)
-        (tvision:hide-cursor s)
+        (revision:hide-cursor s)
         (when *root* (draw *root*))
         (%drop-shadow x y (+ x w -1) (+ y n -1))
         (loop for it in items for r from 0 do
           (let ((ia (if (= r sel) (role :menu-selected) (role :menu))))
             (loop for k below w do (%put-cell (+ x k) (+ y r) #\Space ia))
             (%text-at (+ x 1) (+ y r) (car it) ia)))
-        (tvision:flush-screen s)
-        (tvision::pump-input s 0.05)
-        (let ((tev (tvision::screen-next-event s)))
+        (revision:flush-screen s)
+        (revision::pump-input s 0.05)
+        (let ((tev (revision::screen-next-event s)))
           (when tev
             (let ((ev (translate tev)))
               (when ev

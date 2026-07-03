@@ -110,16 +110,16 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
 (defun accel-key  (a) (if (consp a) (car a) a))
 (defun accel-mods (a)
   (cond ((consp a) (cdr a))
-        ((and (characterp a) (< (char-code a) 32)) tvision::+md-ctrl+)   ; a Ctrl char carries Ctrl intrinsically
+        ((and (characterp a) (< (char-code a) 32)) revision::+md-ctrl+)   ; a Ctrl char carries Ctrl intrinsically
         (t 0)))
 
 (defun accel-label (a)
   (if (null a) ""
       (let ((ks (accel-key a)) (m (if (consp a) (cdr a) 0)))
         (concatenate 'string
-                     (if (logtest m tvision::+md-ctrl+)  "Ctrl+"  "")
-                     (if (logtest m tvision::+md-alt+)   "Alt+"   "")
-                     (if (logtest m tvision::+md-shift+) "Shift+" "")
+                     (if (logtest m revision::+md-ctrl+)  "Ctrl+"  "")
+                     (if (logtest m revision::+md-alt+)   "Alt+"   "")
+                     (if (logtest m revision::+md-shift+) "Shift+" "")
                      (cond ((and (characterp ks) (< (char-code ks) 32)) (format nil "Ctrl+~a" (code-char (+ 64 (char-code ks)))))
                            ((characterp ks) (string ks))
                            (t (string-upcase (string ks))))))))
@@ -130,7 +130,7 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
                                     (if (item-accel it) (+ 2 (length (accel-label (item-accel it)))) 0))))))
 
 (defmethod draw ((mb menu-bar))
-  (let* ((b (view-bounds mb)) (w (r-w b)) (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b))
+  (let* ((b (view-bounds mb)) (w (r-w b)) (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
          (bar (role :menu-bar)) (hot (role :menu-hotkey)) (x 1))
     (fill-row mb 0 0 w bar)
     (loop for menu in (menu-menus mb) for i from 0 do
@@ -280,18 +280,18 @@ box's top-border row; its items occupy rows SY0+1 .. SY0+COUNT."
 (defun dt-raise (dt w) (setf (dt-windows dt) (append (remove w (dt-windows dt)) (list w))))
 (defun dt-content (dt)
   "The rectangle between the menu bar (row 0) and status bar (last row)."
-  (let* ((r (view-bounds dt)) (ax (tvision::rect-ax r)) (ay (tvision::rect-ay r)) (w (r-w r)) (h (r-h r)))
+  (let* ((r (view-bounds dt)) (ax (revision::rect-ax r)) (ay (revision::rect-ay r)) (w (r-w r)) (h (r-h r)))
     (rect ax (1+ ay) (+ ax w) (+ ay (1- h)))))
 
 (defmethod layout ((dt desktop) r)
   (setf (view-bounds dt) r)
-  (let ((ax (tvision::rect-ax r)) (ay (tvision::rect-ay r)) (w (r-w r)) (h (r-h r)))
+  (let ((ax (revision::rect-ax r)) (ay (revision::rect-ay r)) (w (r-w r)) (h (r-h r)))
     (layout (dt-menubar dt)   (rect ax ay (+ ax w) (+ ay 1)))
     (layout (dt-statusbar dt) (rect ax (+ ay (1- h)) (+ ax w) (+ ay h)))))
 
 (defmethod draw ((dt desktop))
   (let* ((b (view-bounds dt)) (w (r-w b)) (h (r-h b))
-         (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b)) (bg (role :desktop)) (top (dt-top dt)))
+         (ax (revision::rect-ax b)) (ay (revision::rect-ay b)) (bg (role :desktop)) (top (dt-top dt)))
     (loop for y from (1+ ay) below (+ ay (1- h)) do          ; patterned background
       (loop for x from ax below (+ ax w) do (%put-cell x y #\▒ bg)))
     (loop for win in (dt-windows dt) for i from 1 do        ; windows back-to-front, numbered 1..
@@ -314,8 +314,8 @@ from the edge (rather than clamping the far corner and squashing the window)."
   (let* ((c (dt-content dt)) (n (length (dt-windows dt)))
          (cw (min (r-w c) (max 40 (floor (* (r-w c) 4) 5))))
          (ch (min (r-h c) (max 8  (floor (* (r-h c) 4) 5))))
-         (ox (min (+ (tvision::rect-ax c) (* (mod n 6) 3)) (- (tvision::rect-bx c) cw)))
-         (oy (min (+ (tvision::rect-ay c) (* (mod n 6) 2)) (- (tvision::rect-by c) ch))))
+         (ox (min (+ (revision::rect-ax c) (* (mod n 6) 3)) (- (revision::rect-bx c) cw)))
+         (oy (min (+ (revision::rect-ay c) (* (mod n 6) 2)) (- (revision::rect-by c) ch))))
     (rect ox oy (+ ox cw) (+ oy ch))))
 
 (defun dt-add (dt win focus open kind bounds)
@@ -323,7 +323,7 @@ from the edge (rather than clamping the far corner and squashing the window)."
   (layout win bounds)
   (setf (window-managed win) t (window-kind win) kind
         (container-focus win) (or focus (first (all-focusables win)))
-        (window-cleanup win) (and open (funcall open tvision:*screen*)))
+        (window-cleanup win) (and open (funcall open revision:*screen*)))
   (setf (dt-windows dt) (append (dt-windows dt) (list win))))
 
 (defun dt-open (dt kind-or-fn)
@@ -365,9 +365,9 @@ directly, not persisted).  Cascade-positioned, focused on top."
 (defun dt-cascade (dt)
   (let ((c (dt-content dt)))
     (loop for win in (dt-windows dt) for i from 0
-          for ox = (+ (tvision::rect-ax c) (* i 3)) for oy = (+ (tvision::rect-ay c) (* i 2))
+          for ox = (+ (revision::rect-ax c) (* i 3)) for oy = (+ (revision::rect-ay c) (* i 2))
           for cw = (max 40 (floor (* (r-w c) 4) 5)) for ch = (max 8 (floor (* (r-h c) 4) 5))
-          do (layout win (rect ox oy (min (+ ox cw) (tvision::rect-bx c)) (min (+ oy ch) (tvision::rect-by c)))))
+          do (layout win (rect ox oy (min (+ ox cw) (revision::rect-bx c)) (min (+ oy ch) (revision::rect-by c)))))
     (invalidate dt)))
 
 (defun dt-tile (dt)
@@ -377,7 +377,7 @@ directly, not persisted).  Cascade-positioned, focused on top."
              (cw (floor (r-w c) cols)) (ch (floor (r-h c) rows)))
         (loop for win in (dt-windows dt) for i from 0
               for cx = (mod i cols) for cy = (floor i cols)
-              for x0 = (+ (tvision::rect-ax c) (* cx cw)) for y0 = (+ (tvision::rect-ay c) (* cy ch))
+              for x0 = (+ (revision::rect-ax c) (* cx cw)) for y0 = (+ (revision::rect-ay c) (* cy ch))
               do (layout win (rect x0 y0 (+ x0 cw) (+ y0 ch))))
         (invalidate dt)))))
 
@@ -395,10 +395,10 @@ directly, not persisted).  Cascade-positioned, focused on top."
   "Move (or, when RESIZE, resize) WIN one cell for arrow key KS, clamped to the
 desktop content area."
   (let* ((b (view-bounds win)) (c (dt-content dt))
-         (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b))
-         (bx (tvision::rect-bx b)) (by (tvision::rect-by b))
-         (cax (tvision::rect-ax c)) (cay (tvision::rect-ay c))
-         (cbx (tvision::rect-bx c)) (cby (tvision::rect-by c)))
+         (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
+         (bx (revision::rect-bx b)) (by (revision::rect-by b))
+         (cax (revision::rect-ax c)) (cay (revision::rect-ay c))
+         (cbx (revision::rect-bx c)) (cby (revision::rect-by c)))
     (multiple-value-bind (dx dy)
         (case ks (:left (values -1 0)) (:right (values 1 0)) (:up (values 0 -1)) (:down (values 0 1)) (t (values 0 0)))
       (if resize
@@ -483,27 +483,27 @@ desktop content area."
 
 (defparameter *theme-classic* (copy-list *theme*))
 (defparameter *theme-dark*
-  (list :normal          (tvision:make-attr 7 0)     :focused         (tvision:make-attr 15 4)
-        :frame           (tvision:make-attr 15 0)    :frame-inactive  (tvision:make-attr 8 0)
-        :menu-bar        (tvision:make-attr 0 7)     :menu            (tvision:make-attr 0 7)
-        :menu-selected   (tvision:make-attr 15 4)    :menu-hotkey     (tvision:make-attr 4 7)
-        :menu-disabled   (tvision:make-attr 8 7)     :status          (tvision:make-attr 15 8)
-        :button          (tvision:make-attr 0 7)     :button-focused  (tvision:make-attr 15 4)
-        :label           (tvision:make-attr 14 0)    :input           (tvision:make-attr 15 8)
-        :input-focused   (tvision:make-attr 15 0)    :error           (tvision:make-attr 15 4)
-        :desktop         (tvision:make-attr 8 0)     :scrollbar       (tvision:make-attr 7 8)
-        :scrollbar-thumb (tvision:make-attr 15 8)))
+  (list :normal          (revision:make-attr 7 0)     :focused         (revision:make-attr 15 4)
+        :frame           (revision:make-attr 15 0)    :frame-inactive  (revision:make-attr 8 0)
+        :menu-bar        (revision:make-attr 0 7)     :menu            (revision:make-attr 0 7)
+        :menu-selected   (revision:make-attr 15 4)    :menu-hotkey     (revision:make-attr 4 7)
+        :menu-disabled   (revision:make-attr 8 7)     :status          (revision:make-attr 15 8)
+        :button          (revision:make-attr 0 7)     :button-focused  (revision:make-attr 15 4)
+        :label           (revision:make-attr 14 0)    :input           (revision:make-attr 15 8)
+        :input-focused   (revision:make-attr 15 0)    :error           (revision:make-attr 15 4)
+        :desktop         (revision:make-attr 8 0)     :scrollbar       (revision:make-attr 7 8)
+        :scrollbar-thumb (revision:make-attr 15 8)))
 (defparameter *theme-light*
-  (list :normal          (tvision:make-attr 0 7)     :focused         (tvision:make-attr 15 1)
-        :frame           (tvision:make-attr 0 7)     :frame-inactive  (tvision:make-attr 8 7)
-        :menu-bar        (tvision:make-attr 0 7)     :menu            (tvision:make-attr 0 7)
-        :menu-selected   (tvision:make-attr 15 1)    :menu-hotkey     (tvision:make-attr 4 7)
-        :menu-disabled   (tvision:make-attr 8 7)     :status          (tvision:make-attr 0 3)
-        :button          (tvision:make-attr 15 1)    :button-focused  (tvision:make-attr 14 1)
-        :label           (tvision:make-attr 1 7)     :input           (tvision:make-attr 0 15)
-        :input-focused   (tvision:make-attr 0 15)    :error           (tvision:make-attr 15 4)
-        :desktop         (tvision:make-attr 8 7)     :scrollbar       (tvision:make-attr 0 7)
-        :scrollbar-thumb (tvision:make-attr 1 7)))
+  (list :normal          (revision:make-attr 0 7)     :focused         (revision:make-attr 15 1)
+        :frame           (revision:make-attr 0 7)     :frame-inactive  (revision:make-attr 8 7)
+        :menu-bar        (revision:make-attr 0 7)     :menu            (revision:make-attr 0 7)
+        :menu-selected   (revision:make-attr 15 1)    :menu-hotkey     (revision:make-attr 4 7)
+        :menu-disabled   (revision:make-attr 8 7)     :status          (revision:make-attr 0 3)
+        :button          (revision:make-attr 15 1)    :button-focused  (revision:make-attr 14 1)
+        :label           (revision:make-attr 1 7)     :input           (revision:make-attr 0 15)
+        :input-focused   (revision:make-attr 0 15)    :error           (revision:make-attr 15 4)
+        :desktop         (revision:make-attr 8 7)     :scrollbar       (revision:make-attr 0 7)
+        :scrollbar-thumb (revision:make-attr 1 7)))
 (defparameter *themes* (list (cons "Blue" *theme-classic*) (cons "Dark" *theme-dark*) (cons "Light" *theme-light*)))
 (defvar *theme-index* 0)
 
@@ -520,16 +520,16 @@ desktop content area."
 
 (defmethod handle-event ((dt desktop) (e key-event))
   (let* ((mb (dt-menubar dt)) (top (dt-top dt)) (ks (event-keysym e))
-         (mods (event-modifiers e)) (alt (logtest mods tvision::+md-alt+)))
+         (mods (event-modifiers e)) (alt (logtest mods revision::+md-alt+)))
     (cond
       (*sizemove-win*                                        ; interactive keyboard size/move mode
        (cond ((member ks '(:enter :esc)) (setf *sizemove-win* nil) (%tool-note "size/move done"))
              ((member ks '(:up :down :left :right))
-              (%sizemove-step dt *sizemove-win* ks (logtest mods tvision::+md-shift+)))))
+              (%sizemove-step dt *sizemove-win* ks (logtest mods revision::+md-shift+)))))
       ((and alt (characterp ks) (digit-char-p ks) (char/= ks #\0))   ; Alt-1..9 selects that window
        (dt-select-number dt (digit-char-p ks)))
       ((and alt (eql ks #\0))                                ; Alt-0: window list (classic TV) — caught here
-       (let ((th (menu-accel-thunk mb #\0 tvision::+md-alt+))) (when th (funcall th))))   ; before the editor eats "0"
+       (let ((th (menu-accel-thunk mb #\0 revision::+md-alt+))) (when th (funcall th))))   ; before the editor eats "0"
       ((and alt (characterp ks) (menu-hotkey-index mb ks))   ; Alt-<hotkey> opens that menu
        (setf (menu-active mb) (menu-hotkey-index mb ks) (menu-sel mb) 0) (invalidate mb))
       ((and (eql ks :f5) (zerop mods) top) (dt-zoom dt top)) ; F5: zoom/unzoom (plain; Ctrl-F5 = Size/move accel)
@@ -554,16 +554,16 @@ desktop content area."
     (cond
       ((typep e 'mouse-up) (setf (dt-drag dt) nil))
       ((typep e 'mouse-move)
-       (let* ((b (view-bounds win)) (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b)))
+       (let* ((b (view-bounds win)) (ax (revision::rect-ax b)) (ay (revision::rect-ay b)))
          (ecase (first d)
            (:move
             (let* ((ww (r-w b)) (hh (r-h b))
-                   (nx (max (tvision::rect-ax c) (min (- mx (third d)) (- (tvision::rect-bx c) ww))))
-                   (ny (max (tvision::rect-ay c) (min (- my (fourth d)) (- (tvision::rect-by c) hh)))))
+                   (nx (max (revision::rect-ax c) (min (- mx (third d)) (- (revision::rect-bx c) ww))))
+                   (ny (max (revision::rect-ay c) (min (- my (fourth d)) (- (revision::rect-by c) hh)))))
               (layout win (rect nx ny (+ nx ww) (+ ny hh)))))
            (:resize
-            (let ((nx2 (max (+ ax 24) (min (1+ mx) (tvision::rect-bx c))))
-                  (ny2 (max (+ ay 5)  (min (1+ my) (tvision::rect-by c)))))
+            (let ((nx2 (max (+ ax 24) (min (1+ mx) (revision::rect-bx c))))
+                  (ny2 (max (+ ay 5)  (min (1+ my) (revision::rect-by c)))))
               (layout win (rect ax ay nx2 ny2))))
            (:scroll
             (multiple-value-bind (sx sy0 sy1) (window-vscroll-bounds win)
@@ -602,18 +602,18 @@ desktop content area."
   (let* ((w (event-where e)) (x (car w)) (y (cdr w)) (mb (dt-menubar dt)))
     (cond
       ((dt-drag dt) (dt-drag-update dt e))                 ; in a move/resize drag
-      ((and (typep e 'mouse-down) (logtest (event-buttons e) tvision::+mb-right+))  ; right-click -> context menu
+      ((and (typep e 'mouse-down) (logtest (event-buttons e) revision::+mb-right+))  ; right-click -> context menu
        (let ((win (dt-window-at dt x y)))
          (when win
            (dt-raise dt win) (dt-refocus dt)
            (let ((v (view-at win x y)))                     ; position the cursor/selection, then pop up
              (when v (handle-event v (make-instance 'mouse-down :where (cons x y)
-                                                     :buttons tvision::+mb-left+)))
+                                                     :buttons revision::+mb-left+)))
              (let ((items (and v (context-menu v))))
                (when items (popup-menu items :x x :y (1+ y))))))
          (invalidate dt)))
       ((menu-hit-p mb x y) (handle-event mb e))
-      ((and (typep e 'mouse-down) (= y (tvision::rect-ay (view-bounds (dt-statusbar dt)))))
+      ((and (typep e 'mouse-down) (= y (revision::rect-ay (view-bounds (dt-statusbar dt)))))
        (handle-event (dt-statusbar dt) e))                 ; status-bar chips
       (t (let ((win (dt-window-at dt x y)))
            (when win (dt-window-click dt win e)))))))
@@ -747,8 +747,8 @@ their filename and -- for scratch or modified buffers -- their text, so a full
 session (including unsaved work) is restored."
   (let ((layout (loop for w in (dt-windows dt) for k = (window-kind w) when k
                       collect (let ((b (view-bounds w)))
-                                (list k (tvision::rect-ax b) (tvision::rect-ay b)
-                                      (tvision::rect-bx b) (tvision::rect-by b)
+                                (list k (revision::rect-ax b) (revision::rect-ay b)
+                                      (revision::rect-bx b) (revision::rect-by b)
                                       (and (eq k :editor)
                                            (let ((te (find-view w 'edit)))
                                              (when te
@@ -842,16 +842,16 @@ editor buffer text."
              (list "Size/move"       (lambda () (let ((top (dt-top dt)))
                                                   (when top (setf *sizemove-win* top)
                                                         (%tool-note "Size/move: arrows move · Shift+arrows resize · Enter/Esc done"))))
-                   (cons :f5 tvision::+md-ctrl+) (any-win))                       ; Ctrl-F5
+                   (cons :f5 revision::+md-ctrl+) (any-win))                       ; Ctrl-F5
              (list "Zoom"            (lambda () (let ((top (dt-top dt))) (when top (dt-zoom dt top)))) :f5 (any-win))
              (list "Next"            (lambda () (dt-next dt) (dt-refocus dt)) :f6 (any-win))
              (list "Previous"        (lambda () (dt-prev dt) (dt-refocus dt))
-                   (cons :f6 tvision::+md-shift+) (any-win))                      ; Shift-F6
+                   (cons :f6 revision::+md-shift+) (any-win))                      ; Shift-F6
              (list "Tile"            (lambda () (dt-tile dt) (dt-refocus dt)) nil (any-win))
              (list "Cascade"         (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))
-             (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 tvision::+md-alt+) (any-win))  ; Alt-0
+             (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 revision::+md-alt+) (any-win))  ; Alt-0
              (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
-                   (cons :f3 tvision::+md-alt+) (any-win))                        ; Alt-F3
+                   (cons :f3 revision::+md-alt+) (any-win))                        ; Alt-F3
              (list "Close all"       (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
                                                 (dt-refocus dt) (invalidate dt))
                    nil (any-win)))
@@ -887,21 +887,21 @@ editor buffer text."
 and movable / resizable / overlapping windows (drag the title bar, drag the
 bottom-right corner to resize, click [✕] to close; Window menu tiles/cascades).
 Returns on File→Exit."
-  (tvision:with-screen (s)
+  (revision:with-screen (s)
     (let ((dt (make-instance 'desktop)))
       (setf (dt-menubar dt)   (make-instance 'menu-bar :menus (%desktop-menus dt))
             (dt-statusbar dt)  (make-instance 'status-bar :provider (lambda () (dt-status-items dt))))
-      (layout dt (rect 0 0 (tvision:screen-width s) (tvision:screen-height s)))
+      (layout dt (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
       (setf *root* dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil *dirty* t)
       (dt-load-layout dt)                                    ; restore the previous session's windows
       (loop until *app-done* do
         (drain-ui-callbacks)
         (when (%expire-tool-message) (setf *dirty* t))        ; auto-clear the status-bar note
         (when *dirty*
-          (tvision:hide-cursor s)
-          (draw dt) (tvision:flush-screen s) (setf *dirty* nil))
-        (tvision::pump-input s 0.05)
-        (let ((tev (tvision::screen-next-event s)))
+          (revision:hide-cursor s)
+          (draw dt) (revision:flush-screen s) (setf *dirty* nil))
+        (revision::pump-input s 0.05)
+        (let ((tev (revision::screen-next-event s)))
           (when tev (let ((ev (translate tev))) (when ev (handle-event dt ev))))))
       (dt-save-layout dt)                                    ; persist the desktop for next launch
       (dolist (win (dt-windows dt))                          ; stop any open windows' threads

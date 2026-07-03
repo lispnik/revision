@@ -1,6 +1,6 @@
 ;;;; geometry.lisp --- TPoint and TRect, the geometric primitives of Turbo Vision.
 
-(in-package #:tvision)
+(in-package #:revision)
 
 ;;; ---------------------------------------------------------------------------
 ;;; TPoint

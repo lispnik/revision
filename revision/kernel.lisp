@@ -23,7 +23,7 @@
   (invalidate object))
 
 ;;; ---------------------------------------------------------------------------
-;;; Views.  Bounds reuse tvision's TRECT; capabilities would be mixins -- here we
+;;; Views.  Bounds reuse revision's TRECT; capabilities would be mixins -- here we
 ;;; only need the base + OUTLINE.
 ;;; ---------------------------------------------------------------------------
 
@@ -41,11 +41,11 @@
   (:documentation "Assign VIEW (and its subtree) bounds within RECT.")
   (:method ((v view) rect) (setf (view-bounds v) rect)))
 
-;;; geometry shorthands over tvision's TRECT
-(defun rect (x0 y0 x1 y1) (tvision::make-trect x0 y0 x1 y1))
-(defun r-x0 (r) (tvision::rect-ax r))   (defun r-y0 (r) (tvision::rect-ay r))
-(defun r-x1 (r) (tvision::rect-bx r))   (defun r-y1 (r) (tvision::rect-by r))
-(defun r-w  (r) (tvision::rect-width r)) (defun r-h (r) (tvision::rect-height r))
+;;; geometry shorthands over revision's TRECT
+(defun rect (x0 y0 x1 y1) (revision::make-trect x0 y0 x1 y1))
+(defun r-x0 (r) (revision::rect-ax r))   (defun r-y0 (r) (revision::rect-ay r))
+(defun r-x1 (r) (revision::rect-bx r))   (defun r-y1 (r) (revision::rect-by r))
+(defun r-w  (r) (revision::rect-width r)) (defun r-h (r) (revision::rect-height r))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Events as a class hierarchy -- dispatched on (view x event), no type tags.
@@ -130,15 +130,15 @@
     (when cmd (perform cmd v e) (setf (handled-p e) t))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Drawing helpers (write packed cells straight to tvision's back buffer,
+;;; Drawing helpers (write packed cells straight to revision's back buffer,
 ;;; clipped to the view's bounds).
 ;;; ---------------------------------------------------------------------------
 
 (defun %put-code (x y code attr)
-  "Like %PUT-CELL but writes a raw character CODE (e.g. tvision::+wide-cont+, the
+  "Like %PUT-CELL but writes a raw character CODE (e.g. revision::+wide-cont+, the
 sentinel marking the second cell of a double-width glyph)."
-  (when tvision:*screen*
-    (tvision:screen-cell-set tvision:*screen* x y (tvision::cell-make-code code attr))))
+  (when revision:*screen*
+    (revision:screen-cell-set revision:*screen* x y (revision::cell-make-code code attr))))
 
 (defun %put-cell (x y char attr) (%put-code x y (char-code char) attr))
 
@@ -148,68 +148,68 @@ a multi-code-point cluster (skin-tone / ZWJ emoji, combining marks) is interned 
 one display unit, and a double-width glyph reserves its second cell with the
 +wide-cont+ sentinel (so the flush doesn't overwrite its right half)."
   (let* ((b (view-bounds view))
-         (ax (tvision::rect-ax b)) (gy (+ (tvision::rect-ay b) row))
-         (w (tvision::rect-width b))
+         (ax (revision::rect-ax b)) (gy (+ (revision::rect-ay b) row))
+         (w (revision::rect-width b))
          (n (length string)) (i 0) (x col))
     (loop while (and (< i n) (< x w)) do
-      (let* ((j (tvision::next-grapheme-col string i))       ; end of the grapheme at I
+      (let* ((j (revision::next-grapheme-col string i))       ; end of the grapheme at I
              (g (subseq string i j))
-             (code (if (= (- j i) 1) (char-code (char string i)) (tvision::intern-grapheme g)))
-             (cw (max 1 (tvision::grapheme-width g))))
+             (code (if (= (- j i) 1) (char-code (char string i)) (revision::intern-grapheme g)))
+             (cw (max 1 (revision::grapheme-width g))))
         (%put-code (+ ax x) gy code attr)
         (when (and (= cw 2) (< (1+ x) w))                     ; wide glyph: reserve the 2nd cell
-          (%put-code (+ ax x 1) gy tvision::+wide-cont+ attr))
+          (%put-code (+ ax x 1) gy revision::+wide-cont+ attr))
         (setf i j) (incf x cw)))))
 
 (defun %hclip (s hl) (if (< hl (length s)) (subseq s hl) ""))   ; drop HL leading columns (horizontal scroll)
 
 (defun fill-row (view col row width attr)
   (let* ((b (view-bounds view))
-         (gx (+ (tvision::rect-ax b) col)) (gy (+ (tvision::rect-ay b) row)))
+         (gx (+ (revision::rect-ax b) col)) (gy (+ (revision::rect-ay b) row)))
     (dotimes (i width) (%put-cell (+ gx i) gy #\Space attr))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Terminal -> revision event translation.  Reuse tvision's escape-sequence decoder;
+;;; Terminal -> revision event translation.  Reuse revision's escape-sequence decoder;
 ;;; map its key codes to keysyms (special keys -> keywords, printable -> chars).
 ;;; ---------------------------------------------------------------------------
 
 (defparameter *special-keys*
-  (list (cons tvision:+kb-up+ :up)     (cons tvision:+kb-down+ :down)
-        (cons tvision:+kb-left+ :left) (cons tvision:+kb-right+ :right)
-        (cons tvision:+kb-enter+ :enter) (cons tvision:+kb-esc+ :esc)
-        (cons tvision:+kb-home+ :home) (cons tvision:+kb-end+ :end)
-        (cons tvision:+kb-pgup+ :pgup) (cons tvision:+kb-pgdn+ :pgdn)
-        (cons tvision:+kb-tab+ :tab)   (cons tvision:+kb-shift-tab+ :shift-tab)
-        (cons tvision::+kb-back+ :back) (cons tvision::+kb-del+ :del)
-        (cons tvision::+kb-ins+ :ins)
-        (cons tvision::+kb-f1+ :f1) (cons tvision::+kb-f2+ :f2) (cons tvision::+kb-f3+ :f3)
-        (cons tvision::+kb-f4+ :f4) (cons tvision::+kb-f5+ :f5) (cons tvision::+kb-f6+ :f6)
-        (cons tvision::+kb-f7+ :f7) (cons tvision::+kb-f8+ :f8) (cons tvision::+kb-f9+ :f9)
-        (cons tvision::+kb-f10+ :f10)))
+  (list (cons revision:+kb-up+ :up)     (cons revision:+kb-down+ :down)
+        (cons revision:+kb-left+ :left) (cons revision:+kb-right+ :right)
+        (cons revision:+kb-enter+ :enter) (cons revision:+kb-esc+ :esc)
+        (cons revision:+kb-home+ :home) (cons revision:+kb-end+ :end)
+        (cons revision:+kb-pgup+ :pgup) (cons revision:+kb-pgdn+ :pgdn)
+        (cons revision:+kb-tab+ :tab)   (cons revision:+kb-shift-tab+ :shift-tab)
+        (cons revision::+kb-back+ :back) (cons revision::+kb-del+ :del)
+        (cons revision::+kb-ins+ :ins)
+        (cons revision::+kb-f1+ :f1) (cons revision::+kb-f2+ :f2) (cons revision::+kb-f3+ :f3)
+        (cons revision::+kb-f4+ :f4) (cons revision::+kb-f5+ :f5) (cons revision::+kb-f6+ :f6)
+        (cons revision::+kb-f7+ :f7) (cons revision::+kb-f8+ :f8) (cons revision::+kb-f9+ :f9)
+        (cons revision::+kb-f10+ :f10)))
 
 (defun translate (tev)
-  "Translate a tvision event struct into a revision event object, or NIL to ignore."
-  (let ((ty (tvision::event-type tev)))
+  "Translate a revision event struct into a revision event object, or NIL to ignore."
+  (let ((ty (revision::iev-type tev)))
     (cond
-      ((= ty tvision:+ev-key-down+)
-       (let* ((k (tvision::event-key-code tev)) (c (tvision::event-char-code tev))
+      ((= ty revision:+ev-key-down+)
+       (let* ((k (revision::iev-key-code tev)) (c (revision::iev-char-code tev))
               (ks (or (cdr (assoc k *special-keys*)) (and (plusp c) (code-char c)))))
          (and ks (make-instance 'key-event :keysym ks
-                                :modifiers (tvision::event-modifiers tev)))))
-      ((= ty tvision:+ev-mouse-wheel+)
-       (make-instance 'wheel-event :delta (tvision::event-wheel tev) :where (%where tev)))
-      ((= ty tvision::+ev-mouse-down+)
-       (make-instance 'mouse-down :where (%where tev) :buttons (tvision::event-mouse-buttons tev)))
-      ((= ty tvision::+ev-mouse-up+)
-       (make-instance 'mouse-up :where (%where tev) :buttons (tvision::event-mouse-buttons tev)))
-      ((member ty (list tvision::+ev-mouse-move+ tvision::+ev-mouse-auto+))
-       (make-instance 'mouse-move :where (%where tev) :buttons (tvision::event-mouse-buttons tev)))
+                                :modifiers (revision::iev-modifiers tev)))))
+      ((= ty revision:+ev-mouse-wheel+)
+       (make-instance 'wheel-event :delta (revision::iev-wheel tev) :where (%where tev)))
+      ((= ty revision::+ev-mouse-down+)
+       (make-instance 'mouse-down :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
+      ((= ty revision::+ev-mouse-up+)
+       (make-instance 'mouse-up :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
+      ((member ty (list revision::+ev-mouse-move+ revision::+ev-mouse-auto+))
+       (make-instance 'mouse-move :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
       (t nil))))
 
 (defun %where (tev)
   "Mouse position of TEV as a (X . Y) cons in screen coordinates."
-  (let ((p (tvision::event-mouse-where tev)))
-    (cons (tvision::point-x p) (tvision::point-y p))))
+  (let ((p (revision::iev-mouse-where tev)))
+    (cons (revision::point-x p) (revision::point-y p))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Theming: colours are named roles resolved through *THEME* (a plist), instead
@@ -219,52 +219,52 @@ one display unit, and a double-width glyph reserves its second cell with the
 ;;; The classic Turbo Vision "blue window / grey dialog" palette (VGA 16-colour,
 ;;; IRGB order: 0 blk 1 blu 2 grn 3 cyn 4 red 5 mag 6 brn 7 lgray …).
 (defparameter *theme*
-  (list :normal          (tvision:make-attr 7 1)     ; light grey on blue (window text)
-        :focused         (tvision:make-attr 15 3)    ; white on cyan (selected row)
-        :frame           (tvision:make-attr 15 1)    ; bright white on blue (active window)
-        :frame-inactive  (tvision:make-attr 7 1)     ; light grey on blue (background window)
-        :menu-bar        (tvision:make-attr 0 7)     ; black on light-grey (the menu bar)
-        :menu            (tvision:make-attr 0 7)     ; black on light-grey (dropdown)
-        :menu-selected   (tvision:make-attr 15 2)    ; white on green (highlighted item)
-        :menu-hotkey     (tvision:make-attr 4 7)     ; red on light-grey (Alt-hotkey letter)
-        :menu-disabled   (tvision:make-attr 8 7)     ; dim grey on light-grey
-        :status          (tvision:make-attr 0 3)     ; black on cyan (status line)
-        :button          (tvision:make-attr 15 2)    ; white on green (button)
-        :button-focused  (tvision:make-attr 14 2)    ; yellow on green (focused/default button)
-        :label           (tvision:make-attr 14 1)    ; yellow on blue
-        :input           (tvision:make-attr 0 3)     ; black on cyan (input field)
-        :input-focused   (tvision:make-attr 15 3)    ; white on cyan
-        :error           (tvision:make-attr 15 4)    ; white on red
-        :desktop         (tvision:make-attr 8 1)     ; dim ░ pattern on blue (the desktop)
-        :scrollbar       (tvision:make-attr 0 3)     ; scrollbar track + arrows + corners: black on cyan (classic TV)
-        :scrollbar-thumb (tvision:make-attr 14 3))   ; the position indicator █: yellow on cyan
+  (list :normal          (revision:make-attr 7 1)     ; light grey on blue (window text)
+        :focused         (revision:make-attr 15 3)    ; white on cyan (selected row)
+        :frame           (revision:make-attr 15 1)    ; bright white on blue (active window)
+        :frame-inactive  (revision:make-attr 7 1)     ; light grey on blue (background window)
+        :menu-bar        (revision:make-attr 0 7)     ; black on light-grey (the menu bar)
+        :menu            (revision:make-attr 0 7)     ; black on light-grey (dropdown)
+        :menu-selected   (revision:make-attr 15 2)    ; white on green (highlighted item)
+        :menu-hotkey     (revision:make-attr 4 7)     ; red on light-grey (Alt-hotkey letter)
+        :menu-disabled   (revision:make-attr 8 7)     ; dim grey on light-grey
+        :status          (revision:make-attr 0 3)     ; black on cyan (status line)
+        :button          (revision:make-attr 15 2)    ; white on green (button)
+        :button-focused  (revision:make-attr 14 2)    ; yellow on green (focused/default button)
+        :label           (revision:make-attr 14 1)    ; yellow on blue
+        :input           (revision:make-attr 0 3)     ; black on cyan (input field)
+        :input-focused   (revision:make-attr 15 3)    ; white on cyan
+        :error           (revision:make-attr 15 4)    ; white on red
+        :desktop         (revision:make-attr 8 1)     ; dim ░ pattern on blue (the desktop)
+        :scrollbar       (revision:make-attr 0 3)     ; scrollbar track + arrows + corners: black on cyan (classic TV)
+        :scrollbar-thumb (revision:make-attr 14 3))   ; the position indicator █: yellow on cyan
   "Role -> packed attribute.")
 
 ;;; The classic "grey dialog" palette, bound over *THEME* while a dialog and its
 ;;; children draw, so dialogs read grey instead of the blue window scheme.
 (defparameter *dialog-theme*
-  (list :normal          (tvision:make-attr 0 7)     ; black on light-grey
-        :focused         (tvision:make-attr 15 3)    ; white on cyan
-        :frame           (tvision:make-attr 0 7)     ; black on light-grey (active)
-        :frame-inactive  (tvision:make-attr 8 7)     ; dim grey on light-grey
-        :menu-bar        (tvision:make-attr 0 7)
-        :menu            (tvision:make-attr 0 7)
-        :menu-selected   (tvision:make-attr 15 2)
-        :menu-hotkey     (tvision:make-attr 4 7)
-        :menu-disabled   (tvision:make-attr 8 7)
-        :status          (tvision:make-attr 0 7)     ; dialog help text on grey
-        :button          (tvision:make-attr 15 2)    ; green button
-        :button-focused  (tvision:make-attr 14 2)    ; yellow on green (default)
-        :label           (tvision:make-attr 0 7)     ; black on light-grey
-        :input           (tvision:make-attr 0 3)     ; black on cyan (input field)
-        :input-focused   (tvision:make-attr 15 3)    ; white on cyan
-        :error           (tvision:make-attr 15 4)    ; white on red
-        :desktop         (tvision:make-attr 8 1)
-        :scrollbar       (tvision:make-attr 8 7)
-        :scrollbar-thumb (tvision:make-attr 0 7))
+  (list :normal          (revision:make-attr 0 7)     ; black on light-grey
+        :focused         (revision:make-attr 15 3)    ; white on cyan
+        :frame           (revision:make-attr 0 7)     ; black on light-grey (active)
+        :frame-inactive  (revision:make-attr 8 7)     ; dim grey on light-grey
+        :menu-bar        (revision:make-attr 0 7)
+        :menu            (revision:make-attr 0 7)
+        :menu-selected   (revision:make-attr 15 2)
+        :menu-hotkey     (revision:make-attr 4 7)
+        :menu-disabled   (revision:make-attr 8 7)
+        :status          (revision:make-attr 0 7)     ; dialog help text on grey
+        :button          (revision:make-attr 15 2)    ; green button
+        :button-focused  (revision:make-attr 14 2)    ; yellow on green (default)
+        :label           (revision:make-attr 0 7)     ; black on light-grey
+        :input           (revision:make-attr 0 3)     ; black on cyan (input field)
+        :input-focused   (revision:make-attr 15 3)    ; white on cyan
+        :error           (revision:make-attr 15 4)    ; white on red
+        :desktop         (revision:make-attr 8 1)
+        :scrollbar       (revision:make-attr 8 7)
+        :scrollbar-thumb (revision:make-attr 0 7))
   "Role -> attribute while a DIALOG draws (the grey-dialog palette).")
 
-(defun role (key) (or (getf *theme* key) (tvision:make-attr 7 0)))
+(defun role (key) (or (getf *theme* key) (revision:make-attr 7 0)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Chrome helpers (box, centred text).
@@ -281,11 +281,11 @@ one display unit, and a double-width glyph reserves its second cell with the
 
 (defun %darken-cell (x y)
   "Darken the back-buffer cell at (X,Y), keeping its glyph -- one drop-shadow cell."
-  (let ((s tvision:*screen*))
-    (when (and s (>= x 0) (< x (tvision:screen-width s)) (>= y 0) (< y (tvision:screen-height s)))
-      (let* ((back (tvision::screen-back s)) (idx (+ x (* y (tvision:screen-width s)))))
+  (let ((s revision:*screen*))
+    (when (and s (>= x 0) (< x (revision:screen-width s)) (>= y 0) (< y (revision:screen-height s)))
+      (let* ((back (revision::screen-back s)) (idx (+ x (* y (revision:screen-width s)))))
         (setf (aref back idx)
-              (tvision::cell-make-code (tvision::cell-char-code (aref back idx)) (tvision:make-attr 8 0)))))))
+              (revision::cell-make-code (revision::cell-char-code (aref back idx)) (revision:make-attr 8 0)))))))
 
 (defun %drop-shadow (x0 y0 x1 y1)
   "Paint a Turbo-Vision drop shadow: two columns down the right edge, one row
@@ -387,7 +387,7 @@ and a thumb positioned by POS/MAX over the track between them."
 (defmethod handle-event ((c container) (e key-event))
   (let ((ks (event-keysym e)))
     (cond
-      ((and (logtest (event-modifiers e) tvision::+md-alt+) (characterp ks)   ; Alt-<label mnemonic>
+      ((and (logtest (event-modifiers e) revision::+md-alt+) (characterp ks)   ; Alt-<label mnemonic>
             (%dispatch-label-hotkey c ks))
        (setf (handled-p e) t))
       ((eql ks :tab)       (focus-next c 1)  (setf (handled-p e) t))
@@ -401,8 +401,8 @@ and a thumb positioned by POS/MAX over the track between them."
 ;;; ---------------------------------------------------------------------------
 
 (defun point-in-rect-p (x y r)
-  (and r (<= (tvision::rect-ax r) x) (< x (tvision::rect-bx r))
-       (<= (tvision::rect-ay r) y) (< y (tvision::rect-by r))))
+  (and r (<= (revision::rect-ax r) x) (< x (revision::rect-bx r))
+       (<= (revision::rect-ay r) y) (< y (revision::rect-by r))))
 
 (defun view-at (root x y)
   "The deepest view in ROOT's subtree whose bounds contain (X,Y), or NIL.
@@ -413,8 +413,8 @@ Children are tested front-to-back (last added paints on top)."
                    for hit = (view-at sv x y) when hit return hit))
         root)))
 
-(defun mouse-col (view e) (- (car (event-where e)) (tvision::rect-ax (view-bounds view))))
-(defun mouse-row (view e) (- (cdr (event-where e)) (tvision::rect-ay (view-bounds view))))
+(defun mouse-col (view e) (- (car (event-where e)) (revision::rect-ax (view-bounds view))))
+(defun mouse-row (view e) (- (cdr (event-where e)) (revision::rect-ay (view-bounds view))))
 
 (defmethod handle-event ((v view) (e mouse-event)) nil)         ; default: ignore
 

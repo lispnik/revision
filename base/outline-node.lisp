@@ -4,7 +4,7 @@
 ;;;; view dependencies, so both the classic TOUTLINE view and the revision outline
 ;;;; widget build on it.  (The classic view lives in src/outline.lisp.)
 
-(in-package #:tvision)
+(in-package #:revision)
 
 (defstruct (outline-node (:constructor make-outline-node (text &optional children data setter)))
   (text "" )

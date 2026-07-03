@@ -60,7 +60,7 @@
   "(values COL TOP-ARROW-ROW BOTTOM-ARROW-ROW) for WIN's frame scrollbar, or NIL."
   (when (window-scroll-target win)
     (let ((b (view-bounds win)))
-      (values (1- (tvision::rect-bx b)) (1+ (tvision::rect-ay b)) (- (tvision::rect-by b) 2)))))
+      (values (1- (revision::rect-bx b)) (1+ (revision::rect-ay b)) (- (revision::rect-by b) 2)))))
 
 (defun %scroll-from-click (tgt sy y0 y1)
   "Scroll TGT from a click/drag at screen row SY on a scrollbar with arrows at
@@ -76,7 +76,7 @@ its target scrolls horizontally, else NIL."
   (let ((tgt (window-scroll-target win)))
     (when (and tgt (plusp (scroll-hmax tgt)))
       (let ((b (view-bounds win)))
-        (values (1- (tvision::rect-by b)) (1+ (tvision::rect-ax b)) (- (tvision::rect-bx b) 2))))))
+        (values (1- (revision::rect-by b)) (1+ (revision::rect-ax b)) (- (revision::rect-bx b) 2))))))
 
 (defun %hscroll-from-click (tgt sx x0 x1)
   "Scroll TGT from a click/drag at screen col SX on a horizontal scrollbar with

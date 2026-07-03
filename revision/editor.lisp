@@ -1,6 +1,6 @@
 ;;;; editor.lisp --- a multi-line text-editing widget + window, ported onto revision.
 ;;;;
-;;;; The "engine" window: tvision's TTEXT-VIEW is ~1100 lines (wrap, regex
+;;;; The "engine" window: revision's TTEXT-VIEW is ~1100 lines (wrap, regex
 ;;;; find/replace, mouse, syntax colour, file I/O).  This port rebuilds the core
 ;;;; editing experience as a revision leaf widget -- a vector-of-lines model with a
 ;;;; cursor, viewport scrolling, Shift-arrow selection, an internal clipboard,
@@ -71,7 +71,7 @@
   (setf (te-lines te) (%vec (split-newlines (or string "")))
         (te-cy te) 0 (te-cx te) 0 (te-top te) 0 (te-left te) 0 (te-anchor te) nil))
 
-(defun shift-p (e) (logtest (event-modifiers e) tvision::+md-shift+))
+(defun shift-p (e) (logtest (event-modifiers e) revision::+md-shift+))
 
 ;;; --- cursor + viewport ------------------------------------------------------
 
@@ -93,20 +93,20 @@
 ;;; --- display width (wide CJK / emoji occupy two columns) --------------------
 ;;; The cursor is a CODE-POINT index (TE-CX); its on-screen position, the wrap
 ;;; break points and the horizontal scroll are all DISPLAY columns.  Reuse
-;;; tvision's East-Asian width machinery (base/draw-buffer.lisp) so wide glyphs
+;;; revision's East-Asian width machinery (base/draw-buffer.lisp) so wide glyphs
 ;;; line up instead of shoving the rest of the line one column right per glyph.
-(defun %cw (ch) (tvision:char-width ch))                         ; 1 or 2 display columns
+(defun %cw (ch) (revision:char-width ch))                         ; 1 or 2 display columns
 ;; Column math is GRAPHEME-aware: a cluster (combining marks, ZWJ / skin-tone /
 ;; flag emoji) counts as one display unit of its base width, and the cursor
 ;; lands only on cluster boundaries.  visual-col / col-at-vcol / next- and
-;; prev-grapheme-col are tvision's (base/draw-buffer.lisp); they fast-path simple
+;; prev-grapheme-col are revision's (base/draw-buffer.lisp); they fast-path simple
 ;; lines to per-code-point, so ASCII / CJK are unaffected.
-(defun %col->vc (line col) (tvision::visual-col line 0 col))     ; display column of code-point index COL
-(defun %vwidth (line) (tvision::visual-col line 0 (length line)))  ; full display width
-(defun %vc->col (line g) (tvision::col-at-vcol line 0 (length line) g))  ; code-point index at display column G
-(defun %next-col (line col) (tvision::next-grapheme-col line col))   ; next grapheme boundary after COL
-(defun %prev-col (line col) (tvision::prev-grapheme-col line col))   ; grapheme boundary before COL
-(defun %segs-of (line w) (tvision::wrap-segments line (max 1 w)))  ; code-point starts of each visual row
+(defun %col->vc (line col) (revision::visual-col line 0 col))     ; display column of code-point index COL
+(defun %vwidth (line) (revision::visual-col line 0 (length line)))  ; full display width
+(defun %vc->col (line g) (revision::col-at-vcol line 0 (length line) g))  ; code-point index at display column G
+(defun %next-col (line col) (revision::next-grapheme-col line col))   ; next grapheme boundary after COL
+(defun %prev-col (line col) (revision::prev-grapheme-col line col))   ; grapheme boundary before COL
+(defun %segs-of (line w) (revision::wrap-segments line (max 1 w)))  ; code-point starts of each visual row
 (defun %nsegs (line w) (length (%segs-of line w)))
 (defun %seg-of (segs col)
   "Index of the last segment start <= COL (the visual row holding code-point COL)."
@@ -492,13 +492,13 @@ maps a code-point index (or NIL, for padding) to an attribute.  A wide cluster
 occupies two cells (the second is +wide-cont+); a multi-code-point cluster is
 interned and stored as one cell; a cluster straddling an edge shows a space.
 Trailing cells are space-filled."
-  (let* ((simple (tvision::simple-line-p line))
-         (offs (unless simple (tvision::grapheme-offsets line)))
+  (let* ((simple (revision::simple-line-p line))
+         (offs (unless simple (revision::grapheme-offsets line)))
          (dcol 0) (i from))
     (labels ((nextg (j) (min to (if simple (1+ j)
                                      (or (find-if (lambda (o) (> o j)) offs) (length line)))))
              (gwidth (a b) (if (= (- b a) 1) (%cw (char line a))
-                               (tvision::grapheme-width (subseq line a b)))))
+                               (revision::grapheme-width (subseq line a b)))))
       (loop while (< i to) for j = (nextg i) for gw = (gwidth i j)   ; skip clusters fully left of the view
             while (<= (+ dcol gw) skip) do (incf dcol gw) (setf i j))
       (loop while (< i to) for j = (nextg i) for gw = (gwidth i j)
@@ -509,10 +509,10 @@ Trailing cells are space-filled."
                   ((minusp sx) (%put-cell base-x y #\Space attr))                          ; wide cluster half off the left
                   ((and (= gw 2) (= sx (1- w))) (%put-cell (+ base-x sx) y #\Space attr))   ; no room for the 2nd half
                   ((> (- j i) 1)                                                            ; a multi-code-point cluster
-                   (%put-code (+ base-x sx) y (tvision::intern-grapheme (subseq line i j)) attr)
-                   (when (= gw 2) (%put-code (+ base-x sx 1) y tvision::+wide-cont+ attr)))
+                   (%put-code (+ base-x sx) y (revision::intern-grapheme (subseq line i j)) attr)
+                   (when (= gw 2) (%put-code (+ base-x sx 1) y revision::+wide-cont+ attr)))
                   (t (%put-cell (+ base-x sx) y (char line i) attr)
-                     (when (= gw 2) (%put-code (+ base-x sx 1) y tvision::+wide-cont+ attr)))))
+                     (when (= gw 2) (%put-code (+ base-x sx 1) y revision::+wide-cont+ attr)))))
               (incf dcol gw) (setf i j))
       (let ((pad (funcall attr-fn nil)))                       ; space-fill the rest of the row
         (loop for sx from (max 0 (- dcol skip)) below w do (%put-cell (+ base-x sx) y #\Space pad))))))
@@ -523,7 +523,7 @@ Trailing cells are space-filled."
 (defun te-draw-flat (te)
   (let* ((b (view-bounds te)) (h (r-h b)) (gw (te-gutter-width te)) (w (max 0 (- (r-w b) gw)))
          (top (te-top te)) (left (te-left te))
-         (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b))
+         (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
          (norm (role :normal)) (selattr (role :focused)) (gutattr (role :label))
          (color (te-colorizer te))
          ;; recover the colorizer's carry state for the first visible line
@@ -549,16 +549,16 @@ Trailing cells are space-filled."
                        (t norm))))
           (%te-draw-cells line 0 (length line) (+ ax gw) (+ ay row) left w #'attr-fn))))
     (let* ((cur (te-line te (te-cy te))) (vc (%col->vc cur (te-cx te))))   ; cursor display column
-      (when (and (view-focused-p te) tvision:*screen*
+      (when (and (view-focused-p te) revision:*screen*
                  (<= top (te-cy te) (1- (+ top h))) (<= left vc (1- (+ left w))))
-        (tvision:set-cursor-pos tvision:*screen*
+        (revision:set-cursor-pos revision:*screen*
                                 (+ ax gw (- vc left)) (+ ay (- (te-cy te) top)))
-        (tvision:set-cursor-shape (if (te-overwrite te) :block :underline))   ; block cursor in overwrite mode
-        (tvision:show-cursor tvision:*screen*)))))
+        (revision:set-cursor-shape (if (te-overwrite te) :block :underline))   ; block cursor in overwrite mode
+        (revision:show-cursor revision:*screen*)))))
 
 (defun te-draw-wrap (te)
   (let* ((b (view-bounds te)) (h (r-h b)) (w (te-vw te))
-         (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b))
+         (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
          (norm (role :normal)) (selattr (role :focused)) (color (te-colorizer te))
          (line-i (te-top te)) (seg (te-tsub te))
          (carry (when color (let ((in nil)) (dotimes (i (te-top te) in) (setf in (lisp-string-carry (te-line te i) in))))))
@@ -584,10 +584,10 @@ Trailing cells are space-filled."
             (incf seg)
             (when (>= seg segn) (setf seg 0) (incf line-i)))
           (dotimes (x w) (%put-cell (+ ax x) (+ ay row) #\Space norm))))
-    (when (and (view-focused-p te) tvision:*screen* cursor-row)
-      (tvision:set-cursor-pos tvision:*screen* (+ ax cursor-col) (+ ay cursor-row))
-      (tvision:set-cursor-shape (if (te-overwrite te) :block :underline))
-      (tvision:show-cursor tvision:*screen*))))
+    (when (and (view-focused-p te) revision:*screen* cursor-row)
+      (revision:set-cursor-pos revision:*screen* (+ ax cursor-col) (+ ay cursor-row))
+      (revision:set-cursor-shape (if (te-overwrite te) :block :underline))
+      (revision:show-cursor revision:*screen*))))
 
 ;;; --- key handling (dispatched directly) -------------------------------------
 

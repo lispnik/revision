@@ -5,7 +5,7 @@
 ;;;; paints only the cells that changed since the previous frame.  Input is
 ;;;; read non-blocking from fd 0 and decoded into TEvent records.
 
-(in-package #:tvision)
+(in-package #:revision)
 
 (defstruct (screen (:conc-name screen-))
   (width 80 :type fixnum)
@@ -285,7 +285,7 @@ wake the UI loop instantly.  When NIL, PUMP-INPUT just polls fd 0 directly.")
         (setf (screen-last-auto-time s) now)
         (setf (screen-event-queue s)
               (nconc (screen-event-queue s)
-                     (list (make-event :type +ev-mouse-auto+
+                     (list (make-input-event :type +ev-mouse-auto+
                                        :mouse-buttons (screen-mouse-buttons s)
                                        :mouse-where (make-tpoint (screen-mouse-x s)
                                                                  (screen-mouse-y s))))))))))
@@ -302,10 +302,10 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
 
 (defun %update-mouse-state (s e)
   "Track button state for auto-repeat, and tag double-clicks."
-  (let ((ty (event-type e)) (p (event-mouse-where e)))
+  (let ((ty (iev-type e)) (p (iev-mouse-where e)))
     (cond
       ((= ty +ev-mouse-down+)
-       (setf (screen-mouse-buttons s) (event-mouse-buttons e)
+       (setf (screen-mouse-buttons s) (iev-mouse-buttons e)
              (screen-mouse-x s) (point-x p) (screen-mouse-y s) (point-y p))
        (let ((now (get-internal-real-time)))
          (setf (screen-last-auto-time s) now)
@@ -314,8 +314,8 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
                   (= (point-y p) (screen-last-click-y s)))
              (incf (screen-click-count s))
              (setf (screen-click-count s) 1))
-         (when (>= (screen-click-count s) 2) (setf (event-double e) t))
-         (when (>= (screen-click-count s) 3) (setf (event-triple e) t))
+         (when (>= (screen-click-count s) 2) (setf (iev-double e) t))
+         (when (>= (screen-click-count s) 3) (setf (iev-triple e) t))
          (setf (screen-last-click-time s) now
                (screen-last-click-x s) (point-x p)
                (screen-last-click-y s) (point-y p))))
@@ -332,8 +332,8 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
         ;; With the DOS mouse cursor on we ask for hover motion (?1003h); consume
         ;; those button-less moves to drive the cursor without disturbing views.
         (if (and (screen-mouse-cursor s)
-                 (= (event-type e) +ev-mouse-move+)
-                 (zerop (event-mouse-buttons e)))
+                 (= (iev-type e) +ev-mouse-move+)
+                 (zerop (iev-mouse-buttons e)))
             (flush-screen s)
             (setf (screen-event-queue s) (nconc (screen-event-queue s) (list e)))))
       ;; shift unconsumed bytes (a partial escape sequence) to the front
@@ -350,7 +350,7 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
 ;;; --- escape-sequence decoder ----------------------------------------------
 
 (defun key-event (key-code &optional (char-code 0))
-  (make-event :type +ev-key-down+ :key-code key-code :char-code char-code))
+  (make-input-event :type +ev-key-down+ :key-code key-code :char-code char-code))
 
 (defun parse-plain-byte (b)
   (cond
@@ -359,7 +359,7 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
     ((= b 9)  (key-event +kb-tab+ 9))
     ((or (= b 8) (= b 127)) (key-event +kb-back+ 8))
     ((and (>= b 1) (<= b 26))              ; Ctrl-A .. Ctrl-Z
-     (make-event :type +ev-key-down+ :key-code b :char-code b :modifiers +md-ctrl+))
+     (make-input-event :type +ev-key-down+ :key-code b :char-code b :modifiers +md-ctrl+))
     ((< b 32) (key-event b b))             ; other control chars
     (t (key-event b b))))                  ; printable
 
@@ -419,12 +419,12 @@ or (values nil nil) when more bytes are required."
            ((= c (char-code #\O)) (parse-ss3 buf i len))
            ;; ESC x / ESC X  ->  Alt-X (the Quit shortcut, with a stable key-code)
            ((or (= c (char-code #\x)) (= c (char-code #\X)))
-            (values (make-event :type +ev-key-down+ :key-code +kb-alt-x+
+            (values (make-input-event :type +ev-key-down+ :key-code +kb-alt-x+
                                 :char-code (char-code #\x) :modifiers +md-alt+)
                     2))
            ;; ESC <printable>  ->  Alt-<char>
            ((<= 32 c 126)
-            (values (make-event :type +ev-key-down+ :key-code 0
+            (values (make-input-event :type +ev-key-down+ :key-code 0
                                 :char-code c :modifiers +md-alt+)
                     2))
            ;; ESC followed by something else: deliver bare ESC, reparse the rest
@@ -490,7 +490,7 @@ or (values nil nil) when more bytes are required."
                               (20 (key-event +kb-f9+)) (21 (key-event +kb-f10+))
                               (t nil)))
                        (t nil))))
-            (when (and ev (plusp mods)) (setf (event-modifiers ev) mods))
+            (when (and ev (plusp mods)) (setf (iev-modifiers ev) mods))
             (values ev (- (1+ j) i)))))))
 
 (defun parse-csi-numbers (buf start end)
@@ -519,7 +519,7 @@ or (values nil nil) when more bytes are required."
                        (if (logtest b 16) +md-ctrl+ 0))))
     (if (logtest b 64)
         ;; wheel: low bit 0 = up, 1 = down
-        (values (make-event :type +ev-mouse-wheel+ :modifiers mods
+        (values (make-input-event :type +ev-mouse-wheel+ :modifiers mods
                             :mouse-where (make-tpoint x y)
                             :wheel (if (logtest b 1) +mw-down+ +mw-up+))
                 consumed)
@@ -529,7 +529,7 @@ or (values nil nil) when more bytes are required."
                               ((= button 2) +mb-right+)
                               (t 0))))
           (values
-           (make-event
+           (make-input-event
             :type (cond (release +ev-mouse-up+)
                         (motion +ev-mouse-move+)
                         (t +ev-mouse-down+))

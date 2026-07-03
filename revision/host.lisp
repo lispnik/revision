@@ -16,18 +16,18 @@ never lingers when focus moves to a non-text widget."
   (loop while *running* do
     (drain-ui-callbacks)
     (when *dirty*
-      (tvision:hide-cursor s)
-      (draw root) (tvision:flush-screen s) (setf *dirty* nil))
-    (tvision::pump-input s 0.05)
-    (let ((tev (tvision::screen-next-event s)))
+      (revision:hide-cursor s)
+      (draw root) (revision:flush-screen s) (setf *dirty* nil))
+    (revision::pump-input s 0.05)
+    (let ((tev (revision::screen-next-event s)))
       (when tev (let ((ev (translate tev))) (when ev (handle-event root ev)))))))
 
 (defun run-view (win &key focus open)
   "Run WIN full-screen in its own screen session until it quits.  FOCUS is the
 initial focused widget; OPEN (a thunk of the screen) may start background work
 and return a cleanup thunk."
-  (tvision:with-screen (s)
-    (layout win (rect 0 0 (tvision:screen-width s) (tvision:screen-height s)))
+  (revision:with-screen (s)
+    (layout win (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
     (setf *root* win
           (container-focus win) (or focus (first (all-focusables win)))
           *ui-thread* sb-thread:*current-thread* *running* t *dirty* t)

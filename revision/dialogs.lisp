@@ -1,7 +1,7 @@
 ;;;; dialogs.lisp --- the standard dialogs: file picker, change-dir, colours.
 ;;;;
 ;;;; Each composes EXEC-VIEW with the existing controls (input-line, list-box,
-;;;; cluster, button) and returns a value, mirroring tvision's TFileDialog /
+;;;; cluster, button) and returns a value, mirroring revision's TFileDialog /
 ;;;; TChDirDialog / TColorDialog.
 
 (in-package #:revision)
@@ -179,13 +179,13 @@ type-ahead.  Returns a pathname, or NIL on cancel."
 (defun sw-notify (v) (when (sw-on-change v) (funcall (sw-on-change v) v)))
 
 (defmethod draw ((v color-swatches))
-  (let* ((b (view-bounds v)) (ax (tvision::rect-ax b)) (ay (tvision::rect-ay b)) (w (r-w b))
+  (let* ((b (view-bounds v)) (ax (revision::rect-ax b)) (ay (revision::rect-ay b)) (w (r-w b))
          (foc (view-focused-p v)))
     (fill-row v 0 0 w (role :label)) (fill-row v 0 1 w (role :label))
     (dotimes (i (sw-count v))
       (let ((cx (* i 3)))
         (when (<= (+ cx 2) w)
-          (let ((cattr (if (sw-bg-p v) (tvision:make-attr 0 i) (tvision:make-attr i 0)))
+          (let ((cattr (if (sw-bg-p v) (revision:make-attr 0 i) (revision:make-attr i 0)))
                 (ch    (if (sw-bg-p v) #\Space #\█)))
             (%put-cell (+ ax cx) ay ch cattr) (%put-cell (+ ax cx 1) ay ch cattr))
           (when (= i (sw-value v))                    ; marker under the chosen swatch
@@ -205,7 +205,7 @@ type-ahead.  Returns a pathname, or NIL on cancel."
 
 ;;; A swatch showing sample text in the currently-chosen fg/bg attribute.
 (defclass color-preview (view)
-  ((attr :initform (tvision:make-attr 7 1) :accessor cp-attr))
+  ((attr :initform (revision:make-attr 7 1) :accessor cp-attr))
   (:metaclass reactive-class))
 (defmethod draw ((v color-preview))
   (fill-row v 0 0 (r-w (view-bounds v)) (cp-attr v))
@@ -213,7 +213,7 @@ type-ahead.  Returns a pathname, or NIL on cancel."
 
 (defun %color-refresh-preview (d)
   (let ((pv (find-view d 'preview)))
-    (when pv (setf (cp-attr pv) (tvision:make-attr (sw-value (find-view d 'fg)) (sw-value (find-view d 'bg))))
+    (when pv (setf (cp-attr pv) (revision:make-attr (sw-value (find-view d 'fg)) (sw-value (find-view d 'bg))))
           (invalidate pv))))
 
 (define-command color-apply (v e)
@@ -221,7 +221,7 @@ type-ahead.  Returns a pathname, or NIL on cancel."
   (let* ((d (view-root v))
          (role (nth (cluster-value (find-view d 'role)) *color-roles*))
          (fg (sw-value (find-view d 'fg))) (bg (sw-value (find-view d 'bg))))
-    (setf (getf *theme* role) (tvision:make-attr fg bg))
+    (setf (getf *theme* role) (revision:make-attr fg bg))
     (when *root* (invalidate *root*))))
 
 (defun make-color-dialog ()

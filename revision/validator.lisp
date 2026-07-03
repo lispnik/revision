@@ -1,4 +1,4 @@
-;;;; validator.lisp --- field validators for INPUT-LINE (tvision's TValidator).
+;;;; validator.lisp --- field validators for INPUT-LINE (revision's TValidator).
 ;;;;
 ;;;; Each constructor returns a FIELD-VALIDATOR (defined with input-line): FILTER
 ;;;; rejects keystrokes as typed; CHECK validates the whole field on accept,
