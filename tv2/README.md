@@ -1,14 +1,14 @@
 es # tv2 — a CLOS-native kernel for the tvision TUI framework
 
-`tv2` is an experimental, clean-break re-architecture of the framework's
-*dispatch and construction* layers. It asks: if we diverged from classic Turbo
-Vision and rebuilt on top of CLOS, what would the framework look like?
+`tv2` is a clean-break re-architecture of a Turbo-Vision-style TUI framework's
+*dispatch and construction* layers: if you diverged from classic Turbo Vision and
+rebuilt on top of CLOS, this is what the framework looks like.
 
-It is **not** a replacement for the classic [`tvision`](../) system — it lives
-alongside it (`tv2` depends on `tvision`) and reuses tvision's terminal driver,
-screen/cell buffer, geometry, and the `outline-node` data structure unchanged.
-Only the plumbing — state, events, commands, layout, theming, persistence — is
-new. Every real tvlisp window has been rebuilt on it as a working demo.
+It **is** the framework now — the classic view hierarchy it grew up alongside has
+been retired.  tv2 owns the foundation ([`../base/`](../base): terminal driver,
+screen/cell buffer, geometry, the Unicode/grapheme engine, the `outline-node`
+data structure) and layers the new plumbing — state, events, commands, layout,
+theming, persistence — on top.  The `tvlisp` IDE is built entirely on it.
 
 ```lisp
 (asdf:load-system "tv2")
@@ -118,5 +118,4 @@ File → Validators…) and **Up/Down history** recall.  The type-to-filter inpu
 support **nested submenus** (see Help → Topics).  The **whole desktop persists** —
 the open windows (kind, position, size, Z-order; editor filenames) are saved to
 `~/.tv2-desktop` on exit and restored on launch (also File → Save / Restore
-layout).  At this point tv2 covers the classic `tvision` system's interaction
-model end to end.
+layout).  tv2 covers the full Turbo-Vision interaction model end to end.
