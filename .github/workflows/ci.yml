@@ -37,7 +37,7 @@ jobs:
       - name: Restore Lisp dependencies
         run: ocicl install
 
-      # tvision-tests.lisp (classic framework, FiveAM) + tv2-sbcl-tests.lisp +
-      # tv2-editor-tests.lisp  (make test = test-lisp test-tv2)
+      # make test = test-tv2: tv2-sbcl-tests.lisp + tv2-editor-tests.lisp
+      # (headless: SBCL IDE features + editor display-width / widget layout)
       - name: Run tests
         run: make test
