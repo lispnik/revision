@@ -307,7 +307,7 @@ so MAKE-PATHNAME won't inherit a type from anything it is merged against."
 (defkeymap *proj-keys* (*outline-keys*)
   (:enter proj-open))                    ; override Enter; arrows/Right/Left inherit from *outline-keys*
 
-(defvar *project-dir* "/Users/mkennedy/Projects/common-lisp/tvision/"
+(defvar *project-dir* "/Users/mkennedy/Projects/common-lisp/revision/"
   "Default root for new project-manager windows; set by the Change-dir dialog.")
 
 (defun make-project (&optional (dir *project-dir*))
@@ -336,6 +336,6 @@ so MAKE-PATHNAME won't inherit a type from anything it is merged against."
     (setf (window-scroll-target win) (find-view win 'tree) (window-help win) :project)
     (values win (find-view win 'q))))
 
-(defun run-project (&optional (dir "/Users/mkennedy/Projects/common-lisp/tvision/"))
+(defun run-project (&optional (dir "/Users/mkennedy/Projects/common-lisp/revision/"))
   "Browse a git project as a lazy tree with a flat-match filter."
   (multiple-value-bind (w f) (make-project dir) (run-view w :focus f)))

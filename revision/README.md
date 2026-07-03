@@ -1,4 +1,4 @@
-es # revision — a CLOS-native kernel for the tvision TUI framework
+es # revision — a CLOS-native text-mode UI framework for Common Lisp
 
 `revision` is a clean-break re-architecture of a Turbo-Vision-style TUI framework's
 *dispatch and construction* layers: if you diverged from classic Turbo Vision and
@@ -28,7 +28,7 @@ the object inspector, line numbers, and a live HyperSpec lookup:
 
 ## What's different from classic Turbo Vision
 
-| Concern | Classic tvision | revision |
+| Concern | Classic Turbo Vision | revision |
 | --- | --- | --- |
 | Redraw | call `draw-view` after mutating | a **reactive metaclass** invalidates the screen on any slot write |
 | Events | integer `+ev-*+` type tags, `cond` on type | **CLOS event classes** dispatched by multimethods `(view × event)` |

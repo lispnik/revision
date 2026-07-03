@@ -25,9 +25,9 @@ for the architecture in depth.
 ## Requirements
 
 * [SBCL](http://www.sbcl.org/)
-* A POSIX terminal with `stty` (macOS / Linux)
+* A POSIX terminal with `stty` (macOS/Linux)
 * **No external Lisp libraries to build, run, or test** — the framework depends
-  only on SBCL itself.  The threaded REPL / debugger / tooling in the example app
+  only on SBCL itself.  The threaded REPL/debugger tooling in the example app
   use SBCL's own facilities (`sb-thread`, `sb-mop`, `sb-di`, and the
   `sb-introspect` contrib, all bundled with SBCL).
 
@@ -104,11 +104,11 @@ navigation, tracing/profiling, a HyperSpec lookup) — lives in its own reposito
 Clone it next to this checkout and build:
 
 ```sh
-git clone git@github.com:lispnik/revl.git   # alongside this tvision checkout
+git clone git@github.com:lispnik/revl.git   # alongside this revision checkout
 cd revl && make && ./revl
 ```
 
-It reaches this framework through a `systems/tvision` symlink to the sibling
+It reaches this framework through a `systems/revision` symlink to the sibling
 checkout, so the two build together with no global configuration.  Its
 framework-agnostic Lisp logic lives in a shared `revl-logic` system, so the IDE
 reuses it directly on revision.  See that project's README for the full feature tour.
