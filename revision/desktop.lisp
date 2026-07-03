@@ -121,7 +121,8 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
                      (if (logtest m revision::+md-alt+)   "Alt+"   "")
                      (if (logtest m revision::+md-shift+) "Shift+" "")
                      (cond ((and (characterp ks) (< (char-code ks) 32)) (format nil "Ctrl+~a" (code-char (+ 64 (char-code ks)))))
-                           ((characterp ks) (string ks))
+                           ((characterp ks) (string-upcase (string ks)))
+                           ((eq ks :del)  "Del") ((eq ks :ins) "Ins") ((eq ks :back) "Bksp")
                            (t (string-upcase (string ks))))))))
 
 (defun menu-dropdown-width (items)
@@ -811,11 +812,11 @@ editor buffer text."
        (list "File"
              (list "New"            (lambda () (dt-open dt :editor)) (ctrl #\n))
              (list "Open file…"     (lambda () (let ((p (make-file-dialog :dir *project-dir* :title " Open file ")))
-                                                 (when p (dt-open dt (lambda () (make-editor p)))))) (ctrl #\o))
+                                                 (when p (dt-open dt (lambda () (make-editor p)))))) :f3)
              (list "Change dir…"    (lambda () (let ((p (make-file-dialog :dir *project-dir* :dirs-only t :title " Change dir ")))
                                                  (when p (setf *project-dir* (uiop:ensure-directory-pathname p))))))
              :--
-             (list "Save"           (lambda () (%dt-save dt)) (ctrl #\s) (any-win))
+             (list "Save"           (lambda () (%dt-save dt)) :f2 (any-win))
              (list "Save as…"       (lambda () (%dt-save-as dt)) nil (any-win))
              (list "Save all"       (lambda () (%dt-save-all dt)) nil (any-win))
              (list "Reload file"    (lambda () (%dt-reload dt)) nil (any-win))
@@ -828,9 +829,10 @@ editor buffer text."
              (list "Restore layout" (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
                                       (dt-load-layout dt)) nil (lambda () t))
              :--
-             (list "Exit"           (lambda () (setf *app-done* t)) (ctrl #\q)))
+             (list "Exit"           (lambda () (setf *app-done* t)) (cons #\x revision::+md-alt+)))
        (list "Tools"                                      ; open tool windows
-             (list "Lisp REPL"       (lambda () (dt-open dt :repl)) :f2)   ; F2 = new REPL (Ctrl-R stays history-search)
+             (list "Lisp REPL"       (lambda () (dt-open dt :repl))
+                   (cons :f2 revision::+md-alt+))                            ; Alt-F2 = new REPL (Alt-F3 = CUA close; Ctrl-R = history-search)
              (list "Project manager" (lambda () (dt-open dt :project)))
              (list "Package browser" (lambda () (dt-open dt :packages)))
              (list "ASDF systems"    (lambda () (dt-open dt :systems)))
@@ -851,7 +853,7 @@ editor buffer text."
              (list "Cascade"         (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))
              (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 revision::+md-alt+) (any-win))  ; Alt-0
              (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
-                   (cons :f3 revision::+md-alt+) (any-win))                        ; Alt-F3
+                   (cons :f3 revision::+md-alt+) (any-win))                        ; Alt-F3 (CUA: close window)
              (list "Close all"       (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
                                                 (dt-refocus dt) (invalidate dt))
                    nil (any-win)))

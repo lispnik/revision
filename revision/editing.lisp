@@ -218,12 +218,12 @@ count.  Undoable; keeps the cursor near its original offset."
         (flet ((cur () (%focused-editor))
                (pe (op) (lambda () (%editor-paredit (%focused-editor) op))))
           (list "Edit"
-                (list "Undo"                (lambda () (let ((te (cur))) (when te (te-undo! te)))))
+                (list "Undo"                (lambda () (let ((te (cur))) (when te (te-undo! te)))) (cons :back revision::+md-alt+))   ; Alt+Bksp (CUA)
                 (list "Redo"                (lambda () (let ((te (cur))) (when te (te-redo! te)))))
                 :--
-                (list "Cut"                 (lambda () (let ((te (cur))) (when te (te-cut te) (te-ensure-visible te) (invalidate te)))))
-                (list "Copy"                (lambda () (let ((te (cur))) (when te (te-copy te)))))
-                (list "Paste"               (lambda () (let ((te (cur))) (when te (te-paste te) (te-ensure-visible te) (invalidate te)))))
+                (list "Cut"                 (lambda () (let ((te (cur))) (when te (te-cut te) (te-ensure-visible te) (invalidate te)))) (cons :del revision::+md-shift+))   ; Shift+Del (CUA)
+                (list "Copy"                (lambda () (let ((te (cur))) (when te (te-copy te)))) (cons :ins revision::+md-ctrl+))    ; Ctrl+Ins (CUA)
+                (list "Paste"               (lambda () (let ((te (cur))) (when te (te-paste te) (te-ensure-visible te) (invalidate te)))) (cons :ins revision::+md-shift+))   ; Shift+Ins (CUA)
                 (list "Select all"          (lambda () (let ((te (cur))) (when te (te-select-all te) (te-ensure-visible te) (invalidate te)))))
                 :--
                 (list "Comment region"      (lambda () (%comment-region (cur))))

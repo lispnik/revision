@@ -329,7 +329,7 @@ stops the per-listener worker thread when the window closes."
                      (:fill (scrollback :name 'transcript :keymap *repl-input-keys*
                               :on-present #'%repl-present-inspect))
                      (1 (static-text :role :status
-                          :text " Enter: eval · Tab: complete · ↑/↓: history · Ctrl-R: search · F2: new REPL · Esc: close "))))))
+                          :text " Enter: eval · Tab: complete · ↑/↓: history · Ctrl-R: search · Alt-F2: new REPL · Esc: close "))))))
     (add-subview win body)
     (let ((tr (find-view win 'transcript)))
       (scrollback-append tr
