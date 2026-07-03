@@ -41,9 +41,9 @@ the object inspector, line numbers, and a live HyperSpec lookup:
 
 ## Kernel layers (load order)
 
-- **`kernel.lisp`** — the `reactive-class` metaclass (`(setf slot-value-using-class) :after` → `invalidate`); the `view` base class; geometry helpers; the event class hierarchy and `translate` (tvision event → revision event); `keymap`/`defkeymap`/`keymap-lookup`; `command`/`define-command`/`perform`; drawing helpers; `*theme*`/`role`; the `container` protocol (focus routing, Tab cycling, event bubbling).
+- **`kernel.lisp`** — the `reactive-class` metaclass (`(setf slot-value-using-class) :after` → `invalidate`); the `view` base class; geometry helpers; the event class hierarchy and `translate` (a raw INPUT-EVENT → a CLOS revision event); `keymap`/`defkeymap`/`keymap-lookup`; `command`/`define-command`/`perform`; drawing helpers; `*theme*`/`role`; the `container` protocol (focus routing, Tab cycling, event bubbling).
 - **`runtime.lisp`** — the `persistent-class` metaclass + `:transient` slots, `serialize`/`deserialize`/`save-object`/`load-object`, the `session` object, and the worker→UI bridge.
-- **`outline.lisp`** — the `outline` tree view (reuses tvision `outline-node`, supports lazy children).
+- **`outline.lisp`** — the `outline` tree view (reuses the base `outline-node`, supports lazy children).
 - **`widgets.lisp`** — `window`, `button`, `static-text`, `input-line`, `list-box`.
 - **`scrollback.lisp`** — an append-only, auto-following, scrollable transcript view.
 - **`layout.lisp`** — the `stack`/`row` layout containers and the compile-time-checked `ui` construction macro.

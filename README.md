@@ -75,8 +75,10 @@ keymaps, commands, theming, and the reactive metaclass.
 | `base/` | the foundation: `geometry` (points/rects), `colors` (attribute byte ↔ ANSI SGR, RGB themes), `draw-buffer` (the cell model + the Unicode/grapheme/display-width engine), `events` (event records + key/mouse/command codes), `screen` (raw mode, alternate screen, diff-based ANSI rendering, input decoding), and the `outline-node` tree data structure |
 | `revision/`  | the CLOS-native kernel: the reactive metaclass, CLOS event dispatch, keymaps → commands, the `ui` layout DSL, theming, MOP persistence, the worker→UI bridge, and the widget/window/dialog/menu set — plus the fully-featured windows (REPL, editor, HTML browser, project tree, inspector, …) that the example IDE composes |
 
-The `tvision` **package** (defined in `base/package.lisp`) is the shared
-namespace for the foundation; the `revision` package is the kernel.
+The whole framework lives in a **single `revision` package** (one `defpackage`
+in `base/package.lisp`): `base/` populates it with the foundation symbols and
+`revision/` adds the kernel, so `revision:make-attr`, `revision:run-desktop`, and
+everything else share one namespace.
 
 ## Unicode
 
