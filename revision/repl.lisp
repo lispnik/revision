@@ -1,6 +1,6 @@
-;;;; repl.lisp --- a real tvlisp window (the Lisp REPL) ported onto revision.
+;;;; repl.lisp --- a real revl window (the Lisp REPL) ported onto revision.
 ;;;;
-;;;; tvlisp's listener is the SLIME/Lem model: a worker thread evaluates Lisp
+;;;; revl's listener is the SLIME/Lem model: a worker thread evaluates Lisp
 ;;;; while the UI keeps running; output, results and errors are shipped back to
 ;;;; the UI thread via the worker->UI bridge -- "only the UI thread touches the
 ;;;; screen".  This port keeps that architecture, rebuilt from revision parts:
@@ -143,8 +143,8 @@ the cross-thread debugger (HANDLER-BIND keeps the stack live for the restart)."
                    (%repl-update-prompt win))))))
 
 ;;; The worker calls this to evaluate INPUT for WIN.  Defaults to revision's own
-;;; streaming evaluator; an embedding app (tvlisp-revision) can rebind it to reuse a
-;;; different eval backend (e.g. tvlisp's repl-backend-eval).
+;;; streaming evaluator; an embedding app (revl) can rebind it to reuse a
+;;; different eval backend (e.g. revl's repl-backend-eval).
 (defvar *repl-eval-fn* '%repl-eval)
 
 (defvar *repl-time* nil "When true, print each submission's run time after it evaluates.")
@@ -267,13 +267,13 @@ recalls the chosen line into the input."
   "Write the input history (chronological) to PATH as a loadable Lisp script."
   (with-open-file (s path :direction :output :if-exists :supersede
                             :if-does-not-exist :create :external-format :utf-8)
-    (format s ";;;; tvlisp REPL session script~%~%")
+    (format s ";;;; revl REPL session script~%~%")
     (dolist (form (reverse (repl-history win)))
       (write-string form s) (terpri s) (terpri s)))
   t)
 
 ;;; --- Tab completion of the symbol at the caret ------------------------------
-;;; Set by an embedding app (tvlisp-revision): (TOKEN PACKAGE) -> list of completions.
+;;; Set by an embedding app (revl): (TOKEN PACKAGE) -> list of completions.
 (defvar *repl-completions-fn* nil)
 
 (defun %repl-token-before (sb)

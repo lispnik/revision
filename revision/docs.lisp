@@ -3,7 +3,7 @@
 ;;;; Documentation and disassembly are standard CL into a text window.  The
 ;;;; HyperSpec lookup and manual pages fetch real HTML (via *URL-FETCH-FN*) and
 ;;;; render it in the doc browser; the symbol -> CLHS URL map comes from
-;;;; *HYPERSPEC-URL-FN* (tvlisp's hyperspec-url).
+;;;; *HYPERSPEC-URL-FN* (revl's hyperspec-url).
 
 (in-package #:revision)
 
@@ -75,7 +75,7 @@
 ;;; nav.lisp's commands as well as its own.
 
 ;;; The single, consolidated "Lisp" menu (Turbo-Vision style, like classic
-;;; tvlisp): evaluate/compile at the top, then Navigate / Document / Debug /
+;;; revl): evaluate/compile at the top, then Navigate / Document / Debug /
 ;;; Browse submenus.  docs.lisp loads last, so every do-* command it references
 ;;; (from compile, nav, tools, inspect and here) is already defined.  This
 ;;; replaces the former separate Run / Search / Debug / Browse top-level menus.

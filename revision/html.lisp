@@ -1,6 +1,6 @@
-;;;; html.lisp --- a real tvlisp window (the HTML browser) ported onto revision.
+;;;; html.lisp --- a real revl window (the HTML browser) ported onto revision.
 ;;;;
-;;;; tvlisp's THTML-VIEW renders HTML in the terminal: a tokenizer turns markup
+;;;; revl's THTML-VIEW renders HTML in the terminal: a tokenizer turns markup
 ;;;; into a flat token stream, a layout pass wraps it into a vector of styled
 ;;;; "runs" (heading / emphasis / code / link) plus a links table and named
 ;;;; anchors, and the view paints + navigates that.  The tokenizer and layout are
@@ -467,7 +467,7 @@ and jumping to the first.  Match columns are virtual columns = on-screen columns
   '(("index" .
 "<html><head><title>revision HTML browser</title></head><body>
 <h1>revision &mdash; HTML browser</h1>
-<p>This is the <b>real tvlisp HTML view</b>, ported onto the revision kernel.  The
+<p>This is the <b>real revl HTML view</b>, ported onto the revision kernel.  The
 tokenizer and layout engine are reused <em>verbatim</em>; only the widget and
 event dispatch are new.</p>
 <h2>What it renders</h2>
@@ -485,7 +485,7 @@ event dispatch are new.</p>
 to follow one, arrows / PgUp / PgDn to scroll.  Try these:</p>
 <p>&rarr; <a href=\"about\">About this port</a><br>
 &rarr; <a href=\"#bottom\">Jump to the bottom anchor</a><br>
-&rarr; <a href=\"https://github.com/lispnik/tvlisp\">An external link (echoed below)</a></p>
+&rarr; <a href=\"https://github.com/lispnik/revl\">An external link (echoed below)</a></p>
 <hr>
 <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
 tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
@@ -494,7 +494,7 @@ quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.</p>
 </body></html>")
     ("about" .
 "<html><body><h1>About</h1>
-<p>The HTML browser is the last of tvlisp's &ldquo;engine&rdquo; windows to be
+<p>The HTML browser is the last of revl's &ldquo;engine&rdquo; windows to be
 ported onto revision &mdash; after the thread monitor, project manager, browser,
 REPL and editor.</p>
 <p><a href=\"index\">&larr; Back to the index</a></p></body></html>")))
@@ -527,7 +527,7 @@ WINDOW FOCUS)."
   (multiple-value-bind (w f o) (make-html page) (run-view w :focus f :open o)))
 
 ;;; --- a fetch-capable document browser (HyperSpec / manuals) -----------------
-;;; When *URL-FETCH-FN* is bound (tvlisp-revision -> curl), the HTML browser becomes a
+;;; When *URL-FETCH-FN* is bound (revl -> curl), the HTML browser becomes a
 ;;; real one: link clicks fetch and render the target page.
 
 (defvar *url-fetch-fn* nil "(url) -> HTML string, or NIL.")

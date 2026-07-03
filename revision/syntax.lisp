@@ -4,7 +4,7 @@
 ;;;; ATTRS is a per-character vector of packed attributes, IN-STRING carries the
 ;;;; "inside a multi-line string" state from one line to the next.  TEXT-EDIT
 ;;;; calls it per visible line (threading the carry).  LISP-COLORIZE is the one
-;;;; bundled colorizer, ported from tvlisp's %lisp-colorize.
+;;;; bundled colorizer, ported from revl's %lisp-colorize.
 
 (in-package #:revision)
 

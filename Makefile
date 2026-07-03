@@ -1,7 +1,7 @@
 # Makefile --- the revision CLOS-native text-mode UI framework (a library).
 #
 # A library with no external dependencies; there is no binary to dump.  The
-# example application, `tvlisp', ships as a sibling project at ../tvlisp.
+# example application, `revl', ships as a sibling project at ../revl.
 #
 # Usage:
 #   make            # compile/load the framework (build check)

@@ -1,6 +1,6 @@
 ;;;; inspect.lisp --- the introspection-browser family, ported onto revision.
 ;;;;
-;;;; tvlisp ships a set of "look something up in the live image" windows: a Class
+;;;; revl ships a set of "look something up in the live image" windows: a Class
 ;;;; browser, a Function/GF browser, Apropos, Describe, and a Macroexpander.
 ;;;; They share two shapes already built on revision -- the filterable RUN-BROWSER
 ;;;; (filter a list, act on the choice) and a scrolling text pane -- so here each
@@ -158,7 +158,7 @@ window.  Return (values WINDOW FOCUS)."
 
 ;;; --- object inspector -------------------------------------------------------
 ;;; A drillable object tree.  The object -> outline-node builder is a hook: revision
-;;; ships a compact built-in (works standalone); tvlisp-revision swaps in tvlisp's
+;;; ships a compact built-in (works standalone); revl swaps in revl's
 ;;; richer OBJECT->OUTLINE (cycle detection, paging, slot setters, package/symbol
 ;;; specialisation).  Either way the result is a tvision outline-node tree, which
 ;;; revision's OUTLINE renders directly.
@@ -195,7 +195,7 @@ error-robust).  Overridable via *OBJECT->OUTLINE-FN*."
           (setf (tvision:outline-node-expanded node) t)
           node))))
 
-;;; Set by an embedding app (tvlisp-revision) to tvlisp's richer OBJECT->OUTLINE.
+;;; Set by an embedding app (revl) to revl's richer OBJECT->OUTLINE.
 (defvar *object->outline-fn* #'%revision-object->outline)
 
 (defclass inspector-window (window)

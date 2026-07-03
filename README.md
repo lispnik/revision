@@ -91,26 +91,26 @@ Word-wrap reflows wide glyphs whole rather than splitting them at the boundary.
 
 ![Word-wrap with emoji: wide glyphs stay whole at the wrap boundary](media/wrap-emoji.gif)
 
-## Example application — tvlisp
+## Example application — revl
 
-The framework's flagship example, **`tvlisp`** — a SLIME-class Lisp REPL / IDE
+The framework's flagship example, **`revl`** — a SLIME-class Lisp REPL / IDE
 that exercises the whole framework (overlapping windows, menus, dialogs, the
 syntax-highlighting editor, the object inspector, an HTML browser, a threaded
 `sldb`-style debugger, and code-intelligence tools: completion, paredit, source
 navigation, tracing/profiling, a HyperSpec lookup) — lives in its own repository:
 
-> **[github.com/lispnik/tvlisp](https://github.com/lispnik/tvlisp)**
+> **[github.com/lispnik/revl](https://github.com/lispnik/revl)**
 
 Clone it next to this checkout and build:
 
 ```sh
-git clone git@github.com:lispnik/tvlisp.git   # alongside this tvision checkout
-cd tvlisp && make && ./tvlisp
+git clone git@github.com:lispnik/revl.git   # alongside this tvision checkout
+cd revl && make && ./revl
 ```
 
 It reaches this framework through a `systems/tvision` symlink to the sibling
 checkout, so the two build together with no global configuration.  Its
-framework-agnostic Lisp logic lives in a shared `tvlisp-logic` system, so the IDE
+framework-agnostic Lisp logic lives in a shared `revl-logic` system, so the IDE
 reuses it directly on revision.  See that project's README for the full feature tour.
 
 ## Testing
@@ -124,7 +124,7 @@ The headless suites cover the SBCL-specific IDE features and the editor's
 display-width (wide CJK / emoji) + widget layout; they exit non-zero on any
 failure (CI-ready) and need nothing but SBCL.  The example app's own tests — the
 REPL backend, the debugger, the inspector, and an end-to-end pty smoke test —
-live with it in [github.com/lispnik/tvlisp](https://github.com/lispnik/tvlisp).
+live with it in [github.com/lispnik/revl](https://github.com/lispnik/revl).
 
 ## License
 

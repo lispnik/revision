@@ -2,7 +2,7 @@
 ;;;;
 ;;;; The transforms themselves are pure string surgery over a sexp parser; an
 ;;;; embedding app supplies them through *PAREDIT-FN* (op text offset) ->
-;;;; (values new-text new-offset).  tvlisp-revision wires this to tvlisp's real sexp
+;;;; (values new-text new-offset).  revl wires this to revl's real sexp
 ;;;; layer (%SEXP-BOUNDS / %SEXP-SPAN-AT / %SEXP-SPANS / %INNER-LIST).  Exposed
 ;;;; here as a "Lisp" menu that operates on the focused editor.
 

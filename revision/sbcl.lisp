@@ -1,4 +1,4 @@
-;;;; sbcl.lisp --- SBCL-specific IDE tools that go beyond classic-tvlisp parity.
+;;;; sbcl.lisp --- SBCL-specific IDE tools that go beyond classic-revl parity.
 ;;;;
 ;;;; Type expansion (sb-ext:typexpand), a value's heap allocation (generation),
 ;;;; the deterministic allocation profiler (sb-aprof, x86-64 only -- gated), a

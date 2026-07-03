@@ -1,6 +1,6 @@
-;;;; project.lisp --- the project-manager core (a real tvlisp window) on revision.
+;;;; project.lisp --- the project-manager core (a real revl window) on revision.
 ;;;;
-;;;; tvlisp's project manager is a git-tracked file tree.  Here its navigation
+;;;; revl's project manager is a git-tracked file tree.  Here its navigation
 ;;;; core is rebuilt on revision: an OUTLINE whose directories load lazily, fed by
 ;;;; `git ls-files`, with a filter INPUT-LINE that flattens the tree to matching
 ;;;; files.  (The shipped PM's git badges / file-ops / find-in-files are extra

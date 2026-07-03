@@ -1,6 +1,6 @@
 ;;;; debugger.lisp --- an SLDB-style restart picker, ported onto revision.
 ;;;;
-;;;; tvlisp's listener routes a worker-thread error to the UI thread, shows the
+;;;; revl's listener routes a worker-thread error to the UI thread, shows the
 ;;;; condition + restarts + a live backtrace, and invokes the chosen restart back
 ;;;; on the worker -- whose stack is still live because it stays blocked waiting
 ;;;; for the choice (the SLIME cross-thread debugger model).  This port keeps

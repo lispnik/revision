@@ -291,7 +291,7 @@ over it."
           (max 0 (+ lead (if (plusp net) 2 0)))))))
 
 ;;; The indenter used for Lisp buffers.  Defaults to the simple heuristic above;
-;;; an embedding app (e.g. tvlisp-revision) can rebind it to a smarter engine.
+;;; an embedding app (e.g. revl) can rebind it to a smarter engine.
 (defvar *lisp-indenter* #'lisp-auto-indent)
 
 ;;; --- structural ops: completion + bracket matching --------------------------
@@ -299,10 +299,10 @@ over it."
 ;;; editor simply doesn't offer the chip/key.
 
 ;;; (funcall fn TE TOKEN) -> list of completion strings for the symbol prefix
-;;; TOKEN at the cursor (tvlisp-revision wires this to its package-aware completer).
+;;; TOKEN at the cursor (revl wires this to its package-aware completer).
 (defvar *editor-completions-fn* nil)
 ;;; (funcall fn TEXT OFFSET) -> the matching paren's offset in TEXT, or NIL
-;;; (TEXT[OFFSET] is a paren; tvlisp-revision wires this to %PAREN-MATCH-OFFSET).
+;;; (TEXT[OFFSET] is a paren; revl wires this to %PAREN-MATCH-OFFSET).
 (defvar *paren-matcher* nil)
 
 (defun te-offset (te line col)
@@ -788,7 +788,7 @@ sole candidate, or pop up a chooser when there are several."
         (destructuring-bind (find repl regex) r
           (te-replace-all te find repl :regex regex))))))
 
-;;; Set by an embedding app (tvlisp-revision) to "evaluate the form/region at point in
+;;; Set by an embedding app (revl) to "evaluate the form/region at point in
 ;;; the REPL".  When bound, the editor offers an Eval chip.
 (defvar *editor-eval-fn* nil)
 

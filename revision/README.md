@@ -8,7 +8,7 @@ It **is** the framework now — the classic view hierarchy it grew up alongside 
 been retired.  revision owns the foundation ([`../base/`](../base): terminal driver,
 screen/cell buffer, geometry, the Unicode/grapheme engine, the `outline-node`
 data structure) and layers the new plumbing — state, events, commands, layout,
-theming, persistence — on top.  The `tvlisp` IDE is built entirely on it.
+theming, persistence — on top.  The `revl` IDE is built entirely on it.
 
 ```lisp
 (asdf:load-system "revision")
@@ -76,7 +76,7 @@ command name, and views react to state changes automatically.
 (define-command cursor-down (v e) (ov-move v 1))
 ```
 
-## The ported windows (real tvlisp windows, rebuilt on revision)
+## The ported windows (real revl windows, rebuilt on revision)
 
 Each is built entirely from revision parts and verified by driving the built program
 through a pty. Entry points:
@@ -89,7 +89,7 @@ through a pty. Entry points:
 | `run-packages` / `run-systems` / `run-browser` | the filterable picker family (Packages, ASDF systems, …) — one generic `run-browser` |
 | `run-repl` | the Lisp listener — worker-thread eval, live output streaming (a Gray stream), history vars, sticky `in-package`, command history, and the SLDB debugger on error |
 | `run-editor` | the text editor — vector-of-lines model, selection, clipboard, undo/redo, file I/O, Lisp syntax highlighting, and opt-in soft word-wrap (`C-w`) |
-| `run-html` | the HTML browser — tvlisp's tokenizer + layout reused verbatim; styled runs, link navigation, in-document anchors, and find-in-page (`/`, `<`/`>`) |
+| `run-html` | the HTML browser — revl's tokenizer + layout reused verbatim; styled runs, link navigation, in-document anchors, and find-in-page (`/`, `<`/`>`) |
 
 ## Status & non-goals
 

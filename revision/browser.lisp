@@ -1,6 +1,6 @@
 ;;;; browser.lisp --- a generic filterable list browser, ported onto revision.
 ;;;;
-;;;; tvlisp has a whole family of "filter a list, act on the choice" windows --
+;;;; revl has a whole family of "filter a list, act on the choice" windows --
 ;;;; the Classes / Packages / Systems / Functions / Apropos / HyperSpec pickers.
 ;;;; They are all the same shape, so one RUN-BROWSER covers them: a filter
 ;;;; INPUT-LINE over a LIST-BOX, a detail line, Enter to act.  Instantiated below
@@ -40,7 +40,7 @@ writes the detail line.  Return (values WINDOW FOCUS)."
   (multiple-value-bind (w f) (make-browser title all-items on-activate) (run-view w :focus f)))
 
 (defun make-packages ()
-  "Browse all packages (a real tvlisp Packages window)."
+  "Browse all packages (a real revl Packages window)."
   (make-browser
    " Package browser "
    (sort (mapcar #'package-name (list-all-packages)) #'string<)
@@ -52,7 +52,7 @@ writes the detail line.  Return (values WINDOW FOCUS)."
                         "  ?"))))))
 
 (defun make-systems ()
-  "Browse the registered ASDF systems (a real tvlisp Systems window)."
+  "Browse the registered ASDF systems (a real revl Systems window)."
   (make-browser
    " ASDF systems "
    (sort (copy-list (ignore-errors (asdf:registered-systems))) #'string<)

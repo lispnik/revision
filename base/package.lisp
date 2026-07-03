@@ -168,7 +168,7 @@
    #:make-mailbox #:mailbox-send #:mailbox-receive #:mailbox-try-receive
    #:run-on-ui #:drain-ui-callbacks #:install-ui-wakeup #:remove-ui-wakeup
    #:*ui-callbacks* #:*input-multiplexer* #:shutdown-background-threads
-   ;; NOTE: the thread-monitor and REPL symbols moved to the tvlisp project
+   ;; NOTE: the thread-monitor and REPL symbols moved to the revl project
    ;; (src/threadmon.lisp, src/repl.lisp); they export into this package there.
    ;; menu
    #:tmenu-bar #:menu #:menu-item #:new-menu #:sub-menu #:menu-separator
@@ -193,7 +193,7 @@
    #:tfile-editor #:*file-editor-class* #:teditor-window #:make-edit-window
    #:editor-filename #:editor-window-editor #:text-highlight
    #:text-gutter-width #:draw-gutter #:text-area-width
-   ;; syntax-highlighting extension points (Common Lisp impls live in tvlisp;
+   ;; syntax-highlighting extension points (Common Lisp impls live in revl;
    ;; *lisp-indent-hook* / lisp-indent-* / match-paren-jump moved there too)
    #:*text-colorizer* #:*paren-matcher*
    ;; resize

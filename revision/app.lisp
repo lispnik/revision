@@ -4,7 +4,7 @@
 ;;;; session.  Rather than nest screens (TVISION's screen isn't reentrant), the
 ;;;; launcher runs the menu and the chosen window as *sequential* sessions: pick
 ;;;; a window, it takes over the screen, and closing it returns to the menu.
-;;;; This is the "tvlisp on revision" entry point that the tvlisp project drives.
+;;;; This is the "revl on revision" entry point that the revl project drives.
 
 (in-package #:revision)
 
@@ -24,7 +24,7 @@
 NIL when the user quits."
   (let ((choice nil))
     (tvision:with-screen (s)
-      (let ((win (ui (window (:title " tvlisp on revision — launcher " :keymap *global-keys*)
+      (let ((win (ui (window (:title " revl on revision — launcher " :keymap *global-keys*)
                        (stack
                          (1 (static-text :role :label
                               :text " Choose a window — ↑/↓ then Enter; Esc or q to quit: "))
@@ -48,6 +48,6 @@ NIL when the user quits."
     (cdr choice)))
 
 (defun run-app ()
-  "Run the revision-based tvlisp IDE.  This is now the full Turbo-Vision-style desktop
+  "Run the revision-based revl IDE.  This is now the full Turbo-Vision-style desktop
 shell (menu bar + status bar + hosted windows); see RUN-DESKTOP."
   (run-desktop))

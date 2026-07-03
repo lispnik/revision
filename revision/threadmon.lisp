@@ -1,6 +1,6 @@
-;;;; threadmon.lisp --- a real tvlisp window (the thread monitor) ported onto revision.
+;;;; threadmon.lisp --- a real revl window (the thread monitor) ported onto revision.
 ;;;;
-;;;; tvlisp's TTHREAD-WINDOW lists the live SBCL threads with Refresh/Kill and
+;;;; revl's TTHREAD-WINDOW lists the live SBCL threads with Refresh/Kill and
 ;;;; auto-refreshes on idle.  Here it is rebuilt from revision parts: a LIST-BOX of
 ;;;; threads, BUTTONs bound to commands, a background refresher that posts updates
 ;;;; through the worker->UI bridge (real changing data, not a demo clock), and

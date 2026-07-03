@@ -792,7 +792,7 @@ editor buffer text."
   "The classic ≡ system-menu About box."
   (let ((d (ui (dialog (:title " About " :keymap *dialog-keys* :value-fn (constantly t))
                  (stack
-                   (1 (static-text :role :label :text "    tvlisp — a Common Lisp IDE"))
+                   (1 (static-text :role :label :text "    revl — a Common Lisp IDE"))
                    (1 (static-text :role :label :text "    on the revision CLOS kernel"))
                    (1 (static-text :text ""))
                    (1 (static-text :text "    a Turbo Vision-style TUI, ported to SBCL"))

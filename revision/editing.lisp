@@ -90,7 +90,7 @@
 
 ;;; --- reorder a function's required arguments at its call sites --------------
 ;;; Heavy sexp rewriting (finding operator-position calls and permuting their
-;;; args) is tvlisp's; revision does the arglist introspection + buffer orchestration
+;;; args) is revl's; revision does the arglist introspection + buffer orchestration
 ;;; and calls the hook per open editor buffer.
 ;;; (funcall *REORDER-FN* NAME-STRING TEXT PERM R) -> new TEXT, or NIL if unchanged.
 

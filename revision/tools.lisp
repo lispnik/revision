@@ -1,6 +1,6 @@
 ;;;; tools.lisp --- tracing, profiling and stepping, ported onto revision.
 ;;;;
-;;;; The last of tvlisp's debugging tools.  Trace toggling is standard CL
+;;;; The last of revl's debugging tools.  Trace toggling is standard CL
 ;;;; (TRACE / UNTRACE), so it lives here directly; statistical profiling is a
 ;;;; hook (*PROFILE-FN*) an app fills with sb-sprof logic, rendered in revision's
 ;;;; TABLE-VIEW; single-stepping and break-on-entry route through the REPL and
