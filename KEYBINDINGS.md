@@ -90,3 +90,10 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | `R` | `ct-refresh` |
 | `U` | `ct-unwatch` |
 | `A` | `ct-watch` |
+
+## Object lists & tables
+
+| Key | Command |
+|-----|---------|
+| `Alt-I` | `inspect the focused object in the inspector` |
+| `Enter` | `activate the focused row (show detail / follow / open)` |

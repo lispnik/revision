@@ -57,17 +57,25 @@ OBJECT (as the menu accelerators hold)."
   "(SECTION-TITLE . KEYMAP-VAR) pairs documented in the reference.  The menu
 accelerators are added separately, built from the desktop menu tree.")
 
+(defparameter *widget-key-doc*
+  '(("Object lists & tables" .
+     (("Alt-I" . "inspect the focused object in the inspector")
+      ("Enter" . "activate the focused row (show detail / follow / open)"))))
+  "Widget-level keys handled inside the widgets (list-box / table-view) rather than a
+keymap -- listed here so the reference stays complete.")
+
 (defun keybinding-reference ()
   "A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu
-accelerators and every named keymap -- derived entirely from the live keymaps, so
-it always matches the code."
-  (cons
-   (cons "Menu accelerators"
-         (keymap-entries
-          (ignore-errors (%menu-accel-keymap (%desktop-menus (make-instance 'desktop))))))
+accelerators, every named keymap (derived from the live keymaps), and the widget-
+level keys in *WIDGET-KEY-DOC*."
+  (append
+   (list (cons "Menu accelerators"
+               (keymap-entries
+                (ignore-errors (%menu-accel-keymap (%desktop-menus (make-instance 'desktop)))))))
    (loop for (title . var) in *reference-keymaps*
          when (boundp var)
-           collect (cons title (keymap-entries (symbol-value var))))))
+           collect (cons title (keymap-entries (symbol-value var))))
+   *widget-key-doc*))
 
 (defun keybinding-markdown (&optional (ref (keybinding-reference)))
   "Render the keybinding reference (see KEYBINDING-REFERENCE) as a Markdown document."
