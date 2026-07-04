@@ -784,6 +784,37 @@ sole candidate, or pop up a chooser when there are several."
     (let ((r (exec-view d :width 52 :height 6)))
       (unless (eq r :cancel) (te-find te r :from-line (te-cy te) :from-col (te-cx te))))))
 
+;;; --- comment / uncomment a region (relocated from the now-revl editing.lisp) -
+;;; The code editor widget owns line-commenting: a text op on TE, with `;' as the
+;;; comment character.  (The Edit-menu *command* that invokes it lives in revl.)
+
+(defun %uncomment-line (line)
+  "Strip a leading `;'..`; ' comment marker (after indentation) from LINE."
+  (let ((k 0))
+    (loop while (and (< k (length line)) (member (char line k) '(#\Space #\Tab))) do (incf k))
+    (let ((j k))
+      (loop while (and (< j (length line)) (char= (char line j) #\;)) do (incf j))
+      (when (and (< j (length line)) (char= (char line j) #\Space)) (incf j))
+      (if (> j k) (concatenate 'string (subseq line 0 k) (subseq line j)) line))))
+
+(defun %comment-region (te)
+  "Toggle `;; ' line comments over the selected lines (or the current line)."
+  (when te
+    (multiple-value-bind (a b) (te-sel-ordered te)
+      (let* ((l0 (if a (car a) (te-cy te)))
+             (l1 (if b (if (and (zerop (cdr b)) (> (car b) l0)) (1- (car b)) (car b)) l0))
+             (l1 (max l0 (min l1 (1- (te-nlines te)))))
+             (all-commented t))
+        (loop for li from l0 to l1
+              for tr = (string-left-trim '(#\Space #\Tab) (te-line te li))
+              when (and (plusp (length tr)) (char/= (char tr 0) #\;)) do (setf all-commented nil))
+        (te-save-undo te)
+        (loop for li from l0 to l1 for line = (te-line te li)
+              do (setf (te-line te li)
+                       (if all-commented (%uncomment-line line)
+                           (concatenate 'string ";; " line))))
+        (te-ensure-visible te) (invalidate te)))))
+
 (defun %editor-replace (te)
   "Modal find/replace prompt (with a regex option); replace-all on OK."
   (let ((d (ui (dialog (:title " Replace " :keymap *dialog-keys*

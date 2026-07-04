@@ -7,20 +7,11 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | Key | Command |
 |-----|---------|
 | `Alt+F3` | `Close` |
-| `Ctrl+Ins` | `Copy` |
-| `Shift+Del` | `Cut` |
-| `Alt+X` | `Exit` |
-| `Alt+F2` | `Lisp REPL` |
 | `Alt+0` | `List…` |
-| `Ctrl+N` | `New` |
 | `F6` | `Next` |
-| `F3` | `Open file…` |
-| `Shift+Ins` | `Paste` |
 | `Shift+F6` | `Previous` |
-| `F2` | `Save` |
 | `Ctrl+F5` | `Size/move` |
 | `F1` | `This window` |
-| `Alt+Bksp` | `Undo` |
 | `F5` | `Zoom` |
 
 ## Global
@@ -56,20 +47,6 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | `Down` | `Move the selection down.` |
 | `Up` | `Move the selection up.` |
 
-## Inspector
-
-| Key | Command |
-|-----|---------|
-| `Bksp` | `Go back to the previously inspected value.` |
-| `Enter` | `Re-root the inspector on the focused node's value (remembering the current
-view for Back).` |
-
-## Project tree
-
-| Key | Command |
-|-----|---------|
-| `Enter` | `Expand/collapse a directory, or open a file leaf in the editor.` |
-
 ## Editor
 
 | Key | Command |
@@ -84,29 +61,12 @@ view for Back).` |
 | `Ctrl+W` | `Toggle soft word-wrap.` |
 | `Ctrl+Z` | `Undo the last edit.` |
 
-## REPL input
-
-| Key | Command |
-|-----|---------|
-| `Down` | `Recall the next input from history.` |
-| `Up` | `Recall the previous input from history.` |
-| `Ctrl+R` | `Reverse-i-search the input history.` |
-
 ## Dialogs
 
 | Key | Command |
 |-----|---------|
 | `Enter` | `Accept the dialog: validate the fields and return its value.` |
 | `Esc` | `Cancel the dialog.` |
-
-## Call-tree
-
-| Key | Command |
-|-----|---------|
-| `A` | `Add a function to the call tree (prompts for its name).` |
-| `C` | `Clear the recorded call tree.` |
-| `R` | `Refresh the call-tree display.` |
-| `U` | `Remove a watched function from the call tree (pick from a list).` |
 
 ## Object lists & tables
 

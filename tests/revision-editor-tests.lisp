@@ -130,7 +130,7 @@
   (setf (view-bounds tv) (rect 0 0 30 5))
   (check "table hmax > 0 when columns exceed the width" (> (scroll-hmax tv) 0))    ; 100 cols - 30
   (scroll-hto tv 999) (check "table hpos clamps to hmax" (= (scroll-hpos tv) (scroll-hmax tv))))
-(let ((ol (make-instance 'outline :roots (list (%revision-object->outline (make-string 90 :initial-element #\Q) "v")))))
+(let ((ol (make-instance 'outline :roots (list (make-outline-node (make-string 90 :initial-element #\Q))))))
   (setf (view-bounds ol) (rect 0 0 30 5))
   (check "outline hmax > 0 for a wide node" (> (scroll-hmax ol) 0))
   (scroll-hto ol 999) (check "outline hpos clamps to hmax" (= (scroll-hpos ol) (scroll-hmax ol))))
@@ -169,6 +169,13 @@
   (scroll-hto lb 999) (check "list-box hpos clamps to hmax" (= (scroll-hpos lb) (scroll-hmax lb)))
   (check "empty list-box hmax = 0"
          (let ((el (make-instance 'list-box))) (setf (view-bounds el) (rect 0 0 30 5)) (= 0 (scroll-hmax el)))))
+
+;;; --- keybinding reference: the committed KEYBINDINGS.md must match the generator,
+;;; so a binding change without `make keybindings` fails here (no doc drift).
+(check "KEYBINDINGS.md matches the keymaps (run `make keybindings` after a rebind)"
+       (string= (keybinding-markdown) (uiop:read-file-string "KEYBINDINGS.md")))
+(check "no keymap binding names an unregistered command (PERFORM would error)"
+       (null (unknown-command-bindings)))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)

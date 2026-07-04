@@ -468,7 +468,21 @@ desktop content area."
   (let ((top (dt-top dt))) (and (typep top 'editor-window) (find-view top 'edit))))
 
 (defun %dt-repl (dt)
-  (find-if (lambda (w) (typep w 'repl-window)) (reverse (dt-windows dt))))
+  "The most-recent REPL window on the desktop, or NIL — found by :kind, so the toolkit
+needn't know the repl-window class (which lives in the application)."
+  (find :repl (reverse (dt-windows dt)) :key #'window-kind))
+
+(defun %tool-note (msg)
+  "Show MSG as a transient status-bar note and log it to the REPL transcript, WITHOUT
+raising or refocusing any window (so a tool action never yanks the REPL over the editor
+you're working in).  With no REPL open (a bare toolkit desktop) it just shows the note."
+  (setf *tool-message* msg *tool-message-time* (get-internal-real-time))
+  (when *desktop*
+    (ignore-errors (invalidate (dt-statusbar *desktop*)))
+    (let ((r (%dt-repl *desktop*)))                          ; log to an existing REPL, in place
+      (when r
+        (let ((sb (find-view r 'transcript)))
+          (when sb (scrollback-append sb (format nil "; ~a~%" msg))))))))
 
 (defun %dt-save-as (dt)
   (let ((te (%focused-te dt)))
@@ -500,20 +514,8 @@ desktop content area."
     (cond ((or (null te) (null (te-filename te))) (%tool-note "no file to reload"))
           (t (te-load te (te-filename te)) (invalidate te) (%tool-note "reloaded from disk")))))
 
-(defun %dt-save-transcript (dt)
-  (let ((r (%dt-repl dt)))
-    (if (null r) (%tool-note "no REPL open")
-        (let ((p (make-file-dialog :dir *project-dir* :mode :save :default-name "transcript.txt")))
-          (when p (%repl-save-transcript r p) (%tool-note (format nil "transcript → ~a" (file-namestring p))))))))
-
-(defun %dt-save-script (dt)
-  (let ((r (%dt-repl dt)))
-    (if (null r) (%tool-note "no REPL open")
-        (let ((p (make-file-dialog :dir *project-dir* :mode :save :default-name "session.lisp" :mask "*.lisp")))
-          (when p (%repl-save-script r p) (%tool-note (format nil "script → ~a" (file-namestring p))))))))
-
-(defun %dt-clear-repl (dt)
-  (let ((r (%dt-repl dt))) (if r (%repl-clear r) (%tool-note "no REPL open"))))
+;;; %dt-save-transcript / %dt-save-script / %dt-clear-repl (REPL glue that drives the
+;;; moved repl-window's save/clear ops) live in revl — see ide/desktop-ide.lisp.
 
 ;;; --- colour themes ----------------------------------------------------------
 
@@ -709,23 +711,8 @@ plus the focused widget's own STATUS-HINTS, plus the always-on globals."
 
 ;;; --- a window demonstrating the table viewer --------------------------------
 
-(defun make-package-table ()
-  "All packages as a column table: name · external-symbol count · packages used."
-  (let* ((rows (sort (copy-list (list-all-packages)) #'string< :key #'package-name))
-         (win (ui (window (:title " Packages (table viewer) " :keymap *global-keys*)
-                    (stack
-                      (:fill (table-view :name 'tbl :rows rows
-                               :on-inspect (lambda (tv p) (declare (ignore tv))
-                                             (when p (funcall 'open-inspector p (package-name p))))
-                               :columns (list
-                                         (list "Package"  30 (lambda (p) (package-name p)))
-                                         (list "External" 10 (lambda (p) (let ((n 0))
-                                                                           (do-external-symbols (s p) (declare (ignore s)) (incf n)) n)))
-                                         (list "Uses"     40 (lambda (p) (format nil "~{~a~^ ~}"
-                                                                                (mapcar #'package-name (package-use-list p))))))))
-                      (1 (static-text :role :status :text " ↑/↓ select · Alt-I: inspect · click a row · wheel scrolls · Esc closes ")))))))
-    (setf (window-scroll-target win) (find-view win 'tbl) (window-help win) :browser)
-    (values win (find-view win 'tbl))))
+;;; make-package-table (the :ptable window) is an IDE tool — it lives in revl
+;;; (ide/desktop-ide.lisp), which self-registers it with *window-builders*.
 
 ;;; --- a small window demonstrating the cluster controls ----------------------
 
@@ -786,10 +773,9 @@ editors, the theme radio re-skins the desktop, the timeout field is immediate."
 
 ;;; --- desktop layout persistence (whole-desktop save / restore) --------------
 
-;;; make-package-table + make-options are defined here in desktop.lisp; every other
-;;; window builder self-registers in its own file (repl / editor / project / …).
-(pushnew (cons :ptable  #'make-package-table) *window-builders* :key #'car)
-(pushnew (cons :options #'make-options)       *window-builders* :key #'car)
+;;; make-options (the Settings dialog) is a toolkit window; register it.  The IDE
+;;; windows (including :ptable) self-register in their own files.
+(pushnew (cons :options #'make-options) *window-builders* :key #'car)
 
 (defun %desktop-file () (merge-pathnames ".revision-desktop" (user-homedir-pathname)))
 
@@ -885,11 +871,8 @@ editor buffer text."
              (list "This window"     (lambda () (dt-help dt)) :f1)))
       (mapcar (lambda (f) (funcall f dt)) (reverse *extra-menus*))))))   ; modules' Edit + consolidated Lisp menus
 
-(defun ensure-repl ()
-  "The desktop's REPL window, opening one if none is present.  Returns it."
-  (when *desktop*
-    (or (find :repl (dt-windows *desktop*) :key #'window-kind)
-        (progn (dt-open *desktop* :repl) (dt-top *desktop*)))))
+;;; ensure-repl (open-or-focus the desktop's REPL) is IDE glue — see revl's
+;;; ide/desktop-ide.lisp.
 
 (defun run-desktop ()
   "Run the revision IDE: a Turbo-Vision-style desktop with a menu bar, a status bar,

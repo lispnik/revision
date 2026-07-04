@@ -31,10 +31,9 @@ all: $(FRAMEWORK)
 
 test: test-revision
 
-# Headless tests: SBCL-specific IDE features and the editor's display-width
-# (wide CJK / emoji) + widget layout.
-test-revision: $(FRAMEWORK) tests/revision-sbcl-tests.lisp tests/revision-editor-tests.lisp
-	$(SBCL) --script tests/revision-sbcl-tests.lisp
+# Headless tests: the editor's display-width (wide CJK / emoji) + widget layout,
+# plus the keybinding-reference drift check.  (The SBCL/IDE-feature tests moved to revl.)
+test-revision: $(FRAMEWORK) tests/revision-editor-tests.lisp
 	$(SBCL) --script tests/revision-editor-tests.lisp
 
 # Regenerate the keybinding reference (KEYBINDINGS.md) from the keymaps.

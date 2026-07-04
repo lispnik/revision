@@ -245,3 +245,31 @@ the swatch strips (with a live sample); Apply previews it on *THEME*."
                            (10 (button :label "Done"  :command 'accept)))))))))
     (%color-refresh-preview d)
     (exec-view d :width 54 :height 20)))
+
+;;; --- general dialog helpers (relocated from the now-revl project window) -----
+;;; A default directory for file dialogs (the IDE's Change-dir sets it), a modal
+;;; one-line prompt, and a Yes/No confirm — all toolkit-level, used across the
+;;; framework, so they belong with the other dialogs rather than in an app window.
+
+(defvar *project-dir* "/Users/mkennedy/Projects/common-lisp/revision/"
+  "Default root for file dialogs / new project-manager windows; set by Change-dir.")
+
+(defun prompt-string (title label)
+  "Modal one-line prompt; return the entered string, or NIL on cancel."
+  (let ((d (ui (dialog (:title title :keymap *dialog-keys*
+                        :value-fn (lambda (d) (input-text (find-view d 'q))))
+                 (stack
+                   (1 (row ((+ 2 (length label)) (static-text :role :label :text label))
+                           (:fill (input-line :name 'q))))
+                   (1 (static-text :role :status :text " Enter: search · Esc: cancel ")))))))
+    (let ((r (exec-view d :width 60 :height 6))) (if (eq r :cancel) nil r))))
+
+(defun %confirm (message)
+  "A modal Yes/No dialog; return T on Yes."
+  (let ((d (ui (dialog (:title " Confirm " :keymap *dialog-keys* :value-fn (constantly t))
+                 (stack (1 (static-text :role :label :text message))
+                        (:fill (static-text :text ""))
+                        (1 (row (:fill (static-text :text ""))
+                                (9  (button :label "Yes" :command 'accept))
+                                (9  (button :label "No"  :command 'cancel)))))))))
+    (not (eq (exec-view d :width 54 :height 7) :cancel))))
