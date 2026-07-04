@@ -212,11 +212,14 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
   (position (char-downcase ch) (menu-menus mb) :key #'menu-hotkey))
 
 (defun %accel-command (item)
-  "A command that runs menu ITEM's thunk when the item is currently enabled."
-  (make-instance 'command :name (item-label item)
-    :action (lambda (v e)
-              (declare (ignore v e))
-              (when (item-enabled item) (funcall (item-thunk item))))))
+  "A command that runs menu ITEM's thunk when the item is currently enabled.  Registered
+in *COMMANDS* under a label-derived name, so menu actions join the same registry as the
+keymap commands (introspectable / palette-able) rather than being anonymous."
+  (register-command (intern (format nil "MENU ~a" (item-label item)) :keyword)
+                    (lambda (v e)
+                      (declare (ignore v e))
+                      (when (item-enabled item) (funcall (item-thunk item))))
+                    (item-label item)))
 
 (defun %menu-accel-keymap (menus)
   "Build a keymap binding each accelerated menu item's key-token to a command that

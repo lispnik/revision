@@ -124,13 +124,23 @@ so a plain binding still fires when an incidental modifier is present."
   ((name    :initarg :name    :reader command-name)
    (action  :initarg :action  :reader command-action)
    (doc     :initarg :doc     :initform nil :reader command-doc)      ; one-line description (see DEFINE-COMMAND)
+   (source  :initarg :source  :initform nil :reader command-source)  ; defining file (cross-file collision detection)
    (enabled :initarg :enabled :initform t :accessor command-enabled-p))
   (:metaclass reactive-class))
 
 (defvar *commands* (make-hash-table) "Name -> COMMAND object.")
 
 (defun register-command (name action &optional doc)
-  (setf (gethash name *commands*) (make-instance 'command :name name :action action :doc doc)))
+  "Register command NAME.  Warns if NAME is redefined from a DIFFERENT source file --
+an accidental cross-file collision.  A live redefinition from the same file, or from
+the REPL (source NIL), is silent, so redefining a command interactively still works."
+  (let ((src (or *compile-file-truename* *load-truename*))       ; NIL when evaluated at the REPL
+        (old (gethash name *commands*)))
+    (when (and old src (command-source old) (not (equal src (command-source old))))
+      (warn "revision: command ~s redefined in ~a (first defined in ~a)"
+            name (file-namestring src) (file-namestring (command-source old))))
+    (setf (gethash name *commands*)
+          (make-instance 'command :name name :action action :doc doc :source src))))
 
 (defmacro define-command (name (view event) &body body)
   "Define and register command NAME with an action over (VIEW EVENT).  A leading
