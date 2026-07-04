@@ -105,9 +105,10 @@ scroll).  Return (values WINDOW FOCUS)."
 
 ;;; --- the symbol-list browser ------------------------------------------------
 
-(defun make-symbol-browser (title symbols detail-fn)
+(defun make-symbol-browser (title symbols detail-fn &optional obj-fn)
   "A filterable browser over SYMBOLS; Enter opens DETAIL-FN's text in an output
-window.  Return (values WINDOW FOCUS)."
+window.  When OBJ-FN is supplied, Alt-I inspects (OBJ-FN symbol) for the focused
+row.  Return (values WINDOW FOCUS)."
   (let* ((tab (make-hash-table :test 'equal)) (acc '()))
     (dolist (s symbols)
       (let ((label (format nil "~a:~a"
@@ -118,12 +119,17 @@ window.  Return (values WINDOW FOCUS)."
                   (lambda (item set)
                     (declare (ignore set))
                     (let ((sym (gethash item tab)))
-                      (when sym (%open-output (format nil " ~a " item) (funcall detail-fn sym))))))))
+                      (when sym (%open-output (format nil " ~a " item) (funcall detail-fn sym)))))
+                  (and obj-fn (lambda (item)
+                                (let ((sym (gethash item tab)))
+                                  (and sym (funcall obj-fn sym))))))))
 
 (defun make-class-browser ()
-  "Browse every class in the image; Enter shows precedence list / slots / subs."
+  "Browse every class in the image; Enter shows precedence list / slots / subs,
+Alt-I inspects the class object."
   (make-symbol-browser " revision — Class browser (introspection) "
-                       (%all-symbols (lambda (s) (find-class s nil))) #'%class-text))
+                       (%all-symbols (lambda (s) (find-class s nil))) #'%class-text
+                       (lambda (s) (find-class s nil))))
 
 (defun make-function-browser ()
   "Browse every function / macro / GF; Enter shows kind, arglist, doc, methods."
@@ -258,6 +264,11 @@ view for Back)."
     (%insp-retitle win)
     (setf (window-scroll-target win) (find-view win 'tree) (window-help win) :browser)
     (values win (find-view win 'tree))))
+
+(defun open-inspector (obj label)
+  "Open an inspector window on OBJ on the running desktop.  The shared entry point
+for the \"Alt-I: inspect the focused item\" affordance across the object browsers."
+  (when *desktop* (dt-open *desktop* (lambda () (make-inspector obj label)))))
 
 (defun do-inspect ()
   "Prompt for a form, evaluate it in the active package, and inspect the result."

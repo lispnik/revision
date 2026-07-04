@@ -255,7 +255,8 @@ and return T."
    (hleft       :initform 0 :accessor list-hleft)          ; horizontal scroll offset (cols)
    (on-activate :initarg :on-activate :initform nil :accessor list-on-activate)
    (on-select   :initarg :on-select   :initform nil :accessor list-on-select)     ; fired when selection moves
-   (on-type     :initarg :on-type     :initform nil :accessor list-on-type))      ; (lb CHAR|:back) -> type-ahead
+   (on-type     :initarg :on-type     :initform nil :accessor list-on-type)       ; (lb CHAR|:back) -> type-ahead
+   (on-inspect  :initarg :on-inspect  :initform nil :accessor list-on-inspect))   ; (lb ITEM) -> open the inspector (Alt-I)
   (:metaclass reactive-class))
 
 (defmethod focusable-p ((lb list-box)) t)
@@ -300,6 +301,11 @@ and return T."
       ((eql ks :enter) (when (and (list-on-activate lb) (< (list-selected lb) n))
                          (funcall (list-on-activate lb) lb (nth (list-selected lb) (list-items lb))))
                        (setf (handled-p e) t))
+      ((and (list-on-inspect lb) (characterp ks) (char-equal ks #\i)         ; Alt-I: open the focused item in the inspector
+            (logtest (event-modifiers e) revision::+md-alt+))
+       (when (< (list-selected lb) n)
+         (funcall (list-on-inspect lb) lb (nth (list-selected lb) (list-items lb))))
+       (setf (handled-p e) t))
       ;; type-ahead: forward printable keys / Backspace to an owner (e.g. a filter field)
       ((and (list-on-type lb) (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))
        (funcall (list-on-type lb) lb ks) (setf (handled-p e) t))
