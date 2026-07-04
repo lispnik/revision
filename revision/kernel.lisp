@@ -103,6 +103,11 @@ so a plain binding still fires when an incidental modifier is present."
   (or (%km-get km (cons keysym mods))
       (and (plusp mods) (%km-get km (cons keysym 0)))))
 
+(defun ctrl (ch)
+  "The keysym a terminal delivers for Ctrl-CH (a control character), e.g.
+(ctrl #\\o) -> ^O.  For use in binding specs and menu accelerators."
+  (code-char (logand (char-code (char-upcase ch)) #x1f)))
+
 (defmacro defkeymap (name (&optional parent) &body bindings)
   "Define a keymap NAME (optionally inheriting PARENT) from (KEYSYM COMMAND) pairs."
   `(defparameter ,name

@@ -482,6 +482,27 @@ or a regex per line when REGEX).  Return the number of replacements."
     (setf (te-modified te) nil)
     t))
 
+;;; The editor's chord bindings go through the unified keymap/command machinery
+;;; (the same one used by view keymaps and menu accelerators).  Movement, typing,
+;;; selection and the incremental-search intercept stay as editing primitives in
+;;; HANDLE-EVENT below.
+(define-command editor-save        (te e) (te-save te))
+(define-command editor-undo        (te e) (te-undo! te))
+(define-command editor-redo        (te e) (te-redo! te))
+(define-command editor-copy        (te e) (te-copy te))
+(define-command editor-cut         (te e) (te-cut te) (te-ensure-visible te))
+(define-command editor-paste       (te e) (te-paste te) (te-ensure-visible te))
+(define-command editor-select-all  (te e) (te-select-all te) (te-ensure-visible te))
+(define-command editor-toggle-wrap (te e) (setf (te-wrap te) (not (te-wrap te)) (te-left te) 0)
+                                          (te-ensure-visible te))
+
+(defkeymap *editor-keys* ()
+  ((ctrl #\s) editor-save)        ((ctrl #\z) editor-undo)
+  ((ctrl #\y) editor-redo)        ((ctrl #\r) editor-redo)
+  ((ctrl #\c) editor-copy)        ((ctrl #\x) editor-cut)
+  ((ctrl #\v) editor-paste)       ((ctrl #\a) editor-select-all)
+  ((ctrl #\w) editor-toggle-wrap))
+
 ;;; --- drawing ----------------------------------------------------------------
 
 (defun %te-draw-cells (line from to base-x y skip w attr-fn)
@@ -644,18 +665,11 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
          (if (te-mark-mode te) (setf (te-mark-mode te) nil (te-anchor te) nil)
              (setf (te-mark-mode te) t (te-anchor te) (cons (te-cy te) (te-cx te))))
          (invalidate te) (done))
-        ;; control chords (arrive as characters with code 1..26)
+        ;; control chords (code 1..26) -> the *editor-keys* keymap (unified
+        ;; dispatch); an unbound chord bubbles to the base view handler.
         ((and cc (<= 1 cc 26))
-         (case (code-char (+ 96 cc))
-           (#\s (te-save te) (done))
-           (#\z (te-undo! te) (done))
-           ((#\y #\r) (te-redo! te) (done))
-           (#\c (te-copy te) (done))
-           (#\x (te-cut te) (te-ensure-visible te) (done))
-           (#\v (te-paste te) (te-ensure-visible te) (done))
-           (#\a (te-select-all te) (te-ensure-visible te) (done))
-           (#\w (setf (te-wrap te) (not (te-wrap te)) (te-left te) 0) (te-ensure-visible te) (done))
-           (t (call-next-method))))
+         (let ((cmd (keymap-lookup *editor-keys* ks (event-modifiers e))))
+           (if cmd (progn (perform cmd te e) (done)) (call-next-method))))
         ;; printable insert (with optional auto-close of brackets/quotes)
         ((and (characterp ks) (graphic-char-p ks))
          (te-type-char te ks) (te-ensure-visible te) (done))

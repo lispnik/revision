@@ -75,7 +75,6 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
    (accel-km :initform nil :accessor mb-accel-km))               ; keymap: accelerator token -> command (built from MENUS)
   (:metaclass reactive-class))
 
-(defun ctrl (ch) (code-char (logand (char-code (char-upcase ch)) #x1f)))   ; (ctrl #\o) -> ^O keysym
 (defun item-separator-p (it) (eq it :--))                                   ; :-- is a horizontal rule
 (defun item-label    (it) (if (item-separator-p it) "" (first it)))
 (defun item-submenu-p (it) (and (consp it) (eq (second it) :submenu)))      ; (LABEL :submenu item...)
