@@ -864,3 +864,6 @@ WINDOW FOCUS)."
 (defun run-editor (&optional path)
   "Run the ported text editor full-screen until Esc."
   (multiple-value-bind (w f) (make-editor path) (run-view w :focus f)))
+
+;;; register with the desktop (File▸New / layout-restore)
+(pushnew (cons :editor (lambda () (make-editor))) *window-builders* :key #'car)

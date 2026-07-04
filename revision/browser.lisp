@@ -71,3 +71,7 @@ returns for the focused item in the inspector.  Return (values WINDOW FOCUS)."
 
 (defun run-packages () (multiple-value-bind (w f) (make-packages) (run-view w :focus f)))
 (defun run-systems  () (multiple-value-bind (w f) (make-systems)  (run-view w :focus f)))
+
+;;; register with the desktop (Tools menu / layout-restore)
+(pushnew (cons :packages #'make-packages) *window-builders* :key #'car)
+(pushnew (cons :systems  #'make-systems)  *window-builders* :key #'car)

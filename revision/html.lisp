@@ -580,3 +580,6 @@ fetches and renders the target.  Return (values WINDOW FOCUS OPEN)."
             (hv-on-status doc) #'echo)
       (setf (window-scroll-target win) doc (window-help win) :html)
       (values win doc (lambda (s) (declare (ignore s)) (render html base-url) nil)))))
+
+;;; register with the desktop (Tools menu / layout-restore)
+(pushnew (cons :html (lambda () (make-html))) *window-builders* :key #'car)

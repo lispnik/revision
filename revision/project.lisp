@@ -339,3 +339,6 @@ so MAKE-PATHNAME won't inherit a type from anything it is merged against."
 (defun run-project (&optional (dir "/Users/mkennedy/Projects/common-lisp/revision/"))
   "Browse a git project as a lazy tree with a flat-match filter."
   (multiple-value-bind (w f) (make-project dir) (run-view w :focus f)))
+
+;;; register with the desktop (Tools menu / layout-restore)
+(pushnew (cons :project (lambda () (make-project))) *window-builders* :key #'car)

@@ -330,7 +330,8 @@ box's top-border row; its items occupy rows SY0+1 .. SY0+COUNT."
         (menu-sel (dt-menubar dt)) 0
         (menu-sub (dt-menubar dt)) nil))
 
-(defvar *window-builders* nil "Keyword -> 0-arg make-* builder (populated below); drives layout restore.")
+;;; *window-builders* and *extra-menus* (the desktop plugin registry) are defined
+;;; early in host.lisp; windows self-register their builders in their own files.
 
 (defun dt-cascade-rect (dt)
   "A cascade-offset rectangle for the Nth window, kept *fully* on the desktop:
@@ -775,16 +776,10 @@ editors, the theme radio re-skins the desktop, the timeout field is immediate."
 
 ;;; --- desktop layout persistence (whole-desktop save / restore) --------------
 
-(setf *window-builders*                                  ; keyword -> 0-arg builder (now that make-* exist)
-      (list (cons :repl    #'make-repl)
-            (cons :editor  (lambda () (make-editor)))
-            (cons :project (lambda () (make-project)))
-            (cons :packages #'make-packages)
-            (cons :systems  #'make-systems)
-            (cons :threads  #'make-threadmon)
-            (cons :html     (lambda () (make-html)))
-            (cons :ptable   #'make-package-table)
-            (cons :options  #'make-options)))
+;;; make-package-table + make-options are defined here in desktop.lisp; every other
+;;; window builder self-registers in its own file (repl / editor / project / …).
+(pushnew (cons :ptable  #'make-package-table) *window-builders* :key #'car)
+(pushnew (cons :options #'make-options)       *window-builders* :key #'car)
 
 (defun %desktop-file () (merge-pathnames ".revision-desktop" (user-homedir-pathname)))
 
@@ -831,9 +826,8 @@ editor buffer text."
 
 ;;; --- entry point ------------------------------------------------------------
 
-(defvar *extra-menus* nil
-  "Functions (DT) -> a menu spec, appended to the menu bar by later modules
-(e.g. inspect.lisp's Inspect menu).  Most-recently-pushed appears last.")
+;;; *extra-menus* is defined in host.lisp (the plugin registry).  A module pushes a
+;;; (DT) -> menu-spec function; most-recently-pushed appears last.
 
 (defun %about-dialog ()
   "The classic ≡ system-menu About box."
