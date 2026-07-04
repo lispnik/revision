@@ -681,13 +681,15 @@ plus the focused widget's own STATUS-HINTS, plus the always-on globals."
          (win (ui (window (:title " Packages (table viewer) " :keymap *global-keys*)
                     (stack
                       (:fill (table-view :name 'tbl :rows rows
+                               :on-inspect (lambda (tv p) (declare (ignore tv))
+                                             (when p (funcall 'open-inspector p (package-name p))))
                                :columns (list
                                          (list "Package"  30 (lambda (p) (package-name p)))
                                          (list "External" 10 (lambda (p) (let ((n 0))
                                                                            (do-external-symbols (s p) (declare (ignore s)) (incf n)) n)))
                                          (list "Uses"     40 (lambda (p) (format nil "~{~a~^ ~}"
                                                                                 (mapcar #'package-name (package-use-list p))))))))
-                      (1 (static-text :role :status :text " ↑/↓ select · click a row · wheel scrolls · Esc closes ")))))))
+                      (1 (static-text :role :status :text " ↑/↓ select · Alt-I: inspect · click a row · wheel scrolls · Esc closes ")))))))
     (setf (window-scroll-target win) (find-view win 'tbl) (window-help win) :browser)
     (values win (find-view win 'tbl))))
 

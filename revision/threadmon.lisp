@@ -106,7 +106,10 @@ and returns a cleanup thunk that stops it when the window closes."
                           :keymap *global-keys*)
                    (stack
                      (1 (static-text :role :label :text " Live SBCL threads (auto-refreshing every 1.5s): "))
-                     (:fill (list-box :name 'threads :items (mapcar #'%thread-label (sb-thread:list-all-threads))))
+                     (:fill (list-box :name 'threads :items (mapcar #'%thread-label (sb-thread:list-all-threads))
+                              :on-inspect (lambda (lb item) (declare (ignore item))
+                                            (let ((th (nth (list-selected lb) *tm-threads*)))
+                                              (when th (funcall 'open-inspector th (%thread-label th)))))))
                      (1 (row (9  (button :label "Spawn"     :command 'tm-spawn))
                              (13 (button :label "Backtrace" :command 'tm-backtrace))
                              (13 (button :label "Interrupt" :command 'tm-interrupt))
@@ -114,7 +117,7 @@ and returns a cleanup thunk that stops it when the window closes."
                              (11 (button :label "Refresh"   :command 'tm-refresh-cmd))
                              (:fill (static-text :name 'echo :role :status :text ""))))
                      (1 (static-text :role :status
-                          :text " Select a thread · Backtrace snapshots its stack · Interrupt = soft Ctrl-C · Esc: close ")))))))
+                          :text " Alt-I: inspect · Backtrace snapshots its stack · Interrupt = soft Ctrl-C · Esc: close ")))))))
     (setf *tm-threads* (sb-thread:list-all-threads) (window-help win) :threads)
     (values win (find-view win 'threads)
             (lambda (s) (declare (ignore s))

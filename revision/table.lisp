@@ -13,7 +13,8 @@
    (selected    :initform 0 :accessor table-selected)
    (top         :initform 0 :accessor table-top)                           ; first visible data row
    (hleft       :initform 0 :accessor table-hleft)                         ; horizontal scroll offset (cols)
-   (on-activate :initarg :on-activate :initform nil :accessor table-on-activate))
+   (on-activate :initarg :on-activate :initform nil :accessor table-on-activate)
+   (on-inspect  :initarg :on-inspect  :initform nil :accessor table-on-inspect))   ; (tv ROW) -> open the inspector (Alt-I)
   (:metaclass reactive-class))
 
 (defmethod focusable-p ((tv table-view)) t)
@@ -72,6 +73,11 @@
       ((eql ks :left)  (scroll-hto tv (- (table-hleft tv) 8)) (setf (handled-p e) t))
       ((eql ks :right) (scroll-hto tv (+ (table-hleft tv) 8)) (setf (handled-p e) t))
       ((eql ks :enter) (table-activate tv) (setf (handled-p e) t))
+      ((and (table-on-inspect tv) (characterp ks) (char-equal ks #\i)       ; Alt-I: open the focused row in the inspector
+            (logtest (event-modifiers e) revision::+md-alt+))
+       (when (< (table-selected tv) n)
+         (funcall (table-on-inspect tv) tv (nth (table-selected tv) (table-rows tv))))
+       (setf (handled-p e) t))
       (t (call-next-method)))))
 
 (defmethod handle-event ((tv table-view) (e mouse-down))
