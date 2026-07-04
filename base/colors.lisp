@@ -41,30 +41,51 @@ visible whether or not the view has keyboard focus — brighter when ACTIVE."
 (defun attr-rgb-p (a) (logtest a +attr-rgb-flag+))
 
 (defvar *rgb-pairs* (make-array 64 :adjustable t :fill-pointer 0)
-  "Interned (fg<<24 | bg) 48-bit colour pairs; the RGB attr's index points here.")
+  "Interned (style<<48 | fg<<24 | bg) colour+style entries; the RGB attr's index
+points here.  STYLE is a small bitmask of text styles (bold/italic/underline/…);
+0 for a plain colour pair, so pre-style callers are unchanged.")
 (defvar *rgb-index* (make-hash-table)
-  "Maps a packed fg/bg key to its interned RGB attr (for dedup).")
+  "Maps a packed style/fg/bg key to its interned RGB attr (for dedup).")
 
-(defun rgb-attr (fg-rgb bg-rgb)
-  "Intern a true-colour attribute from 24-bit packed FG-RGB and BG-RGB; return it."
-  (let ((key (logior (ash (logand fg-rgb #xffffff) 24) (logand bg-rgb #xffffff))))
+;;; Text-style bits carried by an RGB attribute (independent of the 4-bit DOS
+;;; blink bit).  ATTR->ANSI emits the matching SGR parameters.
+(defconstant +style-bold+      #x01)
+(defconstant +style-italic+    #x02)
+(defconstant +style-underline+ #x04)
+(defconstant +style-blink+     #x08)
+(defconstant +style-reverse+   #x10)
+(defconstant +style-strike+    #x20)
+;; underline sub-type (only meaningful together with +style-underline+): plain
+;; single when neither bit is set, else double / curly.
+(defconstant +style-uline-double+ #x40)
+(defconstant +style-uline-curly+  #x80)
+
+(defun rgb-attr (fg-rgb bg-rgb &optional (style 0))
+  "Intern a true-colour attribute from 24-bit packed FG-RGB and BG-RGB and an
+optional STYLE bitmask (+STYLE-BOLD+ etc.); return it."
+  (let ((key (logior (ash (logand style #xff) 48)
+                     (ash (logand fg-rgb #xffffff) 24)
+                     (logand bg-rgb #xffffff))))
     (or (gethash key *rgb-index*)
         (let ((a (logior +attr-rgb-flag+ (fill-pointer *rgb-pairs*))))
           (vector-push-extend key *rgb-pairs*)
           (setf (gethash key *rgb-index*) a)
           a))))
 
-(defun make-rgb (fr fg fb br bg bb)
+(defun make-rgb (fr fg fb br bg bb &optional (style 0))
   "Intern a true-colour attribute from foreground (FR FG FB) and background
-(BR BG BB) channel values (0-255)."
-  (rgb-attr (pack-rgb fr fg fb) (pack-rgb br bg bb)))
+(BR BG BB) channel values (0-255), with an optional STYLE bitmask."
+  (rgb-attr (pack-rgb fr fg fb) (pack-rgb br bg bb) style))
 
 (defun attr-rgb-fg (a)
   "The 24-bit packed foreground of an RGB attribute A."
-  (ash (aref *rgb-pairs* (logand a #x7fffffff)) -24))
+  (logand (ash (aref *rgb-pairs* (logand a #x7fffffff)) -24) #xffffff))
 (defun attr-rgb-bg (a)
   "The 24-bit packed background of an RGB attribute A."
   (logand (aref *rgb-pairs* (logand a #x7fffffff)) #xffffff))
+(defun attr-rgb-style (a)
+  "The text-style bitmask of an RGB attribute A (0 when none)."
+  (logand (ash (aref *rgb-pairs* (logand a #x7fffffff)) -48) #xff))
 
 ;;; Map DOS colour indices (IRGB ordering) onto ANSI SGR colour indices
 ;;; (the ANSI order is black,red,green,yellow,blue,magenta,cyan,white).
@@ -157,19 +178,37 @@ a *-256color $TERM -> 256; otherwise 16."
              (d (+ (* dr dr) (* dg dg) (* db db))))
         (when (< d bestd) (setf bestd d best i))))))
 
-(defun %sgr-rgb (fr fg fb br bg bb)
-  "An SGR string setting fg (FR FG FB) and bg (BR BG BB), honouring *COLOR-MODE*."
-  (ecase *color-mode*
-    (:truecolor
-     (format nil "~c[0;38;2;~d;~d;~d;48;2;~d;~d;~dm" #\Escape fr fg fb br bg bb))
-    (:256
-     (format nil "~c[0;38;5;~d;48;5;~dm" #\Escape
-             (%rgb->256 fr fg fb) (%rgb->256 br bg bb)))
-    (:16
-     (let* ((dfg (%nearest-dos fr fg fb)) (dbg (%nearest-dos br bg bb))
-            (afg (aref +dos->ansi+ (logand dfg 7))) (abg (aref +dos->ansi+ (logand dbg 7))))
-       (format nil "~c[0;~d;~dm" #\Escape
-               (if (>= dfg 8) (+ 90 afg) (+ 30 afg)) (+ 40 abg))))))
+(defun %style-codes (style)
+  "The SGR parameter string for STYLE's bits (each prefixed with ';'), or \"\"."
+  (if (zerop style)
+      ""
+      (with-output-to-string (s)
+        (when (logtest style +style-bold+)      (write-string ";1" s))
+        (when (logtest style +style-italic+)    (write-string ";3" s))
+        (when (logtest style +style-underline+)                         ; single / double / curly
+          (write-string (cond ((logtest style +style-uline-double+) ";4:2")
+                              ((logtest style +style-uline-curly+)  ";4:3")
+                              (t ";4"))
+                        s))
+        (when (logtest style +style-blink+)     (write-string ";5" s))
+        (when (logtest style +style-reverse+)   (write-string ";7" s))
+        (when (logtest style +style-strike+)    (write-string ";9" s)))))
+
+(defun %sgr-rgb (fr fg fb br bg bb &optional (style 0))
+  "An SGR string setting fg (FR FG FB), bg (BR BG BB) and text STYLE, honouring
+*COLOR-MODE*."
+  (let ((sc (%style-codes style)))
+    (ecase *color-mode*
+      (:truecolor
+       (format nil "~c[0~a;38;2;~d;~d;~d;48;2;~d;~d;~dm" #\Escape sc fr fg fb br bg bb))
+      (:256
+       (format nil "~c[0~a;38;5;~d;48;5;~dm" #\Escape sc
+               (%rgb->256 fr fg fb) (%rgb->256 br bg bb)))
+      (:16
+       (let* ((dfg (%nearest-dos fr fg fb)) (dbg (%nearest-dos br bg bb))
+              (afg (aref +dos->ansi+ (logand dfg 7))) (abg (aref +dos->ansi+ (logand dbg 7))))
+         (format nil "~c[0~a;~d;~dm" #\Escape sc
+                 (if (>= dfg 8) (+ 90 afg) (+ 30 afg)) (+ 40 abg)))))))
 
 (defun attr->ansi (a)
   "Return an ANSI SGR escape string for attribute A, honouring *COLOR-MODE* and
@@ -179,7 +218,8 @@ attrs emit their exact RGB (downgraded to the cube / nearest-16 when needed)."
     ((attr-rgb-p a)
      (let ((fg (attr-rgb-fg a)) (bg (attr-rgb-bg a)))
        (%sgr-rgb (ldb (byte 8 16) fg) (ldb (byte 8 8) fg) (ldb (byte 8 0) fg)
-                 (ldb (byte 8 16) bg) (ldb (byte 8 8) bg) (ldb (byte 8 0) bg))))
+                 (ldb (byte 8 16) bg) (ldb (byte 8 8) bg) (ldb (byte 8 0) bg)
+                 (attr-rgb-style a))))
     ;; legacy 4-bit attr: keep the exact 16-colour codes (back-compatible)
     ((eq *color-mode* :16)
      (let ((fg (attr-fg a)) (bg (attr-bg a)))
