@@ -93,7 +93,7 @@ Word-wrap reflows wide glyphs whole rather than splitting them at the boundary.
 
 ![Word-wrap with emoji: wide glyphs stay whole at the wrap boundary](media/wrap-emoji.gif)
 
-## Example application — revl
+## Example applications
 
 The framework's flagship example, **`revl`** — a SLIME-class Lisp REPL / IDE
 that exercises the whole framework (overlapping windows, menus, dialogs, the
@@ -114,6 +114,20 @@ It reaches this framework through a `systems/revision` symlink to the sibling
 checkout, so the two build together with no global configuration.  Its
 framework-agnostic Lisp logic lives in a shared `revl-logic` system, so the IDE
 reuses it directly on revision.  See that project's README for the full feature tour.
+
+### revision-term — a terminal-emulator widget
+
+**`revision-term`** is a **reusable terminal window** for the framework: it runs
+a real child process (your shell, `vi`, `top`, …) on a pseudo-terminal, emulates
+it with **libvterm** (via CFFI), and renders the emulated screen into a
+`revision` view — so a live terminal becomes a first-class window that any
+`revision` app can embed, alongside the REPL, editor, and the rest.  It shows off
+the framework's 24-bit colour and text-style attributes with full fidelity
+(true-colour, bold/italic/underline, wide CJK/emoji, combining marks).
+
+> **[github.com/lispnik/revision-term](https://github.com/lispnik/revision-term)**
+
+![revision-term: terminal windows in a revision desktop, tiled beside a native Lisp REPL](https://raw.githubusercontent.com/lispnik/revision-term/master/media/demo.gif)
 
 ## Testing
 
