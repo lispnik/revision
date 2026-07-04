@@ -61,4 +61,5 @@
                              (:file "emoji")
                              (:file "sbcl")
                              (:file "docs")
+                             (:file "reference")
                              (:file "app")))))

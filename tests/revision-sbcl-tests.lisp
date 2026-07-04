@@ -128,5 +128,12 @@
 (check "cltl2 declaration-information: OPTIMIZE is an alist" (consp (sb-cltl2:declaration-information 'optimize nil)))
 
 ;;; ===========================================================================
+;;; Keybinding reference: the committed KEYBINDINGS.md must match the generator,
+;;; so a binding change without `make keybindings` fails here (no doc drift).
+;;; ===========================================================================
+(check "KEYBINDINGS.md matches the keymaps (run `make keybindings` after a rebind)"
+       (string= (keybinding-markdown) (uiop:read-file-string "KEYBINDINGS.md")))
+
+;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

@@ -23,7 +23,7 @@ endef
 FRAMEWORK := revision.asd $(wildcard base/*.lisp) $(wildcard revision/*.lisp)
 
 .DEFAULT_GOAL := all
-.PHONY: all clean test test-revision help
+.PHONY: all clean test test-revision keybindings help
 
 # Build check: compile and load the framework (base + revision kernel).
 all: $(FRAMEWORK)
@@ -36,6 +36,11 @@ test: test-revision
 test-revision: $(FRAMEWORK) tests/revision-sbcl-tests.lisp tests/revision-editor-tests.lisp
 	$(SBCL) --script tests/revision-sbcl-tests.lisp
 	$(SBCL) --script tests/revision-editor-tests.lisp
+
+# Regenerate the keybinding reference (KEYBINDINGS.md) from the keymaps.
+keybindings: $(FRAMEWORK)
+	$(call asdf-load,(progn (asdf:load-system :revision) (with-open-file (o "KEYBINDINGS.md" :direction :output :if-exists :supersede) (write-string (uiop:symbol-call :revision :keybinding-markdown) o))))
+	@echo "regenerated KEYBINDINGS.md"
 
 clean:
 	rm -rf $(HOME)/.cache/common-lisp/*tvision* $(HOME)/.cache/common-lisp/*revision* 2>/dev/null || true
