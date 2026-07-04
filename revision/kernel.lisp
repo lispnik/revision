@@ -226,12 +226,12 @@ one display unit, and a double-width glyph reserves its second cell with the
 ;;; ---------------------------------------------------------------------------
 
 (defparameter *special-keys*
-  (list (cons revision:+kb-up+ :up)     (cons revision:+kb-down+ :down)
-        (cons revision:+kb-left+ :left) (cons revision:+kb-right+ :right)
-        (cons revision:+kb-enter+ :enter) (cons revision:+kb-esc+ :esc)
-        (cons revision:+kb-home+ :home) (cons revision:+kb-end+ :end)
-        (cons revision:+kb-pgup+ :pgup) (cons revision:+kb-pgdn+ :pgdn)
-        (cons revision:+kb-tab+ :tab)   (cons revision:+kb-shift-tab+ :shift-tab)
+  (list (cons +kb-up+ :up)     (cons +kb-down+ :down)
+        (cons +kb-left+ :left) (cons +kb-right+ :right)
+        (cons +kb-enter+ :enter) (cons +kb-esc+ :esc)
+        (cons +kb-home+ :home) (cons +kb-end+ :end)
+        (cons +kb-pgup+ :pgup) (cons +kb-pgdn+ :pgdn)
+        (cons +kb-tab+ :tab)   (cons +kb-shift-tab+ :shift-tab)
         (cons revision::+kb-back+ :back) (cons revision::+kb-del+ :del)
         (cons revision::+kb-ins+ :ins)
         (cons revision::+kb-f1+ :f1) (cons revision::+kb-f2+ :f2) (cons revision::+kb-f3+ :f3)
@@ -243,7 +243,7 @@ one display unit, and a double-width glyph reserves its second cell with the
   "Translate a revision event struct into a revision event object, or NIL to ignore."
   (let ((ty (revision::iev-type tev)))
     (cond
-      ((= ty revision:+ev-key-down+)
+      ((= ty +ev-key-down+)
        (let* ((k (revision::iev-key-code tev)) (c (revision::iev-char-code tev))
               (m (revision::iev-modifiers tev))
               (ks (or (cdr (assoc k *special-keys*)) (and (plusp c) (code-char c)))))
@@ -254,7 +254,7 @@ one display unit, and a double-width glyph reserves its second cell with the
            (setf ks (code-char (+ (char-code ks) 96))
                  m  (logior m revision::+md-ctrl+)))
          (and ks (make-instance 'key-event :keysym ks :modifiers m))))
-      ((= ty revision:+ev-mouse-wheel+)
+      ((= ty +ev-mouse-wheel+)
        (make-instance 'wheel-event :delta (revision::iev-wheel tev) :where (%where tev)))
       ((= ty revision::+ev-mouse-down+)
        (make-instance 'mouse-down :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
