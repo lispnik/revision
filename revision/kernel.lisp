@@ -126,22 +126,29 @@ modified variants (Ctrl-/Shift-<key> only fires a binding made for it)."
    (action  :initarg :action  :reader command-action)
    (doc     :initarg :doc     :initform nil :reader command-doc)      ; one-line description (see DEFINE-COMMAND)
    (source  :initarg :source  :initform nil :reader command-source)  ; defining file (cross-file collision detection)
-   (enabled :initarg :enabled :initform t :accessor command-enabled-p))
+   (enabled :initarg :enabled :initform t   :accessor command-enabled))  ; boolean, or a predicate thunk
   (:metaclass reactive-class))
+
+(defun command-enabled-p (command)
+  "Is COMMAND enabled right now?  ENABLED is a boolean, or a predicate thunk evaluated
+on demand -- the single enablement check used by PERFORM (and available to menus /
+buttons), so a guarded command no longer needs a second, hand-rolled check."
+  (let ((e (command-enabled command))) (if (functionp e) (funcall e) e)))
 
 (defvar *commands* (make-hash-table) "Name -> COMMAND object.")
 
-(defun register-command (name action &optional doc)
-  "Register command NAME.  Warns if NAME is redefined from a DIFFERENT source file --
-an accidental cross-file collision.  A live redefinition from the same file, or from
-the REPL (source NIL), is silent, so redefining a command interactively still works."
+(defun register-command (name action &optional doc (enabled t))
+  "Register command NAME (ENABLED may be a boolean or a predicate thunk).  Warns if NAME
+is redefined from a DIFFERENT source file -- an accidental cross-file collision.  A live
+redefinition from the same file, or from the REPL (source NIL), is silent, so redefining
+a command interactively still works."
   (let ((src (or *compile-file-truename* *load-truename*))       ; NIL when evaluated at the REPL
         (old (gethash name *commands*)))
     (when (and old src (command-source old) (not (equal src (command-source old))))
       (warn "revision: command ~s redefined in ~a (first defined in ~a)"
             name (file-namestring src) (file-namestring (command-source old))))
     (setf (gethash name *commands*)
-          (make-instance 'command :name name :action action :doc doc :source src))))
+          (make-instance 'command :name name :action action :doc doc :source src :enabled enabled))))
 
 (defmacro define-command (name (view event) &body body)
   "Define and register command NAME with an action over (VIEW EVENT).  A leading
