@@ -146,7 +146,9 @@ description surfaced in the generated keybinding reference."
   (:method ((c command) view event)
     (when (command-enabled-p c) (funcall (command-action c) view event)))
   (:method ((c symbol) view event)
-    (let ((cmd (gethash c *commands*))) (when cmd (perform cmd view event)))))
+    (let ((cmd (gethash c *commands*)))
+      (if cmd (perform cmd view event)
+          (error "PERFORM: no command named ~s -- a keymap or menu binding typo?" c)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Dispatch: handle-event is a multimethod on (view x event).  The base view

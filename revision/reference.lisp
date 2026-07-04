@@ -69,6 +69,20 @@ accelerators are added separately, built from the desktop menu tree.")
   "Widget-level keys handled inside the widgets (list-box / table-view) rather than a
 keymap -- listed here so the reference stays complete.")
 
+(defun unknown-command-bindings ()
+  "Command NAMES bound in the reference keymaps that are NOT registered in *COMMANDS*
+-- i.e. keymap typos.  PERFORM errors on such a name at runtime; the drift/validation
+test calls this so a typo is caught at build time instead."
+  (loop for (nil . var) in *reference-keymaps*
+        when (boundp var)
+          nconc (let ((bad '()))
+                  (maphash (lambda (tok v)
+                             (declare (ignore tok))
+                             (when (and (symbolp v) v (not (gethash v *commands*)))
+                               (pushnew v bad)))
+                           (keymap-bindings (symbol-value var)))
+                  bad)))
+
 (defun keybinding-reference ()
   "A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu
 accelerators, every named keymap (derived from the live keymaps), and the widget-
@@ -108,4 +122,5 @@ help viewer, using the H1/H2/UL/LI/CODE vocabulary the help pages already use."
         (write-string "</ul>" o)))))
 
 (eval-when (:load-toplevel :execute)
-  (export '(key-label keymap-entries keybinding-reference keybinding-markdown keybinding-html)))
+  (export '(key-label keymap-entries keybinding-reference keybinding-markdown keybinding-html
+            unknown-command-bindings)))

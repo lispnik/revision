@@ -133,6 +133,8 @@
 ;;; ===========================================================================
 (check "KEYBINDINGS.md matches the keymaps (run `make keybindings` after a rebind)"
        (string= (keybinding-markdown) (uiop:read-file-string "KEYBINDINGS.md")))
+(check "no keymap binding names an unregistered command (PERFORM would error)"
+       (null (unknown-command-bindings)))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
