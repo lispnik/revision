@@ -304,7 +304,7 @@ the listener's package): insert the sole candidate, or pop up a chooser."
 (defkeymap *repl-input-keys* (*global-keys*)            ; Enter is handled inline by the scrollback (ON-SUBMIT)
   (:up    repl-hist-prev)
   (:down  repl-hist-next)
-  ((code-char 18) repl-hist-search))                    ; Ctrl-R: reverse-i-search over history
+  ((ctrl #\r) repl-hist-search))                        ; Ctrl-R: reverse-i-search over history
 
 ;;; --- entry point ------------------------------------------------------------
 

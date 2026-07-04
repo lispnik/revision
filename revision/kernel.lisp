@@ -105,9 +105,10 @@ modified variants (Ctrl-/Shift-<key> only fires a binding made for it)."
       (and loose (plusp mods) (%km-get km (cons keysym 0)))))
 
 (defun ctrl (ch)
-  "The keysym a terminal delivers for Ctrl-CH (a control character), e.g.
-(ctrl #\\o) -> ^O.  For use in binding specs and menu accelerators."
-  (code-char (logand (char-code (char-upcase ch)) #x1f)))
+  "A binding spec for Ctrl-CH: the (KEYSYM . MODS) cons (CH . +md-ctrl+).  Ctrl lives
+in the modifier bits -- TRANSLATE normalises the control char terminals send to this
+form -- so e.g. (ctrl #\\o) matches the same token the driver produces for Ctrl-O."
+  (cons (char-downcase ch) revision::+md-ctrl+))
 
 (defmacro defkeymap (name (&optional parent) &body bindings)
   "Define a keymap NAME (optionally inheriting PARENT) from (KEYSYM COMMAND) pairs."
@@ -244,9 +245,15 @@ one display unit, and a double-width glyph reserves its second cell with the
     (cond
       ((= ty revision:+ev-key-down+)
        (let* ((k (revision::iev-key-code tev)) (c (revision::iev-char-code tev))
+              (m (revision::iev-modifiers tev))
               (ks (or (cdr (assoc k *special-keys*)) (and (plusp c) (code-char c)))))
-         (and ks (make-instance 'key-event :keysym ks
-                                :modifiers (revision::iev-modifiers tev)))))
+         ;; Normalise a Ctrl-letter: terminals deliver it as a control character
+         ;; (code 1-26); present it as the base letter with +md-ctrl+, so Ctrl lives
+         ;; only in the modifiers -- one encoding, like Shift+Del or Alt-X.
+         (when (and (characterp ks) (<= 1 (char-code ks) 26))
+           (setf ks (code-char (+ (char-code ks) 96))
+                 m  (logior m revision::+md-ctrl+)))
+         (and ks (make-instance 'key-event :keysym ks :modifiers m))))
       ((= ty revision:+ev-mouse-wheel+)
        (make-instance 'wheel-event :delta (revision::iev-wheel tev) :where (%where tev)))
       ((= ty revision::+ev-mouse-down+)

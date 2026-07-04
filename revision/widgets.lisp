@@ -230,7 +230,7 @@ and return T."
     (cond
       ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))
        (input-insert il ks) (setf (handled-p e) t))
-      ((eql ks (code-char 21))                                 ; Ctrl-U: clear the whole field
+      ((and (eql ks #\u) (logtest (event-modifiers e) revision::+md-ctrl+))    ; Ctrl-U: clear the whole field
        (setf (input-text il) "" (input-caret il) 0 (input-scroll il) 0)
        (input-notify il) (setf (handled-p e) t))
       ((eql ks :back)  (input-backspace il) (setf (handled-p e) t))

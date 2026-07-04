@@ -12,8 +12,6 @@
 \"F2\", \"Alt+X\", \"Up\"."
   (let ((ks (car token)) (m (cdr token)))
     (cond
-      ((and (characterp ks) (<= 1 (char-code ks) 26))            ; a control char already means Ctrl
-       (format nil "Ctrl+~a" (code-char (+ 64 (char-code ks)))))
       ((keywordp ks)
        (let ((base (case ks
                      (:up "Up") (:down "Down") (:left "Left") (:right "Right")

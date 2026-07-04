@@ -368,7 +368,7 @@ live; Ctrl-S finds the next; Enter accepts; Esc restores the original position."
                      (te-find te q :from-line 0 :from-col 0))))
       (te-ensure-visible te) (invalidate te))))
 
-(defun te-isearch-key (te ks)
+(defun te-isearch-key (te ks mods)
   "Handle one keystroke in incremental-search mode.  Return :CONSUMED when it was
 an isearch action, NIL to leave the mode and let the key act normally."
   (cond
@@ -381,8 +381,9 @@ an isearch action, NIL to leave the mode and let the key act normally."
      (let ((q (te-isearch te)))
        (when (plusp (length q)) (setf (te-isearch te) (subseq q 0 (1- (length q))))))
      (%te-isearch-run te) :consumed)
-    ((and (characterp ks) (= (char-code ks) 19)) (%te-isearch-next te) :consumed)  ; Ctrl-S
-    ((and (characterp ks) (graphic-char-p ks))
+    ((and (eql ks #\s) (logtest mods revision::+md-ctrl+))
+     (%te-isearch-next te) :consumed)                                          ; Ctrl-S: next match
+    ((and (characterp ks) (graphic-char-p ks) (zerop mods))
      (setf (te-isearch te) (concatenate 'string (te-isearch te) (string ks)))
      (%te-isearch-run te) :consumed)
     (t nil)))                                            ; any other key ends isearch
@@ -654,7 +655,7 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
     ;; incremental search intercepts keys until it accepts/cancels or a
     ;; non-isearch key ends the mode (that key then falls through to act normally)
     (when (te-isearch te)
-      (if (eq (te-isearch-key te ks) :consumed)
+      (if (eq (te-isearch-key te ks (event-modifiers e)) :consumed)
           (progn (setf (handled-p e) t) (return-from handle-event))
           (progn (setf (te-isearch te) nil) (invalidate te))))
     (macrolet ((done () '(setf (handled-p e) t)))
@@ -665,13 +666,13 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
          (if (te-mark-mode te) (setf (te-mark-mode te) nil (te-anchor te) nil)
              (setf (te-mark-mode te) t (te-anchor te) (cons (te-cy te) (te-cx te))))
          (invalidate te) (done))
-        ;; control chords (code 1..26) -> the *editor-keys* keymap (unified
-        ;; dispatch); an unbound chord bubbles to the base view handler.
-        ((and cc (<= 1 cc 26))
+        ;; Ctrl-<key> chords -> the *editor-keys* keymap (unified dispatch);
+        ;; an unbound chord bubbles to the base view handler.
+        ((and (characterp ks) (logtest (event-modifiers e) revision::+md-ctrl+))
          (let ((cmd (keymap-lookup *editor-keys* ks (event-modifiers e))))
            (if cmd (progn (perform cmd te e) (done)) (call-next-method))))
-        ;; printable insert (with optional auto-close of brackets/quotes)
-        ((and (characterp ks) (graphic-char-p ks))
+        ;; printable insert -- unmodified graphic chars (with optional auto-close)
+        ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))
          (te-type-char te ks) (te-ensure-visible te) (done))
         ;; editing
         ((eql ks :enter) (te-newline te) (te-ensure-visible te) (done))

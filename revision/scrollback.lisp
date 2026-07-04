@@ -128,12 +128,12 @@ occupies as a presentation of the live OBJECT, so clicking them fires ON-PRESENT
 (defmethod handle-event ((sb scrollback) (e wheel-event))
   (sb-scroll sb (* 3 (event-delta e))) (setf (handled-p e) t))
 
-(defun %sb-edit-input (sb ks)
+(defun %sb-edit-input (sb ks mods)
   "Edit the live input line for keystroke KS; return T when consumed (else the key
 bubbles to the window keymap: Up/Down history, Tab completion, Ctrl-R, Esc quit)."
   (let ((in (sb-input sb)) (c (sb-icaret sb)))
     (cond
-      ((and (characterp ks) (graphic-char-p ks))
+      ((and (characterp ks) (graphic-char-p ks) (zerop mods))
        (setf (sb-input sb) (concatenate 'string (subseq in 0 c) (string ks) (subseq in c))
              (sb-icaret sb) (1+ c))
        (when (sb-follow sb) (sb-scroll-end sb)) (invalidate sb) t)
@@ -154,7 +154,7 @@ bubbles to the window keymap: Up/Down history, Tab completion, Ctrl-R, Esc quit)
 (defmethod handle-event ((sb scrollback) (e key-event))
   (let* ((ks (event-keysym e)) (page (max 1 (1- (r-h (view-bounds sb))))))
     (cond
-      ((and (sb-iactive sb) (%sb-edit-input sb ks)) (setf (handled-p e) t))
+      ((and (sb-iactive sb) (%sb-edit-input sb ks (event-modifiers e))) (setf (handled-p e) t))
       ((eql ks :pgup) (sb-scroll sb (- page))(setf (handled-p e) t))
       ((eql ks :pgdn) (sb-scroll sb page)    (setf (handled-p e) t))
       ;; when there is no inline input, plain Up/Down/Home/End scroll the log
