@@ -21,6 +21,7 @@ CLOS-native re-architecture of the framework.</p>
 and <b>closable</b> (<code>[x]</code>).  The <b>Window</b> menu tiles and cascades them.</li>
 <li>The <b>mouse</b> works throughout; the <b>wheel</b> scrolls; <code>Esc</code> closes a window.</li>
 </ul>
+<p>See the full <a href=\"keys\">Keybindings</a> reference (generated from the keymaps).</p>
 <h2>The windows</h2>
 <p>&#8594; <a href=\"repl\">Lisp REPL</a>, <a href=\"editor\">Text editor</a>,
 <a href=\"project\">Project manager</a>, <a href=\"browser\">Browsers</a>,
@@ -73,6 +74,12 @@ select it, and Kill it (system/UI threads are protected).</p>
 <p><a href=\"general\">&#8592; Contents</a></p>"))
   "Help topic -> HTML string.")
 
+(defun %help-html (topic)
+  "HTML for help TOPIC.  :KEYS is generated live from the keymaps (KEYBINDING-HTML);
+every other topic is a static page in *HELP-PAGES*."
+  (if (eq topic :keys) (funcall 'keybinding-html)
+      (cdr (assoc topic *help-pages*))))
+
 (defun make-help (&optional (topic :general))
   "An html-view window showing help TOPIC; topic links navigate within it."
   (let* ((win (ui (window (:title " Help " :keymap *global-keys*)
@@ -84,11 +91,11 @@ select it, and Kill it (system/UI threads are protected).</p>
     (setf (window-scroll-target win) doc
           (hv-on-link doc) (lambda (href)
                              (let ((tp (intern (string-upcase href) :keyword)))
-                               (when (assoc tp *help-pages*)
-                                 (set-html doc (cdr (assoc tp *help-pages*)))
+                               (when (or (eq tp :keys) (assoc tp *help-pages*))
+                                 (set-html doc (%help-html tp))
                                  (hv-next-link doc 1)))))
     (values win doc
             (lambda (s) (declare (ignore s))
-              (set-html doc (or (cdr (assoc topic *help-pages*)) (cdr (assoc :general *help-pages*))))
+              (set-html doc (or (%help-html topic) (%help-html :general)))
               (hv-next-link doc 1)
               nil))))

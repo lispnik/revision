@@ -81,5 +81,18 @@ Do not edit by hand — run the generator._~%")
         (loop for (key . cmd) in (cdr sec)
               do (format o "| `~a` | `~a` |~%" key cmd))))))
 
+(defun keybinding-html (&optional (ref (keybinding-reference)))
+  "Render the keybinding reference (see KEYBINDING-REFERENCE) as HTML for the in-app
+help viewer, using the H1/H2/UL/LI/CODE vocabulary the help pages already use."
+  (with-output-to-string (o)
+    (write-string "<h1>Keybindings</h1>" o)
+    (write-string "<p>Generated live from the keymaps, so this is always current.</p>" o)
+    (dolist (sec ref)
+      (when (cdr sec)
+        (format o "<h2>~a</h2><ul>" (car sec))
+        (loop for (key . cmd) in (cdr sec)
+              do (format o "<li><code>~a</code> — ~a</li>" key cmd))
+        (write-string "</ul>" o)))))
+
 (eval-when (:load-toplevel :execute)
-  (export '(key-label keymap-entries keybinding-reference keybinding-markdown)))
+  (export '(key-label keymap-entries keybinding-reference keybinding-markdown keybinding-html)))

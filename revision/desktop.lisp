@@ -887,6 +887,7 @@ editor buffer text."
                                        (%tool-note (if *repl-time* "eval timing ON" "eval timing OFF")))))
        (list "Help"
              (list "Contents"        (lambda () (dt-open dt (lambda () (make-help :general)))))
+             (list "Keybindings"     (lambda () (dt-open dt (lambda () (make-help :keys)))))
              (list "This window"     (lambda () (dt-help dt)) :f1)
              (list "Topics" :submenu
                    (list "Lisp REPL"       (lambda () (dt-open dt (lambda () (make-help :repl)))))
