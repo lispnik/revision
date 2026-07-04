@@ -96,7 +96,7 @@ through a pty. Entry points:
 | `run` | the kitchen-sink demo (outline + list + input + buttons + a `go-to-line` modal + session persistence + a background clock through the bridge) |
 | `run-threadmon` | thread monitor — live `sb-thread` list, spawn/kill, background refresh via `run-on-ui` |
 | `run-project` | project manager — a `git ls-files` tree with lazy directories and a flatten-on-filter input |
-| `run-packages` / `run-systems` / `run-browser` | the filterable picker family (Packages, ASDF systems, …) — one generic `run-browser` |
+| `run-packages` / `run-systems` / `run-browser` | the filterable picker family (Packages, ASDF systems, …) — one generic `run-browser`; **Alt-I** opens the focused row's object in the inspector |
 | `run-repl` | the Lisp listener — worker-thread eval, live output streaming (a Gray stream), history vars, sticky `in-package`, command history, and the SLDB debugger on error |
 | `run-editor` | the text editor — vector-of-lines model, selection, clipboard, undo/redo, file I/O, Lisp syntax highlighting, and opt-in soft word-wrap (`C-w`) |
 | `run-html` | the HTML browser — revl's tokenizer + layout reused verbatim; styled runs, link navigation, in-document anchors, and find-in-page (`/`, `<`/`>`) |
