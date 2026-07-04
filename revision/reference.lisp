@@ -29,11 +29,15 @@
       (t (accel-label token)))))
 
 (defun %binding-name (v)
-  "Command name for a keymap value: a command NAME symbol, or an anonymous command
-OBJECT (as the menu accelerators hold)."
-  (cond ((symbolp v)        (string-downcase (symbol-name v)))
-        ((typep v 'command) (princ-to-string (command-name v)))
-        (t                  (princ-to-string v))))
+  "A human label for a keymap value (a command NAME symbol, or an anonymous command
+OBJECT as the menu accelerators hold): the command's :DOC when it has one, else its
+name."
+  (let ((cmd (cond ((symbolp v) (gethash v *commands*))
+                   ((typep v 'command) v))))
+    (cond ((and cmd (command-doc cmd)) (command-doc cmd))
+          ((symbolp v)                 (string-downcase (symbol-name v)))
+          ((typep v 'command)          (princ-to-string (command-name v)))
+          (t                           (princ-to-string v)))))
 
 (defun keymap-entries (km)
   "Sorted list of (KEY-LABEL . COMMAND-NAME) for KM's own bindings (not inherited)."

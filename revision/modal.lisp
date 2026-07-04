@@ -41,6 +41,7 @@
           (unless ok (fail-validation (or msg " Invalid field. "))))))))
 
 (define-command accept (v e)
+  "Accept the dialog: validate the fields and return its value."
   (let ((d (view-root v)))
     (when (typep d 'dialog)
       (handler-case
@@ -55,6 +56,7 @@
             (when msg (setf (static-text-text msg) (validation-message c)) (invalidate d))))))))
 
 (define-command cancel (v e)
+  "Cancel the dialog."
   (let ((d (view-root v)))
     (when (typep d 'dialog) (setf (dialog-result d) :cancel (dialog-done d) t))))
 

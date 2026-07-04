@@ -92,11 +92,12 @@
 
 ;;; --- commands + keymap ------------------------------------------------------
 
-(define-command quit (v e) (setf *running* nil))
-(define-command cursor-up   (v e) (ov-move v -1))
-(define-command cursor-down (v e) (ov-move v 1))
+(define-command quit (v e) "Leave the current view / close the window." (setf *running* nil))
+(define-command cursor-up   (v e) "Move the selection up."   (ov-move v -1))
+(define-command cursor-down (v e) "Move the selection down." (ov-move v 1))
 
 (define-command activate (v e)
+  "Expand or collapse the focused node."
   (let ((n (ov-current v)))
     (when (and n (revision:outline-node-expandable-p n))
       (setf (revision:outline-node-expanded n) (not (revision:outline-node-expanded n)))
@@ -104,6 +105,7 @@
       (invalidate v))))                ; the node is a struct (not reactive) -> repaint by hand
 
 (define-command collapse (v e)
+  "Collapse the focused node, or move to its parent."
   (let ((n (ov-current v)))
     (if (and n (revision:outline-node-expandable-p n) (revision:outline-node-expanded n))
         (progn (setf (revision:outline-node-expanded n) nil) (invalidate v))

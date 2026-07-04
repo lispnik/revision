@@ -27,61 +27,62 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 
 | Key | Command |
 |-----|---------|
-| `Esc` | `quit` |
-| `Q` | `quit` |
+| `Esc` | `Leave the current view / close the window.` |
+| `Q` | `Leave the current view / close the window.` |
 
 ## Desktop
 
 | Key | Command |
 |-----|---------|
-| `F1` | `help-window` |
-| `Alt+1` | `select-window` |
-| `Alt+2` | `select-window` |
-| `Alt+3` | `select-window` |
-| `Alt+4` | `select-window` |
-| `Alt+5` | `select-window` |
-| `Alt+6` | `select-window` |
-| `Alt+7` | `select-window` |
-| `Alt+8` | `select-window` |
-| `Alt+9` | `select-window` |
-| `F5` | `zoom-window` |
+| `F1` | `Contextual help for the focused window.` |
+| `Alt+1` | `Raise/focus the Nth desktop window.` |
+| `Alt+2` | `Raise/focus the Nth desktop window.` |
+| `Alt+3` | `Raise/focus the Nth desktop window.` |
+| `Alt+4` | `Raise/focus the Nth desktop window.` |
+| `Alt+5` | `Raise/focus the Nth desktop window.` |
+| `Alt+6` | `Raise/focus the Nth desktop window.` |
+| `Alt+7` | `Raise/focus the Nth desktop window.` |
+| `Alt+8` | `Raise/focus the Nth desktop window.` |
+| `Alt+9` | `Raise/focus the Nth desktop window.` |
+| `F5` | `Zoom / unzoom the top window.` |
 
 ## Outline / tree
 
 | Key | Command |
 |-----|---------|
-| `Enter` | `activate` |
-| `Right` | `activate` |
-| `Left` | `collapse` |
-| `Down` | `cursor-down` |
-| `Up` | `cursor-up` |
+| `Left` | `Collapse the focused node, or move to its parent.` |
+| `Enter` | `Expand or collapse the focused node.` |
+| `Right` | `Expand or collapse the focused node.` |
+| `Down` | `Move the selection down.` |
+| `Up` | `Move the selection up.` |
 
 ## Inspector
 
 | Key | Command |
 |-----|---------|
 | `Bksp` | `insp-back` |
-| `Enter` | `insp-drill` |
+| `Enter` | `Re-root the inspector on the focused node's value (remembering the current
+view for Back).` |
 
 ## Project tree
 
 | Key | Command |
 |-----|---------|
-| `Enter` | `proj-open` |
+| `Enter` | `Expand/collapse a directory, or open a file leaf in the editor.` |
 
 ## Editor
 
 | Key | Command |
 |-----|---------|
-| `Ctrl+C` | `editor-copy` |
-| `Ctrl+X` | `editor-cut` |
-| `Ctrl+V` | `editor-paste` |
-| `Ctrl+R` | `editor-redo` |
-| `Ctrl+Y` | `editor-redo` |
-| `Ctrl+S` | `editor-save` |
-| `Ctrl+A` | `editor-select-all` |
-| `Ctrl+W` | `editor-toggle-wrap` |
-| `Ctrl+Z` | `editor-undo` |
+| `Ctrl+C` | `Copy the selection.` |
+| `Ctrl+X` | `Cut the selection.` |
+| `Ctrl+V` | `Paste the clipboard.` |
+| `Ctrl+R` | `Redo the last undone edit.` |
+| `Ctrl+Y` | `Redo the last undone edit.` |
+| `Ctrl+S` | `Save the file.` |
+| `Ctrl+A` | `Select the whole buffer.` |
+| `Ctrl+W` | `Toggle soft word-wrap.` |
+| `Ctrl+Z` | `Undo the last edit.` |
 
 ## REPL input
 
@@ -95,8 +96,8 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 
 | Key | Command |
 |-----|---------|
-| `Enter` | `accept` |
-| `Esc` | `cancel` |
+| `Enter` | `Accept the dialog: validate the fields and return its value.` |
+| `Esc` | `Cancel the dialog.` |
 
 ## Call-tree
 

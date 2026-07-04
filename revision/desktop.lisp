@@ -544,13 +544,13 @@ desktop content area."
 ;;; and in the generated reference.  (Alt-<hotkey>, Alt-0, Esc and size/move stay
 ;;; special in HANDLE-EVENT below: dynamic, context-sensitive, or a mode.)
 (define-command select-window (dt e)
-  "Raise/focus the Nth desktop window (Alt-1 … Alt-9)."
+  "Raise/focus the Nth desktop window."
   (let ((d (digit-char-p (event-keysym e)))) (when d (dt-select-number dt d))))
 (define-command zoom-window (dt e)
-  "Zoom / unzoom the top window (F5)."
+  "Zoom / unzoom the top window."
   (let ((top (dt-top dt))) (when top (dt-zoom dt top))))
 (define-command help-window (dt e)
-  "Contextual help for the focused window (F1)."
+  "Contextual help for the focused window."
   (dt-help dt))
 
 (defkeymap *desktop-keys* ()

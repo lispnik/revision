@@ -486,15 +486,15 @@ or a regex per line when REGEX).  Return the number of replacements."
 ;;; (the same one used by view keymaps and menu accelerators).  Movement, typing,
 ;;; selection and the incremental-search intercept stay as editing primitives in
 ;;; HANDLE-EVENT below.
-(define-command editor-save        (te e) (te-save te))
-(define-command editor-undo        (te e) (te-undo! te))
-(define-command editor-redo        (te e) (te-redo! te))
-(define-command editor-copy        (te e) (te-copy te))
-(define-command editor-cut         (te e) (te-cut te) (te-ensure-visible te))
-(define-command editor-paste       (te e) (te-paste te) (te-ensure-visible te))
-(define-command editor-select-all  (te e) (te-select-all te) (te-ensure-visible te))
-(define-command editor-toggle-wrap (te e) (setf (te-wrap te) (not (te-wrap te)) (te-left te) 0)
-                                          (te-ensure-visible te))
+(define-command editor-save        (te e) "Save the file."             (te-save te))
+(define-command editor-undo        (te e) "Undo the last edit."        (te-undo! te))
+(define-command editor-redo        (te e) "Redo the last undone edit." (te-redo! te))
+(define-command editor-copy        (te e) "Copy the selection."        (te-copy te))
+(define-command editor-cut         (te e) "Cut the selection."         (te-cut te) (te-ensure-visible te))
+(define-command editor-paste       (te e) "Paste the clipboard."       (te-paste te) (te-ensure-visible te))
+(define-command editor-select-all  (te e) "Select the whole buffer."   (te-select-all te) (te-ensure-visible te))
+(define-command editor-toggle-wrap (te e) "Toggle soft word-wrap."
+  (setf (te-wrap te) (not (te-wrap te)) (te-left te) 0) (te-ensure-visible te))
 
 (defkeymap *editor-keys* ()
   ((ctrl #\s) editor-save)        ((ctrl #\z) editor-undo)

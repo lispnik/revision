@@ -123,18 +123,23 @@ so a plain binding still fires when an incidental modifier is present."
 (defclass command ()
   ((name    :initarg :name    :reader command-name)
    (action  :initarg :action  :reader command-action)
+   (doc     :initarg :doc     :initform nil :reader command-doc)      ; one-line description (see DEFINE-COMMAND)
    (enabled :initarg :enabled :initform t :accessor command-enabled-p))
   (:metaclass reactive-class))
 
 (defvar *commands* (make-hash-table) "Name -> COMMAND object.")
 
-(defun register-command (name action)
-  (setf (gethash name *commands*) (make-instance 'command :name name :action action)))
+(defun register-command (name action &optional doc)
+  (setf (gethash name *commands*) (make-instance 'command :name name :action action :doc doc)))
 
 (defmacro define-command (name (view event) &body body)
-  "Define and register command NAME with an action over (VIEW EVENT)."
-  `(register-command ',name (lambda (,view ,event)
-                              (declare (ignorable ,view ,event)) ,@body)))
+  "Define and register command NAME with an action over (VIEW EVENT).  A leading
+string in BODY (with forms following it) becomes the command's :DOC -- a one-line
+description surfaced in the generated keybinding reference."
+  (let ((doc (when (and (stringp (first body)) (rest body)) (pop body))))
+    `(register-command ',name
+                       (lambda (,view ,event) (declare (ignorable ,view ,event)) ,@body)
+                       ,doc)))
 
 (defgeneric perform (command view event)
   (:documentation "Run COMMAND (a command object or its name) for VIEW/EVENT.")
