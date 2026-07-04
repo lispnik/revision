@@ -47,6 +47,7 @@ OBJECT (as the menu accelerators hold)."
 
 (defparameter *reference-keymaps*
   '(("Global"         . *global-keys*)
+    ("Desktop"        . *desktop-keys*)
     ("Outline / tree" . *outline-keys*)
     ("Inspector"      . *inspector-keys*)
     ("Project tree"   . *proj-keys*)

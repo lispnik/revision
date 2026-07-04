@@ -540,22 +540,42 @@ desktop content area."
 (defun cycle-theme (dt)
   (apply-theme dt (1+ *theme-index*) :note t))
 
+;;; The static global desktop keys as a keymap of named commands -- introspectable
+;;; and in the generated reference.  (Alt-<hotkey>, Alt-0, Esc and size/move stay
+;;; special in HANDLE-EVENT below: dynamic, context-sensitive, or a mode.)
+(define-command select-window (dt e)
+  "Raise/focus the Nth desktop window (Alt-1 … Alt-9)."
+  (let ((d (digit-char-p (event-keysym e)))) (when d (dt-select-number dt d))))
+(define-command zoom-window (dt e)
+  "Zoom / unzoom the top window (F5)."
+  (let ((top (dt-top dt))) (when top (dt-zoom dt top))))
+(define-command help-window (dt e)
+  "Contextual help for the focused window (F1)."
+  (dt-help dt))
+
+(defkeymap *desktop-keys* ()
+  ((cons #\1 revision::+md-alt+) select-window) ((cons #\2 revision::+md-alt+) select-window)
+  ((cons #\3 revision::+md-alt+) select-window) ((cons #\4 revision::+md-alt+) select-window)
+  ((cons #\5 revision::+md-alt+) select-window) ((cons #\6 revision::+md-alt+) select-window)
+  ((cons #\7 revision::+md-alt+) select-window) ((cons #\8 revision::+md-alt+) select-window)
+  ((cons #\9 revision::+md-alt+) select-window)
+  (:f5 zoom-window)
+  (:f1 help-window))
+
 (defmethod handle-event ((dt desktop) (e key-event))
   (let* ((mb (dt-menubar dt)) (top (dt-top dt)) (ks (event-keysym e))
-         (mods (event-modifiers e)) (alt (logtest mods revision::+md-alt+)))
+         (mods (event-modifiers e)) (alt (logtest mods revision::+md-alt+))
+         (gcmd (%km-get *desktop-keys* (cons ks mods))))       ; exact global-key match (no mod-insensitive fallback)
     (cond
       (*sizemove-win*                                        ; interactive keyboard size/move mode
        (cond ((member ks '(:enter :esc)) (setf *sizemove-win* nil) (%tool-note "size/move done"))
              ((member ks '(:up :down :left :right))
               (%sizemove-step dt *sizemove-win* ks (logtest mods revision::+md-shift+)))))
-      ((and alt (characterp ks) (digit-char-p ks) (char/= ks #\0))   ; Alt-1..9 selects that window
-       (dt-select-number dt (digit-char-p ks)))
-      ((and alt (eql ks #\0))                                ; Alt-0: window list (classic TV) — caught here
-       (let ((cmd (menu-accel-command mb #\0 revision::+md-alt+))) (when cmd (perform cmd dt e))))   ; before the editor eats "0"
-      ((and alt (characterp ks) (menu-hotkey-index mb ks))   ; Alt-<hotkey> opens that menu
+      ((and alt (eql ks #\0))                                ; Alt-0: window list — caught before the editor eats "0"
+       (let ((cmd (menu-accel-command mb #\0 revision::+md-alt+))) (when cmd (perform cmd dt e))))
+      ((and alt (characterp ks) (menu-hotkey-index mb ks))   ; Alt-<hotkey> opens that menu (dynamic)
        (setf (menu-active mb) (menu-hotkey-index mb ks) (menu-sel mb) 0) (invalidate mb))
-      ((and (eql ks :f5) (zerop mods) top) (dt-zoom dt top)) ; F5: zoom/unzoom (plain; Ctrl-F5 = Size/move accel)
-      ((eql ks :f1) (dt-help dt))                            ; F1: contextual help
+      (gcmd (perform gcmd dt e))                             ; *desktop-keys*: Alt-1..9 select · F5 zoom · F1 help
       (top
        (cond
          ((and (eql ks :esc) (menu-active mb)) (setf (menu-active mb) nil) (invalidate mb))  ; close an open menu

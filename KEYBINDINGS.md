@@ -30,6 +30,22 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | `Esc` | `quit` |
 | `Q` | `quit` |
 
+## Desktop
+
+| Key | Command |
+|-----|---------|
+| `F1` | `help-window` |
+| `Alt+1` | `select-window` |
+| `Alt+2` | `select-window` |
+| `Alt+3` | `select-window` |
+| `Alt+4` | `select-window` |
+| `Alt+5` | `select-window` |
+| `Alt+6` | `select-window` |
+| `Alt+7` | `select-window` |
+| `Alt+8` | `select-window` |
+| `Alt+9` | `select-window` |
+| `F5` | `zoom-window` |
+
 ## Outline / tree
 
 | Key | Command |
