@@ -898,3 +898,13 @@ Returns on File→Exit."
       (dt-save-layout dt)                                    ; persist the desktop for next launch
       (dolist (win (dt-windows dt))                          ; stop any open windows' threads
         (when (window-cleanup win) (ignore-errors (funcall (window-cleanup win))))))))
+
+;;; --- application-facing API ---------------------------------------------------
+;;; Symbols an application (e.g. revl) needs to drive the desktop and extend the
+;;; toolkit: event-loop / desktop state, the window+menu plugin registry, the
+;;; file-dialog default directory, and the extension hooks.
+(export '(*app-done* *desktop* *dirty* *root* *running* *ui-thread*
+          *window-builders* *extra-menus* *project-dir*
+          *editor-eval-fn* *url-fetch-fn*
+          *global-keys* *outline-keys* *dialog-keys*)     ; toolkit keymaps IDE keymaps inherit
+        '#:revision)

@@ -51,14 +51,11 @@ name."
   '(("Global"         . *global-keys*)
     ("Desktop"        . *desktop-keys*)
     ("Outline / tree" . *outline-keys*)
-    ("Inspector"      . *inspector-keys*)
-    ("Project tree"   . *proj-keys*)
     ("Editor"         . *editor-keys*)
-    ("REPL input"     . *repl-input-keys*)
-    ("Dialogs"        . *dialog-keys*)
-    ("Call-tree"      . *call-tree-keys*))
-  "(SECTION-TITLE . KEYMAP-VAR) pairs documented in the reference.  The menu
-accelerators are added separately, built from the desktop menu tree.")
+    ("Dialogs"        . *dialog-keys*))
+  "(SECTION-TITLE . KEYMAP-VAR) pairs for the TOOLKIT's own keymaps.  An application
+appends its own keymaps (e.g. revl adds Inspector / Project / REPL input / Call-tree).
+The menu accelerators are added separately, built from the desktop menu tree.")
 
 (defparameter *widget-key-doc*
   '(("Object lists & tables" .
@@ -121,4 +118,26 @@ help viewer, using the H1/H2/UL/LI/CODE vocabulary the help pages already use."
 
 (eval-when (:load-toplevel :execute)
   (export '(key-label keymap-entries keybinding-reference keybinding-markdown keybinding-html
-            unknown-command-bindings)))
+            unknown-command-bindings *reference-keymaps* *widget-key-doc*)))
+
+;;; --- application-facing toolkit API (used by revl's ide/ module) --------------
+;;; View classes + accessors, desktop operations, keymap helpers and dialogs an
+;;; application builds on.  Generated from what the IDE actually uses.
+(export '(
+          context-menu ctrl dt-close-window dt-load-layout dt-open dt-raise dt-refocus dt-save-layout 
+          dt-top dt-windows editor-window input-notify label list-scroll-fix list-top make-editor 
+          outline-top ov-current popup-choose prompt-string sb-iactive sb-icaret sb-input sb-iprompt 
+          sb-lines sb-on-submit sb-pending sb-set-input sb-top screen static-text-text status-hints 
+          te-anchor te-auto-close te-clamp te-copy te-cur te-cut te-cx te-cy te-ensure-visible 
+          te-insert te-isearch-start te-line-numbers te-nlines te-notes te-offset te-paste 
+          te-pos-at-offset te-redo te-save-undo te-select-all te-selected-string te-undo translate 
+          window-help window-kind window-scroll-target
+         )
+        '#:revision)
+
+;;; a few more toolkit primitives the IDE uses (screen input loop + full text set)
+(export '(te-set-text pump-input screen-next-event) '#:revision)
+
+;;; te-undo!/te-redo! (mutating; the ! was dropped by an earlier scan) and the editor's
+;;; canonical view name EDIT, which revl looks up via FIND-VIEW across the package line.
+(export '(te-undo! te-redo! edit) '#:revision)
