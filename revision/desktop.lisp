@@ -99,8 +99,18 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
   "Left-to-right order of the menu bar; menus not listed fall to the right.")
 
 (defun %order-menus (menus)
-  (stable-sort (copy-list menus) #'<
-               :key (lambda (m) (or (position (car m) *menu-order* :test #'string=) most-positive-fixnum))))
+  "Combine menus that share a title (so a module can contribute items to an existing
+menu — e.g. add to Options or Help — with the contributed group set off by a rule),
+then order the bar left-to-right by *MENU-ORDER*."
+  (let ((merged '()))
+    (dolist (m menus)
+      (let ((cell (assoc (car m) merged :test #'string=)))
+        (if cell
+            (setf (cdr cell) (append (cdr cell) (list :--) (cdr m)))
+            (setf merged (nconc merged (list (cons (car m) (copy-list (cdr m)))))))))
+    (stable-sort merged #'<
+                 :key (lambda (m) (or (position (car m) *menu-order* :test #'string=)
+                                      most-positive-fixnum)))))
 (defun menu-items   (mb) (cdr (nth (menu-active mb) (menu-menus mb))))
 (defun menu-hotkey  (m)  (and (plusp (length (car m))) (char-downcase (char (car m) 0))))
 
@@ -849,37 +859,6 @@ editor buffer text."
       (list
        (list "≡"
              (list "About…"    (lambda () (%about-dialog))))
-       (list "File"
-             (list "New"            (lambda () (dt-open dt :editor)) (ctrl #\n))
-             (list "Open file…"     (lambda () (let ((p (make-file-dialog :dir *project-dir* :title " Open file ")))
-                                                 (when p (dt-open dt (lambda () (make-editor p)))))) :f3)
-             (list "Change dir…"    (lambda () (let ((p (make-file-dialog :dir *project-dir* :dirs-only t :title " Change dir ")))
-                                                 (when p (setf *project-dir* (uiop:ensure-directory-pathname p))))))
-             :--
-             (list "Save"           (lambda () (%dt-save dt)) :f2 (any-win))
-             (list "Save as…"       (lambda () (%dt-save-as dt)) nil (any-win))
-             (list "Save all"       (lambda () (%dt-save-all dt)) nil (any-win))
-             (list "Reload file"    (lambda () (%dt-reload dt)) nil (any-win))
-             :--
-             (list "Save transcript…"  (lambda () (%dt-save-transcript dt)))
-             (list "Save Lisp script…" (lambda () (%dt-save-script dt)))
-             (list "Clear REPL"        (lambda () (%dt-clear-repl dt)))
-             :--
-             (list "Save layout"    (lambda () (dt-save-layout dt)))
-             (list "Restore layout" (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
-                                      (dt-load-layout dt)) nil (lambda () t))
-             :--
-             (list "Exit"           (lambda () (setf *app-done* t)) (cons #\x revision::+md-alt+)))
-       (list "Tools"                                      ; open tool windows
-             (list "Lisp REPL"       (lambda () (dt-open dt :repl))
-                   (cons :f2 revision::+md-alt+))                            ; Alt-F2 = new REPL (Alt-F3 = CUA close; Ctrl-R = history-search)
-             (list "Project manager" (lambda () (dt-open dt :project)))
-             (list "Package browser" (lambda () (dt-open dt :packages)))
-             (list "ASDF systems"    (lambda () (dt-open dt :systems)))
-             (list "Thread monitor"  (lambda () (dt-open dt :threads)))
-             (list "HTML browser"    (lambda () (dt-open dt :html)))
-             (list "Package table"   (lambda () (dt-open dt :ptable)))
-             (list "Emoji palette"   (lambda () (dt-open dt :emoji))))
        (list "Window"                                     ; window management
              (list "Size/move"       (lambda () (let ((top (dt-top dt)))
                                                   (when top (setf *sizemove-win* top)
@@ -901,22 +880,9 @@ editor buffer text."
              (list "Settings…"       (lambda () (dt-open dt :options)))
              (list "Colours…"        (lambda () (make-color-dialog)))
              (list "Colour theme"    (lambda () (cycle-theme dt)))
-             (list "Validators…"     (lambda () (%validators-dialog)))
-             (list "Eval timing"     (lambda () (setf *repl-time* (not *repl-time*))
-                                       (%tool-note (if *repl-time* "eval timing ON" "eval timing OFF")))))
+             (list "Validators…"     (lambda () (%validators-dialog))))
        (list "Help"
-             (list "Contents"        (lambda () (dt-open dt (lambda () (make-help :general)))))
-             (list "Keybindings"     (lambda () (dt-open dt (lambda () (make-help :keys)))))
-             (list "This window"     (lambda () (dt-help dt)) :f1)
-             (list "Topics" :submenu
-                   (list "Lisp REPL"       (lambda () (dt-open dt (lambda () (make-help :repl)))))
-                   (list "Text editor"     (lambda () (dt-open dt (lambda () (make-help :editor)))))
-                   (list "Project manager" (lambda () (dt-open dt (lambda () (make-help :project)))))
-                   (list "Browsers"        (lambda () (dt-open dt (lambda () (make-help :browser)))))
-                   (list "HTML browser"    (lambda () (dt-open dt (lambda () (make-help :html)))))
-                   (list "Thread monitor"  (lambda () (dt-open dt (lambda () (make-help :threads))))))
-             :--
-             (list "About…"          (lambda () (%about-dialog)))))
+             (list "This window"     (lambda () (dt-help dt)) :f1)))
       (mapcar (lambda (f) (funcall f dt)) (reverse *extra-menus*))))))   ; modules' Edit + consolidated Lisp menus
 
 (defun ensure-repl ()
