@@ -76,11 +76,32 @@
   ((parent   :initarg :parent :initform nil :reader keymap-parent)
    (bindings :initform (make-hash-table :test 'equal) :reader keymap-bindings)))
 
-(defun bind-key (km keysym command) (setf (gethash keysym (keymap-bindings km)) command))
+;;; A binding key normalises to a (KEYSYM . MODS) token.  Terminals deliver a
+;;; Ctrl-letter as a control character (code 1-26) that already carries +md-ctrl+
+;;; (see PARSE-PLAIN-BYTE), so fold that in; a (KEYSYM . MODS) cons is taken as-is
+;;; and a bare keysym has no modifiers.  This is the SAME token the menu
+;;; accelerators use (ACCEL-KEY / ACCEL-MODS), so one representation drives both.
+(defun %key-mods (spec)
+  (cond ((consp spec) (cdr spec))
+        ((and (characterp spec) (<= 1 (char-code spec) 26)) +md-ctrl+)
+        (t 0)))
+(defun key-token (spec)
+  "Canonical (KEYSYM . MODS) for a binding spec (a keysym, a control char, or an
+already-formed (KEYSYM . MODS) cons)."
+  (cons (if (consp spec) (car spec) spec) (%key-mods spec)))
 
-(defun keymap-lookup (km keysym)
-  (and km (or (gethash keysym (keymap-bindings km))
-              (keymap-lookup (keymap-parent km) keysym))))
+(defun bind-key (km spec command)
+  (setf (gethash (key-token spec) (keymap-bindings km)) command))
+
+(defun %km-get (km token)
+  (and km (or (gethash token (keymap-bindings km)) (%km-get (keymap-parent km) token))))
+
+(defun keymap-lookup (km keysym &optional (mods 0))
+  "Command bound to KEYSYM+MODS in KM's chain.  An exact (keysym . mods) match wins
+anywhere in the chain; otherwise a modifier-insensitive (keysym . 0) binding matches,
+so a plain binding still fires when an incidental modifier is present."
+  (or (%km-get km (cons keysym mods))
+      (and (plusp mods) (%km-get km (cons keysym 0)))))
 
 (defmacro defkeymap (name (&optional parent) &body bindings)
   "Define a keymap NAME (optionally inheriting PARENT) from (KEYSYM COMMAND) pairs."
@@ -126,7 +147,7 @@
   (:method ((v view) (e event)) nil))
 
 (defmethod handle-event ((v view) (e key-event))
-  (let ((cmd (keymap-lookup (view-keymap v) (event-keysym e))))
+  (let ((cmd (keymap-lookup (view-keymap v) (event-keysym e) (event-modifiers e))))
     (when cmd (perform cmd v e) (setf (handled-p e) t))))
 
 ;;; ---------------------------------------------------------------------------

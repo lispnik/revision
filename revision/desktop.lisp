@@ -71,7 +71,8 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
   ((menus  :initarg :menus :initform '() :accessor menu-menus)
    (active :initform 0 :accessor menu-active)                    ; open menu index, or NIL
    (sel    :initform 0 :accessor menu-sel)
-   (sub    :initform nil :accessor menu-sub))                    ; open submenu index, or NIL
+   (sub    :initform nil :accessor menu-sub)                     ; open submenu index, or NIL
+   (accel-km :initform nil :accessor mb-accel-km))               ; keymap: accelerator token -> command (built from MENUS)
   (:metaclass reactive-class))
 
 (defun ctrl (ch) (code-char (logand (char-code (char-upcase ch)) #x1f)))   ; (ctrl #\o) -> ^O keysym
@@ -211,16 +212,37 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
 (defun menu-hotkey-index (mb ch)
   (position (char-downcase ch) (menu-menus mb) :key #'menu-hotkey))
 
-(defun menu-accel-thunk (mb ks mods)
-  "Thunk for an enabled item whose accelerator matches keysym KS + modifier set
-MODS, anywhere in the menus."
-  (loop for menu in (menu-menus mb) thereis
-        (loop for it in (cdr menu)
-              when (and (not (item-submenu-p it)) (item-accel it)
-                        (eql (accel-key (item-accel it)) ks)
-                        (= (accel-mods (item-accel it)) mods)
-                        (item-enabled it))
-                return (item-thunk it))))
+(defun %accel-command (item)
+  "A command that runs menu ITEM's thunk when the item is currently enabled."
+  (make-instance 'command :name (item-label item)
+    :action (lambda (v e)
+              (declare (ignore v e))
+              (when (item-enabled item) (funcall (item-thunk item))))))
+
+(defun %menu-accel-keymap (menus)
+  "Build a keymap binding each accelerated menu item's key-token to a command that
+runs the item's thunk, so menu accelerators use the SAME keymap/PERFORM machinery
+as view keymaps.  Warns on a duplicate accelerator instead of silently shadowing."
+  (let ((km (make-instance 'keymap)))
+    (labels ((walk (items)
+               (dolist (it items)
+                 (cond
+                   ((item-submenu-p it) (walk (item-submenu it)))
+                   ((and (consp it) (not (item-separator-p it)) (item-accel it))
+                    (let ((tok (key-token (item-accel it))))
+                      (when (gethash tok (keymap-bindings km))
+                        (warn "revision: duplicate menu accelerator ~a (~s)"
+                              (accel-label (item-accel it)) (item-label it)))
+                      (setf (gethash tok (keymap-bindings km)) (%accel-command it))))))))
+      (dolist (menu menus) (walk (cdr menu))))
+    km))
+
+(defmethod initialize-instance :after ((mb menu-bar) &key)
+  (setf (mb-accel-km mb) (%menu-accel-keymap (menu-menus mb))))
+
+(defun menu-accel-command (mb ks mods)
+  "The command bound to accelerator KS+MODS in MB's accelerator keymap, or NIL."
+  (and (mb-accel-km mb) (keymap-lookup (mb-accel-km mb) ks mods)))
 
 (defun menu-title-x (mb i)
   (let ((x 1)) (dotimes (k i x) (incf x (+ 2 (length (car (nth k (menu-menus mb)))))))))
@@ -530,7 +552,7 @@ desktop content area."
       ((and alt (characterp ks) (digit-char-p ks) (char/= ks #\0))   ; Alt-1..9 selects that window
        (dt-select-number dt (digit-char-p ks)))
       ((and alt (eql ks #\0))                                ; Alt-0: window list (classic TV) — caught here
-       (let ((th (menu-accel-thunk mb #\0 revision::+md-alt+))) (when th (funcall th))))   ; before the editor eats "0"
+       (let ((cmd (menu-accel-command mb #\0 revision::+md-alt+))) (when cmd (perform cmd dt e))))   ; before the editor eats "0"
       ((and alt (characterp ks) (menu-hotkey-index mb ks))   ; Alt-<hotkey> opens that menu
        (setf (menu-active mb) (menu-hotkey-index mb ks) (menu-sel mb) 0) (invalidate mb))
       ((and (eql ks :f5) (zerop mods) top) (dt-zoom dt top)) ; F5: zoom/unzoom (plain; Ctrl-F5 = Size/move accel)
@@ -543,9 +565,9 @@ desktop content area."
          (t (setf *running* t) (handle-event top e)          ; otherwise the focused widget gets the key
             (cond ((not *running*) (dt-close-window dt top))
                   ((not (handled-p e))                       ; ignored -> try a global accelerator
-                   (let ((th (menu-accel-thunk mb ks mods))) (when th (funcall th))))))))
-      (t (let ((th (menu-accel-thunk mb ks mods)))           ; no window: accelerators first, then the menu
-           (if th (funcall th) (handle-event mb e)))))))
+                   (let ((cmd (menu-accel-command mb ks mods))) (when cmd (perform cmd dt e))))))))
+      (t (let ((cmd (menu-accel-command mb ks mods)))         ; no window: accelerators first, then the menu
+           (if cmd (perform cmd dt e) (handle-event mb e)))))))
 
 (defun dt-window-at (dt x y)
   (loop for w in (reverse (dt-windows dt)) when (point-in-rect-p x y (view-bounds w)) return w))
