@@ -96,12 +96,13 @@ already-formed (KEYSYM . MODS) cons)."
 (defun %km-get (km token)
   (and km (or (gethash token (keymap-bindings km)) (%km-get (keymap-parent km) token))))
 
-(defun keymap-lookup (km keysym &optional (mods 0))
-  "Command bound to KEYSYM+MODS in KM's chain.  An exact (keysym . mods) match wins
-anywhere in the chain; otherwise a modifier-insensitive (keysym . 0) binding matches,
-so a plain binding still fires when an incidental modifier is present."
+(defun keymap-lookup (km keysym &optional (mods 0) loose)
+  "Command bound to KEYSYM+MODS in KM's chain.  Exact (keysym . mods) match by default.
+With LOOSE true, fall back to a modifier-insensitive (keysym . 0) binding when there is
+no exact match -- OFF by default, so a plain binding no longer silently swallows its
+modified variants (Ctrl-/Shift-<key> only fires a binding made for it)."
   (or (%km-get km (cons keysym mods))
-      (and (plusp mods) (%km-get km (cons keysym 0)))))
+      (and loose (plusp mods) (%km-get km (cons keysym 0)))))
 
 (defun ctrl (ch)
   "The keysym a terminal delivers for Ctrl-CH (a control character), e.g.
