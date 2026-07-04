@@ -11,12 +11,16 @@
 (defvar *running* nil)
 
 (defclass outline (view)
-  ((roots   :initarg :roots :initform '() :accessor outline-roots)
-   (focused :initform 0 :accessor outline-focused)
-   (top     :initform 0 :accessor outline-top)             ; first visible row
+  ((roots   :initarg :roots :initform '() :accessor outline-roots
+            :documentation "List of top-level OUTLINE-NODE structures forming the tree.")
+   (focused :initform 0 :accessor outline-focused
+            :documentation "Row index (into the flattened visible nodes) of the focused node.")
+   (top     :initform 0 :accessor outline-top
+            :documentation "Index of the first visible row (the vertical scroll offset).")
    (hleft   :initform 0 :accessor outline-hleft))          ; horizontal scroll offset (cols)
   (:metaclass reactive-class)
-  (:documentation "A collapsible tree; FOCUSED/TOP are reactive."))
+  (:documentation "A collapsible tree view over OUTLINE-NODE trees, with lazy child loading.
+FOCUSED/TOP are reactive so mutating them auto-repaints."))
 
 (defmethod focusable-p ((ol outline)) t)
 
@@ -67,6 +71,7 @@
 ;;; --- navigation helpers (mutate reactive slots -> auto repaint) -------------
 
 (defun ov-current (ol)
+  "The OUTLINE-NODE currently focused, or NIL when the tree is empty."
   (let ((vis (ov-visible (outline-roots ol))))
     (and (< (outline-focused ol) (length vis)) (car (nth (outline-focused ol) vis)))))
 

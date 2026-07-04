@@ -141,3 +141,57 @@ help viewer, using the H1/H2/UL/LI/CODE vocabulary the help pages already use."
 ;;; te-undo!/te-redo! (mutating; the ! was dropped by an earlier scan) and the editor's
 ;;; canonical view name EDIT, which revl looks up via FIND-VIEW across the package line.
 (export '(te-undo! te-redo! edit) '#:revision)
+
+;;; Slot accessors are documented on their slots (the CL idiom).  Mirror each slot's
+;;; :documentation onto its reader's function documentation, so (documentation #'acc
+;;; 'function) — and DESCRIBE / editor doc lookups — see it too.
+(eval-when (:load-toplevel :execute)
+  (let ((classes '()))
+    (do-external-symbols (s (find-package :revision))
+      (let ((c (find-class s nil))) (when c (push c classes))))
+    (dolist (c classes)
+      (ignore-errors (sb-mop:finalize-inheritance c))
+      (dolist (slot (ignore-errors (sb-mop:class-direct-slots c)))
+        (let ((doc (documentation slot t)))
+          (when doc
+            (dolist (r (sb-mop:slot-definition-readers slot))
+              (when (and (fboundp r) (not (documentation r 'function)))
+                (setf (documentation r 'function) doc)))))))))
+
+;;; Documentation for exported symbols whose defining form doesn't carry a docstring
+;;; inline (DEFKEYMAP vars, the persistent metaclass, a condition reader, editor hooks).
+(eval-when (:load-toplevel :execute)
+  (setf
+   (documentation 'add-laid 'function)
+     "Add view V to container C as a laid-out child governed by SPEC (an integer fixes its extent; :FILL shares the remainder).  Returns V."
+   (documentation 'disable-command 'function)
+     "Mark the command named COMMAND disabled: PERFORM ignores it and its menu/keymap entries grey out."
+   (documentation 'enable-command 'function)
+     "Re-enable COMMAND after a DISABLE-COMMAND."
+   (documentation 'validation-message 'function)
+     "The human-readable message carried by a VALIDATION-ERROR condition."
+   (documentation 'persistent-class 'type)
+     "Metaclass for objects whose marked slots are saved and restored across sessions (see SAVE-OBJECT / LOAD-OBJECT)."
+   (documentation '*ui-thread* 'variable)
+     "The thread running the UI event loop; RUN-ON-UI marshals a closure onto it from worker threads."
+   (documentation '*running* 'variable)
+     "While non-NIL the active event loop keeps running; setting it NIL exits the loop."
+   (documentation '*lisp-indenter* 'variable)
+     "Hook (TE) -> indentation column for a fresh editor line; an application sets it to a real indenter."
+   (documentation '*paren-matcher* 'variable)
+     "Hook (STRING TARGET-OFFSET) -> the matching bracket's offset (skipping strings/comments), for bracket highlighting."
+   (documentation '*editor-eval-fn* 'variable)
+     "Hook (TE) an application fills to evaluate the editor's selection, or the top-level form at point."
+   (documentation '*editor-completions-fn* 'variable)
+     "Hook (TE TOKEN) -> a list of completion strings for the editor's Tab completion."
+   (documentation '*global-keys* 'variable)
+     "The global keymap consulted for every view before its own keymap."
+   (documentation '*outline-keys* 'variable)
+     "The shared keymap for OUTLINE tree widgets: arrow navigation plus expand/collapse."))
+
+;;; Type + conventional-name symbols (a DEFTYPE and a view name) — documented explicitly.
+(eval-when (:load-toplevel :execute)
+  (setf (documentation 'attr 'type)
+          "A packed colour attribute: an (unsigned-byte 32) encoding foreground, background and style; build with MAKE-ATTR."
+        (documentation 'edit 'variable)
+          "Conventional NAME of the TEXT-EDIT subview inside an editor window (look it up with FIND-VIEW)."))

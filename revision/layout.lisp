@@ -8,8 +8,12 @@
 ;;; STACK, fixed columns in a ROW).  Layout containers carry no focus or events
 ;;; of their own -- they only place their children.
 
-(defclass stack (container) ((specs :initform '() :accessor layout-specs)) (:metaclass reactive-class))
-(defclass row   (container) ((specs :initform '() :accessor layout-specs)) (:metaclass reactive-class))
+(defclass stack (container) ((specs :initform '() :accessor layout-specs)) (:metaclass reactive-class)
+  (:documentation "A vertical layout container: children are stacked top-to-bottom, each sized by
+its spec (:FILL shares the remaining rows, an integer fixes the row count)."))
+(defclass row   (container) ((specs :initform '() :accessor layout-specs)) (:metaclass reactive-class)
+  (:documentation "A horizontal layout container: children are placed left-to-right, each sized by
+its spec (:FILL shares the remaining columns, an integer fixes the column count)."))
 
 (defun add-laid (c v spec)
   (add-subview c v)

@@ -8,12 +8,17 @@
 (in-package #:revision)
 
 (defclass cluster (view)
-  ((items  :initarg :items :initform '() :accessor cluster-items)
+  ((items  :initarg :items :initform '() :accessor cluster-items
+           :documentation "The list of item labels, one per line.")
    (mode   :initarg :mode  :initform :check :accessor cluster-mode)   ; :check | :radio
-   (value  :initarg :value :initform nil :accessor cluster-value)     ; :check -> list of idx; :radio -> idx
+   (value  :initarg :value :initform nil :accessor cluster-value     ; :check -> list of idx; :radio -> idx
+           :documentation "The selection: in :CHECK mode a sorted list of checked indices; in :RADIO
+mode the single chosen index (or NIL).")
    (cursor :initform 0 :accessor cluster-cursor)
    (on-change :initarg :on-change :initform nil :accessor cluster-on-change))  ; (cluster) after a toggle
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A focusable checkbox (:CHECK) or radio-button (:RADIO) group; Space or a click
+toggles the item under the cursor.  See CLUSTER-VALUE for the selection."))
 
 (defmethod focusable-p ((c cluster)) t)
 

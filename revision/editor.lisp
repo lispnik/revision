@@ -14,29 +14,44 @@
 
 (defclass text-edit (view)
   ((lines    :initform (%vec '("")) :accessor te-lines)   ; adjustable vector of line strings
-   (cy       :initform 0 :accessor te-cy)                 ; cursor line / column
-   (cx       :initform 0 :accessor te-cx)
+   (cy       :initform 0 :accessor te-cy
+             :documentation "Cursor line (0-based row index into the line vector).")
+   (cx       :initform 0 :accessor te-cx
+             :documentation "Cursor column as a code-point index within the current line.")
    (top      :initform 0 :accessor te-top)                ; first visible line / column
    (left     :initform 0 :accessor te-left)
    (wrap     :initform nil :initarg :wrap :accessor te-wrap)   ; soft-wrap mode
    (tsub     :initform 0 :accessor te-tsub)                ; sub-row within TOP when wrapping
-   (anchor   :initform nil :accessor te-anchor)           ; selection origin (cons line col) or NIL
+   (anchor   :initform nil :accessor te-anchor
+             :documentation "Selection origin as a (LINE . COL) cons, or NIL when nothing is selected.")
    (mark-mode :initform nil :accessor te-mark-mode)       ; C-Space mark set: plain arrows extend the selection
-   (modified :initform nil :accessor te-modified)
-   (filename :initform nil :initarg :filename :accessor te-filename)
-   (undo     :initform '() :accessor te-undo)             ; snapshots: (lines-list cy cx)
-   (redo     :initform '() :accessor te-redo)
-   (colorizer :initform nil :initarg :colorizer :accessor te-colorizer)   ; (line in-string) -> (values attrs end)
+   (modified :initform nil :accessor te-modified
+             :documentation "T once the buffer has unsaved edits; cleared by save/load.")
+   (filename :initform nil :initarg :filename :accessor te-filename
+             :documentation "Pathname backing the buffer, or NIL for a scratch buffer.")
+   (undo     :initform '() :accessor te-undo
+             :documentation "Stack of undo snapshots, each a (LINES-LIST CY CX) list; newest first.")
+   (redo     :initform '() :accessor te-redo
+             :documentation "Stack of redo snapshots, each a (LINES-LIST CY CX) list; newest first.")
+   (colorizer :initform nil :initarg :colorizer :accessor te-colorizer
+              :documentation "Optional syntax-highlight hook (LINE IN-STRING) -> (values ATTRS CARRY), or NIL.")
    (indenter  :initform nil :initarg :indenter  :accessor te-indenter)    ; (te) -> indent column for a new line
-   (auto-close :initform nil :accessor te-auto-close)                     ; auto-insert closing )/]/"
+   (auto-close :initform nil :accessor te-auto-close
+               :documentation "When true, typing an opening ( [ or \" auto-inserts the matching close.")
    (overwrite  :initform nil :accessor te-overwrite)                      ; overwrite (OVR) vs insert (INS) mode
-   (line-numbers :initform nil :accessor te-line-numbers)                 ; show a line-number gutter (flat mode)
-   (notes     :initform nil :accessor te-notes)                           ; alist (LINE . SEVERITY) of compiler notes
+   (line-numbers :initform nil :accessor te-line-numbers
+                 :documentation "When true, show a line-number gutter (flat, non-wrapped mode only).")
+   (notes     :initform nil :accessor te-notes
+              :documentation "Alist of (LINE . SEVERITY) compiler notes drawn as gutter markers.")
    (last-find :initform "" :accessor te-last-find)                        ; remembered search query
    (isearch     :initform nil :accessor te-isearch)                       ; live incremental-search query, or NIL when off
    (isearch-org :initform nil :accessor te-isearch-org)                   ; (cy . cx) to restore on cancel
    (isearch-fail :initform nil :accessor te-isearch-fail))                ; T when the current query has no match
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A multi-line code-editing widget: a vector-of-lines buffer with a cursor,
+viewport scrolling, Shift/mark selection, an internal clipboard, snapshot
+undo/redo, incremental and regex find/replace, optional soft-wrap and a
+syntax-colour hook."))
 
 (defparameter *note-markers*
   '((:note . #\∘) (:style . #\∘) (:warning . #\!) (:error . #\!))
@@ -48,9 +63,13 @@
 
 (defun %vec (list) (make-array (length list) :adjustable t :fill-pointer (length list)
                                :initial-contents list))
-(defun te-nlines (te) (length (te-lines te)))
+(defun te-nlines (te)
+  "Number of logical lines in TE's buffer (always at least 1)."
+  (length (te-lines te)))
 (defun te-line (te i) (aref (te-lines te) i))
-(defun te-cur (te) (te-line te (te-cy te)))
+(defun te-cur (te)
+  "The line string the cursor is currently on."
+  (te-line te (te-cy te)))
 (defun (setf te-line) (s te i) (setf (aref (te-lines te) i) s))
 
 (defun split-newlines (s)
@@ -62,12 +81,15 @@
     (nreverse out)))
 
 (defun te-text (te)
+  "The whole buffer as a single string, lines joined by newlines."
   (with-output-to-string (o)
     (dotimes (i (te-nlines te))
       (write-string (te-line te i) o)
       (when (< (1+ i) (te-nlines te)) (write-char #\Newline o)))))
 
 (defun te-set-text (te string)
+  "Replace the entire buffer with STRING (split on newlines) and reset the cursor,
+viewport and selection to the top."
   (setf (te-lines te) (%vec (split-newlines (or string "")))
         (te-cy te) 0 (te-cx te) 0 (te-top te) 0 (te-left te) 0 (te-anchor te) nil))
 
@@ -76,6 +98,7 @@
 ;;; --- cursor + viewport ------------------------------------------------------
 
 (defun te-clamp (te)
+  "Clamp the cursor (CY, CX) back into the valid range of the current buffer."
   (setf (te-cy te) (max 0 (min (1- (te-nlines te)) (te-cy te)))
         (te-cx te) (max 0 (min (length (te-cur te)) (te-cx te)))))
 
@@ -122,6 +145,8 @@
     (values line (min v (1- (%nsegs (te-line te line) w))))))
 
 (defun te-ensure-visible (te)
+  "Scroll the viewport (vertically and horizontally) so the cursor is on screen,
+accounting for soft-wrap, the gutter and wide glyphs."
   (let ((b (view-bounds te)))
     (when b
       (if (te-wrap te)
@@ -193,6 +218,7 @@ set); collapse it on a plain move."
                (t t)))))
 
 (defun te-selected-string (te)
+  "The currently selected text as a string, or NIL when there is no selection."
   (multiple-value-bind (a b) (te-sel-ordered te)
     (when a
       (if (= (car a) (car b))
@@ -207,6 +233,8 @@ set); collapse it on a plain move."
 
 (defun te-snapshot (te) (list (coerce (te-lines te) 'list) (te-cy te) (te-cx te)))
 (defun te-save-undo (te)
+  "Push the current buffer state onto the undo stack, clear the redo stack, and
+mark the buffer modified.  Call before any mutating edit."
   (push (te-snapshot te) (te-undo te))
   (when (> (length (te-undo te)) 200) (setf (te-undo te) (subseq (te-undo te) 0 200)))
   (setf (te-redo te) '() (te-modified te) t))
@@ -239,6 +267,8 @@ set); collapse it on a plain move."
     (when a (te-replace-region te (car a) (cdr a) (car b) (cdr b) "") t)))
 
 (defun te-insert (te string)
+  "Insert STRING at the cursor (replacing any active selection first), recording
+an undo snapshot; the cursor ends after the inserted text."
   (te-save-undo te)
   (or (te-delete-selection te) (setf (te-anchor te) nil))
   (te-replace-region te (te-cy te) (te-cx te) (te-cy te) (te-cx te) string))
@@ -451,24 +481,35 @@ or a regex per line when REGEX).  Return the number of replacements."
   (te-clamp te) (te-ensure-visible te))
 
 (defun te-undo! (te)
+  "Undo the most recent edit, pushing the current state onto the redo stack."
   (when (te-undo te)
     (push (te-snapshot te) (te-redo te))
     (te-restore te (pop (te-undo te)))))
 (defun te-redo! (te)
+  "Redo the most recently undone edit, pushing the current state onto the undo stack."
   (when (te-redo te)
     (push (te-snapshot te) (te-undo te))
     (te-restore te (pop (te-redo te)))))
 
-(defun te-copy (te) (let ((s (te-selected-string te))) (when s (setf *clipboard* s))))
-(defun te-cut (te) (when (te-selected-string te) (te-copy te) (te-save-undo te) (te-delete-selection te)))
-(defun te-paste (te) (when (plusp (length *clipboard*)) (te-insert te *clipboard*)))
+(defun te-copy (te)
+  "Copy the current selection to the shared clipboard (no-op when nothing is selected)."
+  (let ((s (te-selected-string te))) (when s (setf *clipboard* s))))
+(defun te-cut (te)
+  "Copy the selection to the clipboard and delete it, recording an undo snapshot."
+  (when (te-selected-string te) (te-copy te) (te-save-undo te) (te-delete-selection te)))
+(defun te-paste (te)
+  "Insert the clipboard contents at the cursor (replacing any selection)."
+  (when (plusp (length *clipboard*)) (te-insert te *clipboard*)))
 (defun te-select-all (te)
+  "Select the entire buffer, from the start to the end of the last line."
   (setf (te-anchor te) (cons 0 0)
         (te-cy te) (1- (te-nlines te)) (te-cx te) (length (te-line te (1- (te-nlines te))))))
 
 ;;; --- file I/O ---------------------------------------------------------------
 
 (defun te-load (te path)
+  "Load the file at PATH (UTF-8) into the buffer, set its filename, and clear the
+modified flag and undo/redo history.  A missing file loads as empty."
   (with-open-file (s path :direction :input :if-does-not-exist nil :external-format :utf-8)
     (te-set-text te (if s (let ((str (make-string (file-length s))))
                             (subseq str 0 (read-sequence str s)))
@@ -476,6 +517,8 @@ or a regex per line when REGEX).  Return the number of replacements."
   (setf (te-filename te) path (te-modified te) nil (te-undo te) '() (te-redo te) '()))
 
 (defun te-save (te)
+  "Write the buffer to its filename (UTF-8) and clear the modified flag.  Return T
+when saved, NIL when the buffer has no filename."
   (when (te-filename te)
     (with-open-file (s (te-filename te) :direction :output :if-exists :supersede
                                         :if-does-not-exist :create :external-format :utf-8)
@@ -862,7 +905,10 @@ sole candidate, or pop up a chooser when there are several."
          (cons "Undo" (lambda () (te-undo! te)))
          (cons "Redo" (lambda () (te-redo! te))))))
 
-(defclass editor-window (window) () (:metaclass reactive-class))
+(defclass editor-window (window) ()
+  (:metaclass reactive-class)
+  (:documentation "A window hosting a TEXT-EDIT pane plus a status line, wiring the title,
+line:col indicator, find/replace prompts and Tab-completion around it."))
 (defmethod draw :before ((w editor-window)) (%editor-status w))   ; keep the status line live each repaint
 
 ;; The container would otherwise grab Tab for focus-next; intercept it here so

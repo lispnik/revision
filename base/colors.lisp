@@ -20,8 +20,8 @@
           (ash (logand bg #x07) 4)
           (if blink #x80 0)))
 
-(defun attr-fg (a) (logand a #x0f))
-(defun attr-bg (a) (logand (ash a -4) #x07))
+(defun attr-fg (a) "The foreground colour index (0-15) of legacy DOS attribute A." (logand a #x0f))
+(defun attr-bg (a) "The background colour index (0-7) of legacy DOS attribute A." (logand (ash a -4) #x07))
 
 (defun selection-highlight (normal &optional active)
   "A reverse-video highlight for the currently-selected row/item in a list or
@@ -38,7 +38,10 @@ visible whether or not the view has keyboard focus — brighter when ACTIVE."
 (defun pack-rgb (r g b)
   "Pack an (R G B) triple (0-255 each) into a 24-bit integer."
   (logior (ash (logand r #xff) 16) (ash (logand g #xff) 8) (logand b #xff)))
-(defun attr-rgb-p (a) (logtest a +attr-rgb-flag+))
+(defun attr-rgb-p (a)
+  "True when attribute A is a true-colour (RGB) attribute rather than a legacy
+4-bit DOS attribute."
+  (logtest a +attr-rgb-flag+))
 
 (defvar *rgb-pairs* (make-array 64 :adjustable t :fill-pointer 0)
   "Interned (style<<48 | fg<<24 | bg) colour+style entries; the RGB attr's index

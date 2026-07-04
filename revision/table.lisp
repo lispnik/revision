@@ -8,14 +8,21 @@
 (in-package #:revision)
 
 (defclass table-view (view)
-  ((columns     :initarg :columns :initform '() :accessor table-columns)   ; (TITLE WIDTH ACCESSOR)
-   (rows        :initarg :rows :initform '() :accessor table-rows)
-   (selected    :initform 0 :accessor table-selected)
+  ((columns     :initarg :columns :initform '() :accessor table-columns
+                :documentation "Column specs, each a (TITLE WIDTH ACCESSOR) list; ACCESSOR maps a row to its cell value.")
+   (rows        :initarg :rows :initform '() :accessor table-rows
+                :documentation "List of row objects, one per data row (the header is drawn separately).")
+   (selected    :initform 0 :accessor table-selected
+                :documentation "Index into ROWS of the currently selected/highlighted data row.")
    (top         :initform 0 :accessor table-top)                           ; first visible data row
    (hleft       :initform 0 :accessor table-hleft)                         ; horizontal scroll offset (cols)
    (on-activate :initarg :on-activate :initform nil :accessor table-on-activate)
    (on-inspect  :initarg :on-inspect  :initform nil :accessor table-on-inspect))   ; (tv ROW) -> open the inspector (Alt-I)
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A columnar table/grid viewer: a fixed header over scrollable, selectable data
+rows.  COLUMNS defines the (title, width, accessor) of each column; supports
+keyboard and mouse selection, the wheel, and the scroller protocol for frame
+scrollbars."))
 
 (defmethod focusable-p ((tv table-view)) t)
 

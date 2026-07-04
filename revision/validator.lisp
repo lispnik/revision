@@ -12,6 +12,7 @@
   (%fv :filter (lambda (ch) (find ch allowed))))
 
 (defun digits-validator ()
+  "A validator that allows only digit characters to be typed into the field."
   (%fv :filter (lambda (ch) (digit-char-p ch))))
 
 (defun range-validator (lo hi)

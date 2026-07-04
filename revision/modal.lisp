@@ -6,16 +6,25 @@
 ;;; A failed field check signals VALIDATION-ERROR; the modal loop catches it,
 ;;; shows the message, and keeps the dialog open -- the condition drives the flow.
 (define-condition validation-error (error)
-  ((message :initarg :message :reader validation-message)))
+  ((message :initarg :message :reader validation-message
+            :documentation "The user-facing message describing why the field failed validation."))
+  (:documentation "Signalled when a field or whole-dialog check fails.  The modal loop catches it,
+shows its MESSAGE, and keeps the dialog open so the user can correct the input."))
 
-(defun fail-validation (message) (error 'validation-error :message message))
+(defun fail-validation (message)
+  "Signal a VALIDATION-ERROR carrying MESSAGE, rejecting the current dialog input
+and displaying MESSAGE to the user."
+  (error 'validation-error :message message))
 
 (defclass dialog (window)
-  ((result    :initform :cancel :accessor dialog-result)
+  ((result    :initform :cancel :accessor dialog-result
+              :documentation "The dialog's outcome: the accepted value, or :CANCEL if dismissed.")
    (done      :initform nil     :accessor dialog-done)
    (validator :initarg :validator :initform nil :accessor dialog-validator)  ; (dialog) -> t / signals
    (value-fn  :initarg :value-fn  :initform nil :accessor dialog-value-fn))   ; (dialog) -> result value
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A modal top-level window run by EXEC-VIEW: on Accept it validates its fields and
+computes a result via VALUE-FN; on Cancel it returns :CANCEL."))
 
 ;; Draw dialogs (and their children) in the classic grey palette, with a shadow.
 (defmethod draw :around ((d dialog))
@@ -63,6 +72,8 @@
 (defkeymap *dialog-keys* ()
   (:esc   cancel)
   (:enter accept))
+(setf (documentation '*dialog-keys* 'variable)
+      "The keymap shared by modal dialogs: Enter runs the ACCEPT command, Esc runs CANCEL.")
 
 (defun exec-view (dialog &key (width 48) (height 9))
   "Run DIALOG modally, centred over the current *ROOT* (drawn behind it), until it

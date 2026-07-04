@@ -20,13 +20,13 @@
 (defconstant +ev-keyboard+ #x0010)
 (defconstant +ev-message+  #xff00)
 
-(defconstant +mb-left+  #x01)
-(defconstant +mb-right+ #x02)
+(defconstant +mb-left+  #x01 "Button mask bit for the left mouse button.")
+(defconstant +mb-right+ #x02 "Button mask bit for the right mouse button.")
 
 ;; keyboard / mouse modifier flags (iev-modifiers)
-(defconstant +md-shift+ #x01)
-(defconstant +md-ctrl+  #x02)
-(defconstant +md-alt+   #x04)
+(defconstant +md-shift+ #x01 "Modifier bit for the Shift key in an event's modifier mask.")
+(defconstant +md-ctrl+  #x02 "Modifier bit for the Ctrl key in an event's modifier mask.")
+(defconstant +md-alt+   #x04 "Modifier bit for the Alt key in an event's modifier mask.")
 
 ;; mouse wheel directions (iev-wheel)
 (defconstant +mw-up+   -1)

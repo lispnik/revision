@@ -7,6 +7,9 @@
 (in-package #:revision)
 
 (defstruct (outline-node (:constructor make-outline-node (text &optional children data setter)))
+  "One node of a collapsible outline/tree: its display TEXT, child nodes, current
+expansion state, an arbitrary DATA payload, and optional per-row COLOR, lazy
+LOADER, and DATA SETTER hooks."
   (text "" )
   (children '())
   (expanded nil)
@@ -14,6 +17,26 @@
   (color nil)     ; optional foreground colour index for this row (e.g. a git-status tint)
   (loader nil)    ; optional (lambda () -> children) called on first expand (lazy trees)
   (setter nil))   ; optional (lambda (new-value)) writing DATA back to its place
+
+(setf (documentation 'make-outline-node 'function)
+      "Construct an OUTLINE-NODE with display TEXT and optional CHILDREN, DATA
+payload, and DATA SETTER function.")
+(setf (documentation 'outline-node-text 'function)
+      "The display text of outline node N.")
+(setf (documentation 'outline-node-children 'function)
+      "The list of child OUTLINE-NODEs of node N.")
+(setf (documentation 'outline-node-expanded 'function)
+      "True when outline node N is currently expanded (its children shown).")
+(setf (documentation 'outline-node-data 'function)
+      "The arbitrary application payload attached to outline node N.")
+(setf (documentation 'outline-node-color 'function)
+      "Optional foreground colour index for node N's row (e.g. a git-status tint), or NIL.")
+(setf (documentation 'outline-node-loader 'function)
+      "Optional thunk (lambda () -> children) called on N's first expand to lazily
+populate its children, or NIL for an eager node.")
+(setf (documentation 'outline-node-setter 'function)
+      "Optional function (lambda (new-value)) that writes node N's edited DATA back
+to its source, or NIL.")
 
 (defun outline-node (text &rest children)
   "Convenience: a node with TEXT and the given child nodes (expanded)."

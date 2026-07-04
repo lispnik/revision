@@ -10,25 +10,39 @@
 (in-package #:revision)
 
 (defclass scrollback (view)
-  ((lines   :initform (make-array 0 :adjustable t :fill-pointer 0) :accessor sb-lines)
-   (pending :initform "" :accessor sb-pending)        ; incomplete trailing line (no newline yet)
-   (top     :initform 0 :accessor sb-top)             ; first visible row
+  ((lines   :initform (make-array 0 :adjustable t :fill-pointer 0) :accessor sb-lines
+            :documentation "Adjustable vector of committed transcript lines (one string per line).")
+   (pending :initform "" :accessor sb-pending
+            :documentation "The trailing partial line held until its newline arrives in a later chunk.")
+   (top     :initform 0 :accessor sb-top
+            :documentation "Index of the first visible row (the vertical scroll offset).")
    (hleft   :initform 0 :accessor sb-hleft)           ; horizontal scroll offset (chars)
    (maxw    :initform 0 :accessor sb-maxw)            ; widest line seen (chars) -> h-scrollbar extent
-   (follow  :initform t :accessor sb-follow)          ; stick to the tail as new text arrives
+   (follow  :initform t :accessor sb-follow
+            :documentation "When true, the viewport auto-sticks to the tail as new text arrives.")
    ;; SLY-style presentations: line-index -> live object, so a printed result can
    ;; be clicked to inspect the actual object (the REPL uses this).
    (presentations :initform (make-hash-table) :accessor sb-presentations)
-   (on-present :initarg :on-present :initform nil :accessor sb-on-present)   ; (object) -> act on a clicked presentation
+   (on-present :initarg :on-present :initform nil :accessor sb-on-present
+               :documentation "Callback (OBJECT) invoked when a presentation line is clicked, or NIL.")
    ;; optional inline input line (SLIME/SLY-style: the prompt floats after the
    ;; output rather than a fixed input row).  When IACTIVE, the last line is a
    ;; live "IPROMPT INPUT"; new output appends before it, so it drifts down.
-   (iactive :initform nil :accessor sb-iactive)
-   (input   :initform "" :accessor sb-input)
-   (icaret  :initform 0  :accessor sb-icaret)
-   (iprompt :initform "" :accessor sb-iprompt)
-   (on-submit :initarg :on-submit :initform nil :accessor sb-on-submit))   ; (input-string) -> submit
-  (:metaclass reactive-class))
+   (iactive :initform nil :accessor sb-iactive
+            :documentation "When true, a live inline input line floats after the output.")
+   (input   :initform "" :accessor sb-input
+            :documentation "Text currently typed into the inline input line.")
+   (icaret  :initform 0  :accessor sb-icaret
+            :documentation "Caret position (character index) within the inline input line.")
+   (iprompt :initform "" :accessor sb-iprompt
+            :documentation "Prompt string shown before the inline input line.")
+   (on-submit :initarg :on-submit :initform nil :accessor sb-on-submit
+              :documentation "Callback (INPUT-STRING) invoked when Enter submits the inline input, or NIL."))
+  (:metaclass reactive-class)
+  (:documentation "An append-only, scrollable transcript view for REPLs and log/output panes.  Text
+streams in as arbitrary chunks (a partial trailing line waits in PENDING), the
+view auto-follows the tail unless scrolled back, printed results can be marked as
+clickable presentations, and an optional inline input line floats after the output."))
 
 (defmethod focusable-p ((sb scrollback)) t)
 
@@ -83,12 +97,16 @@ occupies as a presentation of the live OBJECT, so clicking them fires ON-PRESENT
           do (setf (gethash i (sb-presentations sb)) object))))
 
 (defun scrollback-clear (sb)
+  "Erase the whole transcript: drop all lines, pending text, presentations and
+scroll offsets, and re-arm follow mode."
   (setf (fill-pointer (sb-lines sb)) 0
         (sb-pending sb) "" (sb-top sb) 0 (sb-hleft sb) 0 (sb-maxw sb) 0 (sb-follow sb) t)
   (clrhash (sb-presentations sb))
   (invalidate sb))
 
 (defun sb-scroll (sb delta)
+  "Scroll the viewport by DELTA rows (clamped), re-arming follow mode once back at
+the bottom."
   (let* ((b (view-bounds sb)) (maxtop (max 0 (- (sb-total sb) (r-h b)))))
     (setf (sb-top sb)    (max 0 (min maxtop (+ (sb-top sb) delta)))
           (sb-follow sb) (>= (sb-top sb) maxtop))     ; re-arm follow once back at the bottom

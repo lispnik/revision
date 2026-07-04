@@ -55,24 +55,34 @@ become (:object CLASS slot val ...) over their non-transient, bound slots.")
     (t form)))
 
 (defun save-object (object path)
+  "Serialize OBJECT (via SERIALIZE) and write it readably to PATH, replacing any
+existing file.  Returns T on success, NIL if the write failed."
   (ignore-errors
    (with-open-file (s path :direction :output :if-exists :supersede :if-does-not-exist :create)
      (let ((*print-readably* nil)) (prin1 (serialize object) s)))
    t))
 
 (defun load-object (path)
+  "Read and DESERIALIZE the object previously written to PATH by SAVE-OBJECT.
+Returns the reconstructed object, or NIL if PATH is missing or unreadable."
   (when (probe-file path)
     (ignore-errors (with-open-file (s path) (deserialize (read s nil nil))))))
 
 ;;; A small persisted model for the demo: the filter text and outline line are
 ;;; saved; TOUCHED is :transient (recomputed each run, never written).
 (defclass session ()
-  ((filter  :initarg :filter :initform "" :accessor session-filter)
-   (line    :initarg :line   :initform 1  :accessor session-line)
+  ((filter  :initarg :filter :initform "" :accessor session-filter
+            :documentation "The saved filter/type-ahead text, persisted across runs.")
+   (line    :initarg :line   :initform 1  :accessor session-line
+            :documentation "The saved outline line/cursor position, persisted across runs.")
    (touched :initform 0 :accessor session-touched :transient t))
-  (:metaclass persistent-class))
+  (:metaclass persistent-class)
+  (:documentation "A small persisted model: the FILTER text and outline LINE are written to disk and
+restored on the next run.  TOUCHED is :transient — recomputed each run, never saved."))
 
-(defun session-file () (merge-pathnames ".revision-session" (user-homedir-pathname)))
+(defun session-file ()
+  "The pathname of the persisted session file (.revision-session in the user's home)."
+  (merge-pathnames ".revision-session" (user-homedir-pathname)))
 
 ;;; ===========================================================================
 ;;; Worker -> UI bridge

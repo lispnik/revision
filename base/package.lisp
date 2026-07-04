@@ -10,9 +10,9 @@
   (:documentation "A CLOS-native text-mode UI framework for Common Lisp.")
   (:export
       #:*desktop* #:*editor-completions-fn* #:*editor-eval-fn*
-   #:*global-keys* #:*help-pages* #:*hyperspec-url-fn*  #:*lisp-indenter* #:*object->outline-fn*
-   #:*paredit-fn* #:*paren-matcher* #:*profile-fn* #:*project-grep-fn* #:*project-status-fn* #:*reorder-fn*
-   #:*repl-completions-fn* #:*repl-eval-fn*   #:*screen* #:*theme*
+   #:*global-keys* #:*help-pages*   #:*lisp-indenter* 
+    #:*paren-matcher*    
+       #:*screen* #:*theme*
    #:*ui-thread* #:*url-fetch-fn*
     #:+mb-left+ #:+mb-right+ #:+md-alt+ #:+md-ctrl+ #:+md-shift+
 

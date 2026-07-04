@@ -36,7 +36,9 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
 (defclass status-bar (view)
   ((provider :initarg :provider :initform nil :accessor stb-provider)  ; thunk -> ((LABEL . THUNK) ...)
    (ranges   :initform '() :accessor stb-ranges))                      ; ((X0 X1 . THUNK) ...) for hit-testing
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "The desktop's bottom bar: draws clickable action chips supplied by its PROVIDER
+thunk, plus any transient tool note right-aligned."))
 
 (defmethod draw ((b status-bar))
   (let* ((attr (role :status)) (w (r-w (view-bounds b)))
@@ -73,7 +75,9 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
    (sel    :initform 0 :accessor menu-sel)
    (sub    :initform nil :accessor menu-sub)                     ; open submenu index, or NIL
    (accel-km :initform nil :accessor mb-accel-km))               ; keymap: accelerator token -> command (built from MENUS)
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "The desktop's top pull-down menu bar: draws the titles and dropdowns from MENUS,
+handles hotkey/accelerator navigation, and invokes the selected item's command."))
 
 (defun item-separator-p (it) (eq it :--))                                   ; :-- is a horizontal rule
 (defun item-label    (it) (if (item-separator-p it) "" (first it)))
@@ -307,12 +311,19 @@ box's top-border row; its items occupy rows SY0+1 .. SY0+COUNT."
 (defclass desktop (view)
   ((menubar   :accessor dt-menubar)
    (statusbar :accessor dt-statusbar)
-   (windows   :initform '() :accessor dt-windows)     ; back-to-front Z-order; last = topmost/focused
+   (windows   :initform '() :accessor dt-windows     ; back-to-front Z-order; last = topmost/focused
+              :documentation "The hosted windows in back-to-front Z-order; the last is topmost/focused.")
    (drag      :initform nil :accessor dt-drag))       ; (:move WIN OFFX OFFY) | (:resize WIN) while dragging
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "The IDE shell: a menu bar, a status bar, and a background hosting movable,
+resizable, overlapping windows.  Owns the single event loop and window Z-order."))
 
-(defun dt-top (dt) (car (last (dt-windows dt))))       ; the focused window, or NIL
-(defun dt-raise (dt w) (setf (dt-windows dt) (append (remove w (dt-windows dt)) (list w))))
+(defun dt-top (dt)
+  "The topmost (focused) window on desktop DT, or NIL when none are open."
+  (car (last (dt-windows dt))))
+(defun dt-raise (dt w)
+  "Move window W to the top of desktop DT's Z-order, making it the focused window."
+  (setf (dt-windows dt) (append (remove w (dt-windows dt)) (list w))))
 (defun dt-content (dt)
   "The rectangle between the menu bar (row 0) and status bar (last row)."
   (let* ((r (view-bounds dt)) (ax (revision::rect-ax r)) (ay (revision::rect-ay r)) (w (r-w r)) (h (r-h r)))
@@ -374,6 +385,7 @@ directly, not persisted).  Cascade-positioned, focused on top."
         (dt-refocus dt) (invalidate dt)))))
 
 (defun dt-close-window (dt win)
+  "Close WIN on desktop DT: run its cleanup, remove it from the Z-order, and refocus."
   (when (window-cleanup win) (ignore-errors (funcall (window-cleanup win))))
   (setf (dt-windows dt) (remove win (dt-windows dt)))
   (dt-refocus dt) (invalidate dt))

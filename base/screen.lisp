@@ -8,6 +8,9 @@
 (in-package #:revision)
 
 (defstruct (screen (:conc-name screen-))
+  "The terminal driver's state: the off-screen back/front cell buffers, terminal
+size and cursor, pending input bytes and decoded events, and mouse-tracking
+state.  Stands in for Turbo Vision's THardwareInfo / TScreen."
   (width 80 :type fixnum)
   (height 25 :type fixnum)
   ;; back buffer = what we want on screen; front buffer = what is on screen
@@ -33,6 +36,11 @@
   (cursor-shape :underline)
   ;; DOS-style software mouse cursor: an inverted cell drawn under the pointer
   (mouse-cursor nil))
+
+(setf (documentation 'screen-width 'function)
+      "The width of screen S in character columns.")
+(setf (documentation 'screen-height 'function)
+      "The height of screen S in character rows.")
 
 (defvar *screen* nil "The active terminal screen, or NIL when not initialised.")
 
@@ -183,6 +191,9 @@ silently ignored, which lets views draw without bounds-checking."
 ;;; ---------------------------------------------------------------------------
 
 (defun flush-screen (&optional (s *screen*))
+  "Paint the changed cells of screen S to the terminal: diff the back buffer
+against the front buffer and emit only the cells that changed since the previous
+frame, then place the hardware cursor where a focused view asked for it."
   (let* ((back (screen-back s))
          (front (screen-front s))
          (w (screen-width s))
@@ -238,12 +249,17 @@ silently ignored, which lets views draw without bounds-checking."
     (%flush-out s)))
 
 (defun set-cursor-pos (s x y)
+  "Move screen S's hardware cursor to column X, row Y (shown on the next flush)."
   (setf (screen-cursor-x s) x (screen-cursor-y s) y))
 (defun set-cursor-shape (shape &optional (s *screen*))
   "SHAPE is :block, :underline, or :bar."
   (when s (setf (screen-cursor-shape s) shape)))
-(defun show-cursor (&optional (s *screen*)) (setf (screen-cursor-visible s) t))
-(defun hide-cursor (&optional (s *screen*)) (setf (screen-cursor-visible s) nil))
+(defun show-cursor (&optional (s *screen*))
+  "Make screen S's hardware cursor visible (rendered on the next flush)."
+  (setf (screen-cursor-visible s) t))
+(defun hide-cursor (&optional (s *screen*))
+  "Hide screen S's hardware cursor (takes effect on the next flush)."
+  (setf (screen-cursor-visible s) nil))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Input: non-blocking byte reads decoded into TEvents.
@@ -350,6 +366,8 @@ mouse button is held with nothing else pending, synthesize ev-mouse-auto."
 ;;; --- escape-sequence decoder ----------------------------------------------
 
 (defun key-event (key-code &optional (char-code 0))
+  "Build a key-down INPUT-EVENT for KEY-CODE, carrying the printable CHAR-CODE
+(0 for special keys)."
   (make-input-event :type +ev-key-down+ :key-code key-code :char-code char-code))
 
 (defun parse-plain-byte (b)

@@ -287,7 +287,9 @@
    (match-i :initform nil :accessor hv-match-i)        ; current match index, or NIL
    (on-link :initform nil :initarg :on-link :accessor hv-on-link)     ; (lambda (href) ...)
    (on-status :initform nil :accessor hv-on-status))   ; (lambda (string) ...) -> update a status line
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A scrollable HTML view: renders a tokenized/wrapped document with styled runs,
+focusable links, in-page anchors, and find-in-page.  Load content with SET-HTML."))
 
 (defmethod focusable-p ((v html-view)) t)
 (defun hv-nlines (v) (length (hv-lines v)))
@@ -299,6 +301,8 @@
       (setf (hv-lines v) lines (hv-anchors v) anchors))))
 
 (defun set-html (v html)
+  "Load HTML string into the html-view V: tokenize, lay out, reset scroll/focus, and
+repaint.  Returns V."
   (multiple-value-bind (toks lks) (html->tokens (or html ""))
     (setf (hv-tokens v) toks (hv-links v) lks (hv-focus v) nil (hv-top v) 0
           (hv-matches v) '() (hv-match-i v) nil))

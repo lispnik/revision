@@ -10,12 +10,19 @@
 ;;; damage regions; whole-instance invalidation is enough to prove the model.)
 ;;; ---------------------------------------------------------------------------
 
-(defclass reactive-class (standard-class) ())
+(defclass reactive-class (standard-class) ()
+  (:documentation "Metaclass whose instances invalidate the screen on any slot write:
+an :after method on (SETF SLOT-VALUE-USING-CLASS) sets *DIRTY*, so views never repaint
+themselves -- mutating reactive state schedules one committed frame on the next loop."))
 (defmethod sb-mop:validate-superclass ((c reactive-class) (s standard-class)) t)
 
 (defvar *dirty* nil "Set when reactive state changed since the last frame.")
 (defvar *root* nil "The current top-level window (the modal background).")
-(defun invalidate (object) (declare (ignore object)) (setf *dirty* t))
+(defun invalidate (object)
+  "Mark the UI dirty so the event loop commits a fresh frame next iteration.
+OBJECT is accepted (and ignored) for a future per-view damage-tracking refinement;
+today any change triggers a whole-screen redraw."
+  (declare (ignore object)) (setf *dirty* t))
 
 (defmethod (setf sb-mop:slot-value-using-class) :after
     (new (class reactive-class) object slot)
@@ -28,11 +35,18 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass view ()
-  ((bounds :initarg :bounds :initform nil :accessor view-bounds)
-   (owner  :initarg :owner  :initform nil :accessor view-owner)
-   (name   :initarg :name   :initform nil :accessor view-name)
-   (keymap :initarg :keymap :initform nil :accessor view-keymap))
-  (:metaclass reactive-class))
+  ((bounds :initarg :bounds :initform nil :accessor view-bounds
+           :documentation "The view's screen rectangle (a revision TRECT), assigned by LAYOUT.")
+   (owner  :initarg :owner  :initform nil :accessor view-owner
+           :documentation "The containing view (NIL for a root window); walk it up via VIEW-ROOT.")
+   (name   :initarg :name   :initform nil :accessor view-name
+           :documentation "Optional symbol identifying the view, used by FIND-VIEW lookups.")
+   (keymap :initarg :keymap :initform nil :accessor view-keymap
+           :documentation "The view's KEYMAP (or NIL); its chain turns key events into commands."))
+  (:metaclass reactive-class)
+  (:documentation "Root of the view hierarchy: a rectangular region that draws itself and
+handles events.  A reactive instance, so mutating a slot repaints; subclasses add HANDLE-EVENT
+and DRAW methods.  CONTAINER extends it with subviews."))
 
 (defgeneric draw (view)
   (:documentation "Render VIEW into the screen back buffer, within its bounds."))
@@ -42,7 +56,9 @@
   (:method ((v view) rect) (setf (view-bounds v) rect)))
 
 ;;; geometry shorthands over revision's TRECT
-(defun rect (x0 y0 x1 y1) (revision::make-trect x0 y0 x1 y1))
+(defun rect (x0 y0 x1 y1)
+  "Construct a rectangle spanning the half-open range (X0,Y0) inclusive to (X1,Y1) exclusive."
+  (revision::make-trect x0 y0 x1 y1))
 (defun r-x0 (r) (revision::rect-ax r))   (defun r-y0 (r) (revision::rect-ay r))
 (defun r-x1 (r) (revision::rect-bx r))   (defun r-y1 (r) (revision::rect-by r))
 (defun r-w  (r) (revision::rect-width r)) (defun r-h (r) (revision::rect-height r))
@@ -51,17 +67,28 @@
 ;;; Events as a class hierarchy -- dispatched on (view x event), no type tags.
 ;;; ---------------------------------------------------------------------------
 
-(defclass event () ((handled :initform nil :accessor handled-p)))
+(defclass event ()
+  ((handled :initform nil :accessor handled-p
+            :documentation "Set true once a HANDLE-EVENT method consumes the event, stopping bubbling."))
+  (:documentation "Base class for input/system events dispatched to views via HANDLE-EVENT."))
 (defclass key-event (event)
-  ((keysym    :initarg :keysym    :reader event-keysym)        ; a character or keyword (:up …)
-   (modifiers :initarg :modifiers :initform 0 :reader event-modifiers)))
+  ((keysym    :initarg :keysym    :reader event-keysym
+              :documentation "The key: a character, or a keyword for a special key (:up :enter :f1 …).")
+   (modifiers :initarg :modifiers :initform 0 :reader event-modifiers
+              :documentation "Bitmask of held modifiers (+MD-CTRL+ / +MD-ALT+ / +MD-SHIFT+)."))
+  (:documentation "A key-press event; its (KEYSYM . MODIFIERS) form the token matched against keymaps."))
 (defclass mouse-event (event)
-  ((where   :initarg :where   :reader event-where)
-   (buttons :initarg :buttons :initform 0 :reader event-buttons)))
-(defclass mouse-down (mouse-event) ((double :initarg :double :initform nil :reader event-double)))
+  ((where   :initarg :where   :reader event-where
+            :documentation "Cell position of the pointer (a TPOINT in screen coordinates).")
+   (buttons :initarg :buttons :initform 0 :reader event-buttons))
+  (:documentation "Base class for mouse events; EVENT-WHERE gives the pointer's cell position."))
+(defclass mouse-down (mouse-event) ((double :initarg :double :initform nil :reader event-double))
+  (:documentation "A mouse button-press event (EVENT-DOUBLE is true for the 2nd click of a double-click)."))
 (defclass mouse-up   (mouse-event) ())
 (defclass mouse-move (mouse-event) ())
-(defclass wheel-event (mouse-event) ((delta :initarg :delta :reader event-delta)))
+(defclass wheel-event (mouse-event) ((delta :initarg :delta :reader event-delta
+                                            :documentation "Scroll amount/direction (negative = up, positive = down)."))
+  (:documentation "A mouse-wheel scroll event; EVENT-DELTA gives the scroll direction and magnitude."))
 (defclass command-event (event) ((command :initarg :command :reader event-command)))
 (defclass broadcast-event (event)
   ((id :initarg :id :reader event-id) (info :initarg :info :initform nil :reader event-info)))
@@ -73,8 +100,11 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass keymap ()
-  ((parent   :initarg :parent :initform nil :reader keymap-parent)
-   (bindings :initform (make-hash-table :test 'equal) :reader keymap-bindings)))
+  ((parent   :initarg :parent :initform nil :reader keymap-parent
+             :documentation "Fallback keymap consulted when a token is unbound here (the inheritance chain).")
+   (bindings :initform (make-hash-table :test 'equal) :reader keymap-bindings))
+  (:documentation "A layer of input bindings mapping (KEYSYM . MODS) tokens to command names,
+with an optional PARENT for inheritance.  Bindings are data -- introspectable and rebindable."))
 
 ;;; A binding key normalises to a (KEYSYM . MODS) token.  Terminals deliver a
 ;;; Ctrl-letter as a control character (code 1-26) that already carries +md-ctrl+
@@ -91,6 +121,8 @@ already-formed (KEYSYM . MODS) cons)."
   (cons (if (consp spec) (car spec) spec) (%key-mods spec)))
 
 (defun bind-key (km spec command)
+  "Bind SPEC (a keysym, a control char, or a (KEYSYM . MODS) cons) to command name COMMAND
+in keymap KM, normalising SPEC to its canonical token first."
   (setf (gethash (key-token spec) (keymap-bindings km)) command))
 
 (defun %km-get (km token)
@@ -123,12 +155,16 @@ form -- so e.g. (ctrl #\\o) matches the same token the driver produces for Ctrl-
 ;;; ---------------------------------------------------------------------------
 
 (defclass command ()
-  ((name    :initarg :name    :reader command-name)
+  ((name    :initarg :name    :reader command-name
+            :documentation "The symbol naming this command (its key in *COMMANDS* and in keymaps).")
    (action  :initarg :action  :reader command-action)
    (doc     :initarg :doc     :initform nil :reader command-doc)      ; one-line description (see DEFINE-COMMAND)
    (source  :initarg :source  :initform nil :reader command-source)  ; defining file (cross-file collision detection)
    (enabled :initarg :enabled :initform t   :accessor command-enabled))  ; boolean, or a predicate thunk
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A named, reactive unit of behaviour: an ACTION closure over (VIEW EVENT) plus
+an ENABLED flag.  Reactive, so toggling ENABLED auto-repaints menus/buttons that show it.
+Invoked by name through PERFORM; keymaps and menus reference commands by NAME."))
 
 (defun command-enabled-p (command)
   "Is COMMAND enabled right now?  ENABLED is a boolean, or a predicate thunk evaluated
@@ -175,6 +211,9 @@ description surfaced in the generated keybinding reference."
 ;;; ---------------------------------------------------------------------------
 
 (defgeneric handle-event (view event)
+  (:documentation "Dispatch EVENT to VIEW: the core (view x event) multimethod protocol.  The base
+VIEW turns a key event into a command via its keymap chain; subclasses add methods and set
+HANDLED-P once they consume it.  The default method ignores the event.")
   (:method ((v view) (e event)) nil))
 
 (defmethod handle-event ((v view) (e key-event))
@@ -322,7 +361,10 @@ one display unit, and a double-width glyph reserves its second cell with the
         :scrollbar-thumb (revision:make-attr 0 7))
   "Role -> attribute while a DIALOG draws (the grey-dialog palette).")
 
-(defun role (key) (or (getf *theme* key) (revision:make-attr 7 0)))
+(defun role (key)
+  "The colour attribute the current *THEME* assigns to the semantic role KEY (e.g. :normal,
+:focused, :status, :frame), or a plain grey-on-black default when the role is unset."
+  (or (getf *theme* key) (revision:make-attr 7 0)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Chrome helpers (box, centred text).
@@ -370,7 +412,10 @@ along the bottom, offset one cell past the (X0,Y0)-(X1,Y1) box."
 
 ;;; Context-sensitive status-bar chips: a focused view may offer (LABEL . THUNK)
 ;;; actions the desktop appends to the status line.  Default: none.
-(defgeneric status-hints (view) (:method (v) (declare (ignore v)) nil))
+(defgeneric status-hints (view)
+  (:method (v) (declare (ignore v)) nil)
+  (:documentation "The (LABEL . THUNK) action chips the focused VIEW contributes to the desktop status
+bar; specialize to offer context actions.  Default: none."))
 
 (defun draw-vscroll (x y0 y1 pos max)
   "Draw a vertical scrollbar in column X with arrows at rows Y0 (▲) and Y1 (▼)
@@ -402,19 +447,31 @@ and a thumb positioned by POS/MAX over the track between them."
 ;;; bubbles anything unhandled to its own keymap via CALL-NEXT-METHOD.
 ;;; ---------------------------------------------------------------------------
 
-(defgeneric focusable-p (view) (:method ((v view)) nil))
+(defgeneric focusable-p (view)
+  (:documentation "True if VIEW can hold keyboard focus (a focusable leaf).  Default NIL; interactive
+widgets override it, and containers use it to enumerate focus stops.")
+  (:method ((v view)) nil))
 
 (defclass container (view)
-  ((subviews :initform '() :accessor subviews)
-   (focus    :initform nil :accessor container-focus))   ; the focused leaf, anywhere below (root only)
+  ((subviews :initform '() :accessor subviews
+             :documentation "Child views in paint order (last paints on top); see ADD-SUBVIEW.")
+   (focus    :initform nil :accessor container-focus       ; the focused leaf, anywhere below (root only)
+             :documentation "On the root window, the focused focusable leaf anywhere in the subtree (else NIL)."))
+  (:documentation "A VIEW that holds SUBVIEWS: it draws each child, routes key events to its focused
+leaf, handles Tab/Shift-Tab focus movement, and hit-tests mouse events down the tree.  On the
+root window CONTAINER-FOCUS names the focused leaf anywhere in the subtree.")
   (:metaclass reactive-class))
 
 (defun add-subview (c v)
+  "Add view V as a child of container C (appended last, so it paints on top) and set V's
+owner to C.  Returns V."
   (setf (view-owner v) c
         (subviews c) (append (subviews c) (list v)))
   v)
 
-(defun view-root (v) (if (view-owner v) (view-root (view-owner v)) v))
+(defun view-root (v)
+  "The topmost owner of V (the root window): follow VIEW-OWNER up until it is NIL."
+  (if (view-owner v) (view-root (view-owner v)) v))
 
 (defun find-view (root name)
   "Depth-first search for the subview named NAME, or NIL."
@@ -429,11 +486,15 @@ and a thumb positioned by POS/MAX over the track between them."
 ;;; Focus is a *window-level* property over every focusable leaf in the subtree,
 ;;; so nested layout containers don't each need their own focus management.
 (defun all-focusables (v)
+  "List every focusable leaf in V's subtree, in depth-first paint order -- the window's
+Tab order.  Flattens nested layout containers so focus is a window-level property."
   (cond ((focusable-p v) (list v))
         ((typep v 'container) (mapcan #'all-focusables (subviews v)))
         (t nil)))
 
 (defun focus-next (root &optional (dir 1))
+  "Move ROOT's focus to the next focusable leaf, cycling; DIR 1 advances (Tab), -1 goes
+back (Shift-Tab).  No-op when there are no focusable leaves."
   (let ((fs (all-focusables root)))
     (when fs
       (let ((cur (or (position (container-focus root) fs) 0)))

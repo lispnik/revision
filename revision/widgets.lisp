@@ -6,17 +6,23 @@
 ;;; --- window: a framed container with a title --------------------------------
 
 (defclass window (container)
-  ((title   :initarg :title :initform "" :accessor window-title)
+  ((title   :initarg :title :initform "" :accessor window-title
+            :documentation "The window's title, drawn centred in its top frame.")
    (managed :initform nil :accessor window-managed)    ; hosted in a desktop (show close/resize affordances)
    (active  :initform t   :accessor window-active)      ; topmost/focused window (brighter frame)
    (cleanup :initform nil :accessor window-cleanup)     ; thunk run when the desktop closes it
-   (scroll-target :initform nil :accessor window-scroll-target)   ; scrollable view -> frame scrollbar
-   (help    :initform :general :accessor window-help)   ; help topic for F1 / the Help menu
-   (kind    :initform nil :accessor window-kind)        ; builder keyword, for desktop layout save/restore
+   (scroll-target :initform nil :accessor window-scroll-target
+                  :documentation "Scrollable child view whose position drives the window's frame scrollbar, or NIL.")
+   (help    :initform :general :accessor window-help
+            :documentation "Help-topic keyword shown for this window on F1 / the Help menu.")
+   (kind    :initform nil :accessor window-kind
+            :documentation "Builder keyword (e.g. :repl) identifying the window for desktop layout save/restore.")
    (number  :initform nil :accessor window-number)      ; 1..9 z-order number (Alt-N selects it)
    (zoomed  :initform nil :accessor window-zoomed)      ; filling the desktop?
    (saved-bounds :initform nil :accessor window-saved-bounds))  ; bounds to restore on un-zoom
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A framed, optionally desktop-managed top-level view: a titled container with a border,
+an optional frame scrollbar, and z-order/zoom state for the desktop."))
 
 (defgeneric frame-indicator (view)
   (:documentation "A short string a scroll-target view puts on its window's bottom
@@ -58,9 +64,12 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
 ;;; --- button: focusable, fires a command on Enter/Space ----------------------
 
 (defclass button (view)
-  ((label   :initarg :label   :accessor button-label)
-   (command :initarg :command :accessor button-command))
-  (:metaclass reactive-class))
+  ((label   :initarg :label   :accessor button-label
+            :documentation "Text shown between the brackets, e.g. \"OK\" in [ OK ].")
+   (command :initarg :command :accessor button-command
+            :documentation "Command performed when the button is pressed (Enter/Space/click)."))
+  (:metaclass reactive-class)
+  (:documentation "A focusable push button that performs its COMMAND on Enter, Space, or a click."))
 
 (defmethod focusable-p ((b button)) t)
 
@@ -78,9 +87,11 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
 ;;; --- static-text: a non-focusable label -------------------------------------
 
 (defclass static-text (view)
-  ((text :initarg :text :initform "" :accessor static-text-text)
+  ((text :initarg :text :initform "" :accessor static-text-text
+         :documentation "The string displayed on the single line; setting it repaints.")
    (role :initarg :role :initform :normal :reader static-text-role))
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A non-focusable one-line text label, drawn in ROLE's colours."))
 
 (defmethod draw ((v static-text))
   ;; an empty :error line stays invisible (blends into the background) until set
@@ -97,7 +108,9 @@ frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none
 
 (defclass label (static-text)
   ((link :initarg :link :initform nil :accessor label-link))   ; NAME of the linked control
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "Static text tied to a control (TLabel): its ~x~ Alt-mnemonic focuses the
+linked control, and it brightens while that control is focused."))
 
 (defun %label-hotkey (v)
   "The label's Alt-mnemonic (the char after the first ~, downcased), or NIL."
@@ -148,14 +161,21 @@ and return T."
 (defvar *input-histories* (make-hash-table) "HISTORY-ID -> list of past entries (most recent first).")
 
 (defclass input-line (view)
-  ((text       :initarg :text :initform "" :accessor input-text)
-   (caret      :initform 0 :accessor input-caret)
+  ((text       :initarg :text :initform "" :accessor input-text
+               :documentation "The field's current contents; reactive, so edits repaint.")
+   (caret      :initform 0 :accessor input-caret
+               :documentation "Insertion-point column within TEXT (0 = before the first char).")
    (scroll     :initform 0 :accessor input-scroll)         ; first visible column
-   (on-change  :initarg :on-change :initform nil :accessor input-on-change)
-   (validator  :initarg :validator  :initform nil :accessor input-validator)   ; field-validator or NIL
-   (history-id :initarg :history-id :initform nil :accessor input-history-id)   ; key into *input-histories*
+   (on-change  :initarg :on-change :initform nil :accessor input-on-change
+               :documentation "Closure (il) called whenever the text changes -- data binding.")
+   (validator  :initarg :validator  :initform nil :accessor input-validator   ; field-validator or NIL
+               :documentation "A FIELD-VALIDATOR (or NIL): FILTER rejects keystrokes, CHECK
+validates the whole field on accept.")
+   (history-id :initarg :history-id :initform nil :accessor input-history-id   ; key into *input-histories*
+               :documentation "Key into *INPUT-HISTORIES* enabling Up/Down recall of past entries, or NIL.")
    (hist-pos   :initform nil :accessor input-hist-pos))
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "An editable single-line text field with optional validation and history recall."))
 
 (defmethod focusable-p ((il input-line)) t)
 
@@ -184,6 +204,7 @@ and return T."
               ((>= c (+ sc w)) (setf (input-scroll il) (1+ (- c w)))))))))
 
 (defun input-notify (il)
+  "Fire IL's ON-CHANGE closure (if any) to signal that the text changed."
   (when (input-on-change il) (funcall (input-on-change il) il)))
 
 (defun input-insert (il ch)
@@ -249,19 +270,25 @@ and return T."
 ;;; reactive, and Enter calls an ON-ACTIVATE closure with the chosen item.
 
 (defclass list-box (view)
-  ((items       :initarg :items :initform '() :accessor list-items)
-   (selected    :initform 0 :accessor list-selected)
-   (top         :initform 0 :accessor list-top)            ; first visible row
+  ((items       :initarg :items :initform '() :accessor list-items
+                :documentation "The list of item strings displayed, one per row.")
+   (selected    :initform 0 :accessor list-selected
+                :documentation "Index of the currently highlighted item.")
+   (top         :initform 0 :accessor list-top            ; first visible row
+                :documentation "Index of the first visible row (vertical scroll offset).")
    (hleft       :initform 0 :accessor list-hleft)          ; horizontal scroll offset (cols)
-   (on-activate :initarg :on-activate :initform nil :accessor list-on-activate)
+   (on-activate :initarg :on-activate :initform nil :accessor list-on-activate
+                :documentation "Closure (lb item) called on Enter with the chosen item.")
    (on-select   :initarg :on-select   :initform nil :accessor list-on-select)     ; fired when selection moves
    (on-type     :initarg :on-type     :initform nil :accessor list-on-type)       ; (lb CHAR|:back) -> type-ahead
    (on-inspect  :initarg :on-inspect  :initform nil :accessor list-on-inspect))   ; (lb ITEM) -> open the inspector (Alt-I)
-  (:metaclass reactive-class))
+  (:metaclass reactive-class)
+  (:documentation "A scrollable, selectable flat list; Enter activates the selected item."))
 
 (defmethod focusable-p ((lb list-box)) t)
 
 (defun list-scroll-fix (lb)
+  "Adjust LIST-TOP so the selected item stays within the visible rows."
   (let ((b (view-bounds lb)))
     (when b
       (let ((h (r-h b)) (sel (list-selected lb)) (top (list-top lb)))
