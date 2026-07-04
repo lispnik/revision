@@ -60,7 +60,7 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 
 | Key | Command |
 |-----|---------|
-| `Bksp` | `insp-back` |
+| `Bksp` | `Go back to the previously inspected value.` |
 | `Enter` | `Re-root the inspector on the focused node's value (remembering the current
 view for Back).` |
 
@@ -88,9 +88,9 @@ view for Back).` |
 
 | Key | Command |
 |-----|---------|
-| `Down` | `repl-hist-next` |
-| `Up` | `repl-hist-prev` |
-| `Ctrl+R` | `repl-hist-search` |
+| `Down` | `Recall the next input from history.` |
+| `Up` | `Recall the previous input from history.` |
+| `Ctrl+R` | `Reverse-i-search the input history.` |
 
 ## Dialogs
 
@@ -103,10 +103,10 @@ view for Back).` |
 
 | Key | Command |
 |-----|---------|
-| `C` | `ct-clear` |
-| `R` | `ct-refresh` |
-| `U` | `ct-unwatch` |
-| `A` | `ct-watch` |
+| `A` | `Add a function to the call tree (prompts for its name).` |
+| `C` | `Clear the recorded call tree.` |
+| `R` | `Refresh the call-tree display.` |
+| `U` | `Remove a watched function from the call tree (pick from a list).` |
 
 ## Object lists & tables
 

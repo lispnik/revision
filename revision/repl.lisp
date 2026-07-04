@@ -208,12 +208,14 @@ by the editor's eval-defun / eval-region (programmatic submit)."
     (sb-set-input v (or text ""))))
 
 (define-command repl-hist-prev (v e)
+  "Recall the previous input from history."
   (let* ((win (view-root v)) (h (repl-history win)) (n (length h)))
     (when (plusp n)
       (let ((pos (if (repl-hist-pos win) (min (1- n) (1+ (repl-hist-pos win))) 0)))
         (%repl-recall v (nth pos h) pos)))))
 
 (define-command repl-hist-next (v e)
+  "Recall the next input from history."
   (let* ((win (view-root v)) (h (repl-history win)) (cur (repl-hist-pos win)))
     (when cur
       (let ((pos (1- cur)))
@@ -244,7 +246,7 @@ recalls the chosen line into the input."
           (let ((r (exec-view d :width 66 :height 16)))
             (when (and (not (eq r :cancel)) (stringp r)) (%repl-recall v r nil)))))))
 
-(define-command repl-hist-search (v e) (%repl-history-search v))
+(define-command repl-hist-search (v e) "Reverse-i-search the input history." (%repl-history-search v))
 
 ;;; --- clear / save transcript / save session as a script ---------------------
 

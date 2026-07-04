@@ -242,6 +242,7 @@ view for Back)."
         (%insp-show w val (%node-label n))))))
 
 (define-command insp-back (v e)
+  "Go back to the previously inspected value."
   (let ((w (view-root v)))
     (when (insp-back w)
       (push (insp-current w) (insp-fwd w))

@@ -301,6 +301,7 @@ or NIL when it was already watched."
         (when *desktop* (dt-open *desktop* (lambda () (make-inspector obj label))))))))
 
 (define-command ct-watch (v e)
+  "Add a function to the call tree (prompts for its name)."
   (let ((win (view-root v))
         (s (prompt-string " Watch function " "Function to add to the call tree:")))
     (when (and s (plusp (length (string-trim " " s))))
@@ -314,6 +315,7 @@ or NIL when it was already watched."
       (%ct-refresh win))))
 
 (define-command ct-unwatch (v e)
+  "Remove a watched function from the call tree (pick from a list)."
   (let ((win (view-root v)))
     (when *ct-watched*
       (let ((pick (popup-choose (mapcar (lambda (s) (format nil "~s" s)) *ct-watched*)
@@ -323,8 +325,8 @@ or NIL when it was already watched."
             (when sym (%ct-unwatch sym))))))
     (%ct-refresh win)))
 
-(define-command ct-clear (v e) (%ct-clear) (%ct-refresh (view-root v)))
-(define-command ct-refresh (v e) (%ct-refresh (view-root v)))
+(define-command ct-clear   (v e) "Clear the recorded call tree."   (%ct-clear) (%ct-refresh (view-root v)))
+(define-command ct-refresh (v e) "Refresh the call-tree display." (%ct-refresh (view-root v)))
 
 (defkeymap *call-tree-keys* (*global-keys*)
   (#\a ct-watch) (#\u ct-unwatch) (#\c ct-clear) (#\r ct-refresh))

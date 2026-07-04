@@ -28,6 +28,7 @@
 (defun %tm-echo (root v) (let ((e (find-view root 'echo))) (when e (setf (static-text-text e) v) (invalidate e))))
 
 (define-command tm-spawn (v e)
+  "Spawn a background worker thread."
   (push (sb-thread:make-thread (lambda () (sleep 600))
                                :name (format nil "worker-~d" (incf *worker-n*)))
         *tm-threads*)
@@ -35,6 +36,7 @@
   (%tm-echo (view-root v) (format nil " spawned worker-~d " *worker-n*)))
 
 (define-command tm-kill (v e)
+  "Terminate the selected thread (refuses UI / system threads)."
   (let* ((root (view-root v)) (lb (%tm-list root))
          (th (and lb (< (list-selected lb) (length *tm-threads*))
                   (nth (list-selected lb) *tm-threads*)))
@@ -48,6 +50,7 @@
          (when lb (tm-refresh lb))))))
 
 (define-command tm-refresh-cmd (v e)
+  "Refresh the thread list."
   (let ((lb (%tm-list (view-root v)))) (when lb (tm-refresh lb)))
   (%tm-echo (view-root v) " refreshed "))
 
