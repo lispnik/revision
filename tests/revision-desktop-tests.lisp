@@ -78,6 +78,26 @@
     (check "draw is a safe no-op on a headless desktop (no *screen*)"
            (progn (draw dt) t))))
 
+;;; 6. input decoder: Option/Alt as a Meta prefix (ESC + a CSI/SS3 sequence -> Alt+key),
+;;; e.g. macOS terminals send Option-F3 as `ESC ESC O R` or `ESC ESC[13~`.
+(flet ((decode1 (chars)
+         (let ((buf (map '(simple-array (unsigned-byte 8) (*)) #'char-code
+                         (coerce chars 'string))))
+           (first (parse-input-buffer buf (length buf))))))
+  (let ((ev (decode1 (list #\Escape #\Escape #\O #\R))))              ; Option-F3 (SS3)
+    (check "ESC ESC O R decodes to F3" (and ev (= (iev-key-code ev) +kb-f3+)))
+    (check "ESC ESC O R carries Alt (-> Alt-F3 closes windows)"
+           (and ev (logtest (iev-modifiers ev) +md-alt+))))
+  (let ((ev (decode1 (list #\Escape #\Escape #\[ #\1 #\3 #\~))))      ; Option-F3 (CSI)
+    (check "ESC ESC[13~ decodes to Alt-F3"
+           (and ev (= (iev-key-code ev) +kb-f3+) (logtest (iev-modifiers ev) +md-alt+))))
+  (let ((ev (decode1 (list #\Escape #\O #\R))))                       ; plain F3, no Alt
+    (check "ESC O R (plain F3) has no Alt modifier"
+           (and ev (= (iev-key-code ev) +kb-f3+) (not (logtest (iev-modifiers ev) +md-alt+)))))
+  (let ((ev (decode1 (list #\Escape #\Escape #\[ #\B))))              ; Option-Down arrow
+    (check "ESC ESC[B decodes to Alt-Down"
+           (and ev (= (iev-key-code ev) +kb-down+) (logtest (iev-modifiers ev) +md-alt+)))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

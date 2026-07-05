@@ -433,6 +433,16 @@ or (values nil nil) when more bytes are required."
     ((>= (1+ i) len) (values (key-event +kb-esc+ 27) 1))
     (t (let ((c (aref buf (1+ i))))
          (cond
+           ;; ESC + <escape sequence>: Option/Alt as a Meta prefix before a CSI/SS3
+           ;; sequence (macOS terminals with "Option as Meta"), e.g. ESC ESC O R or
+           ;; ESC ESC[13~ = Alt-F3.  Parse the inner sequence and add the Alt modifier.
+           ((and (= c 27) (< (+ i 2) len)
+                 (or (= (aref buf (+ i 2)) (char-code #\[)) (= (aref buf (+ i 2)) (char-code #\O))))
+            (multiple-value-bind (ev n) (parse-escape buf (1+ i) len)
+              (if (and ev n)
+                  (progn (setf (iev-modifiers ev) (logior (iev-modifiers ev) +md-alt+))
+                         (values ev (1+ n)))
+                  (values nil nil))))                 ; inner sequence incomplete -> await more bytes
            ((= c (char-code #\[)) (parse-csi buf i len))
            ((= c (char-code #\O)) (parse-ss3 buf i len))
            ;; ESC x / ESC X  ->  Alt-X (the Quit shortcut, with a stable key-code)
