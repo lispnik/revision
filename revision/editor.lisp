@@ -930,6 +930,24 @@ line:col indicator, find/replace prompts and Tab-completion around it."))
   (let ((te (find-view w 'edit))) (and te (te-modified te))))
 (defmethod window-esc-dismissable-p ((w editor-window)) (declare (ignore w)) nil)
 
+(defmethod window-save-state ((w editor-window))
+  "The editor's filename, plus the text of an unsaved scratch buffer (a named file is
+reloaded from disk on restore, never clobbered)."
+  (let ((te (find-view w 'edit)))
+    (when te
+      (list (and (te-filename te) (namestring (te-filename te)))
+            (when (null (te-filename te)) (te-text te))))))
+
+(defmethod window-restore-state ((w editor-window) state)
+  "Reload the saved file, or restore a scratch buffer's text.  STATE is (FILENAME TEXT),
+or -- from an older layout -- a bare filename string."
+  (let ((te (find-view w 'edit))
+        (fn (if (consp state) (first state) state))
+        (txt (and (consp state) (second state))))
+    (when te
+      (cond ((and fn (probe-file fn)) (te-load te fn))
+            (txt (te-set-text te txt) (setf (te-modified te) t))))))
+
 ;; The container would otherwise grab Tab for focus-next; intercept it here so
 ;; Tab completes the symbol at point (the editor pane is the only focusable).
 (defmethod handle-event ((w editor-window) (e key-event))

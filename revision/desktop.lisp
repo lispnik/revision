@@ -878,44 +878,32 @@ editors, the theme radio re-skins the desktop, the timeout field is immediate."
 (defun %desktop-file () (merge-pathnames ".revision-desktop" (user-homedir-pathname)))
 
 (defun dt-save-layout (dt &optional (path (%desktop-file)))
-  "Write the open windows (kind + bounds, Z-order) to PATH.  Editors also save
-their filename and -- for scratch or modified buffers -- their text, so a full
-session (including unsaved work) is restored."
+  "Write the open windows -- kind, bounds, Z-order, and each window's own restorable
+state -- to PATH.  A window contributes state through WINDOW-SAVE-STATE: editors save
+their filename and any unsaved buffer text, the REPL its package + history, and so on,
+so relaunching restores the whole session."
   (let ((layout (loop for w in (dt-windows dt) for k = (window-kind w) when k
                       collect (let ((b (view-bounds w)))
                                 (list k (revision::rect-ax b) (revision::rect-ay b)
                                       (revision::rect-bx b) (revision::rect-by b)
-                                      (and (eq k :editor)
-                                           (let ((te (find-view w 'edit)))
-                                             (when te
-                                               ;; save text only for an unsaved scratch buffer; a named
-                                               ;; file is reloaded from disk on restore (never clobbered)
-                                               (list (and (te-filename te) (namestring (te-filename te)))
-                                                     (when (null (te-filename te)) (te-text te)))))))))))
+                                      (ignore-errors (window-save-state w)))))))
     (ignore-errors
      (with-open-file (s path :direction :output :if-exists :supersede :if-does-not-exist :create)
        (prin1 layout s)))
     layout))
 
 (defun dt-load-layout (dt &optional (path (%desktop-file)))
-  "Reopen the windows recorded in PATH at their saved positions, restoring saved
-editor buffer text."
+  "Reopen the windows recorded in PATH at their saved positions.  Each is rebuilt by its
+registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
   (dolist (entry (ignore-errors (with-open-file (s path :if-does-not-exist nil) (and s (read s nil nil)))))
     (ignore-errors
-     (destructuring-bind (kind x0 y0 x1 y1 &optional extra) entry
-       (multiple-value-bind (win focus open)
-           (if (eq kind :editor)
-               ;; EXTRA is (filename text) -- or, from older sessions, a bare filename string
-               (let ((fn (if (consp extra) (first extra) extra))
-                     (txt (and (consp extra) (second extra))))
-                 (multiple-value-bind (w f) (make-editor fn)
-                   ;; restore saved text only for a scratch buffer (no filename); a
-                   ;; named file was reloaded fresh by make-editor -- never overwrite it
-                   (when (and txt (null fn))
-                     (let ((te (find-view w 'edit))) (when te (te-set-text te txt) (setf (te-modified te) t))))
-                   (values w f nil)))
-               (let ((b (cdr (assoc kind *window-builders*)))) (when b (funcall b))))
-         (when win (dt-add dt win focus open kind (rect x0 y0 x1 y1)))))))
+     (destructuring-bind (kind x0 y0 x1 y1 &optional state) entry
+       (let ((builder (cdr (assoc kind *window-builders*))))
+         (when builder
+           (multiple-value-bind (win focus open) (funcall builder)
+             (when win
+               (ignore-errors (window-restore-state win state))
+               (dt-add dt win focus open kind (rect x0 y0 x1 y1)))))))))
   (dt-refocus dt) (invalidate dt))
 
 ;;; --- entry point ------------------------------------------------------------

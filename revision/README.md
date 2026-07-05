@@ -142,6 +142,10 @@ items are dimmed.  A **table viewer** (columns + fixed header + scrollbar) is
 available, and input fields support **validators** (filter / range / picture) and
 **Up/Down history** recall.  Type-to-filter inputs rank results with **fzf-style
 fuzzy matching**, and menus support **nested submenus**.  The **whole desktop
-persists** — the open windows (kind, position, size, Z-order; editor filenames) are
-saved to `~/.revision-desktop` on exit and restored on launch (`dt-save-layout` /
-`dt-load-layout`).  revision covers the full Turbo-Vision interaction model end to end.
+persists** — the open windows (kind, position, size, Z-order) are saved to
+`~/.revision-desktop` on exit and restored on launch (`dt-save-layout` /
+`dt-load-layout`), and each window contributes its own restorable state through the
+**`window-save-state` / `window-restore-state`** protocol: editors save their filename
+and any unsaved buffer text, and an application's windows extend it freely (in revl, the
+REPL restores its package + input history and the project tree its expanded folders).
+revision covers the full Turbo-Vision interaction model end to end.

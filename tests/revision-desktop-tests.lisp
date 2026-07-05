@@ -132,6 +132,16 @@
   (check "an editor window is NOT Esc-dismissable" (not (window-esc-dismissable-p win))))
 (check "a plain window IS Esc-dismissable by default" (window-esc-dismissable-p (make-instance 'window)))
 
+;;; 8b. layout persistence: a window contributes state via WINDOW-SAVE-STATE, applied to
+;;; a rebuilt window by WINDOW-RESTORE-STATE (here, an editor's unsaved scratch text).
+(let* ((w (make-editor)) (te (find-view w 'edit)))
+  (te-set-text te "SAVED-TEXT") (setf (te-modified te) t)
+  (let ((st (window-save-state w)) (w2 (make-editor)))
+    (check "editor window-save-state captures the scratch text" (equal (second st) "SAVED-TEXT"))
+    (window-restore-state w2 st)
+    (check "editor window-restore-state restores the text" (search "SAVED-TEXT" (te-text (find-view w2 'edit))))))
+(check "a plain window's save-state is NIL by default" (null (window-save-state (make-instance 'window))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

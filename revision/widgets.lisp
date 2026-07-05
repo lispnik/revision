@@ -40,6 +40,17 @@ dialogs -- close on Esc); a document/editor window overrides to NIL so Esc never
 discards it.")
   (:method (win) (declare (ignore win)) t))
 
+(defgeneric window-save-state (win)
+  (:documentation "A READ-able value capturing WIN's restorable state beyond its kind and
+geometry (or NIL for none).  The desktop persists it in the saved layout and hands it back
+to WINDOW-RESTORE-STATE on the freshly-rebuilt window next launch.")
+  (:method (win) (declare (ignore win)) nil))
+
+(defgeneric window-restore-state (win state)
+  (:documentation "Apply STATE (as produced by WINDOW-SAVE-STATE) to the freshly-built WIN
+during layout restore.  Default: ignore.")
+  (:method (win state) (declare (ignore win state)) nil))
+
 (defmethod draw ((w window))
   (let* ((b (view-bounds w))
          (x0 (revision::rect-ax b)) (y0 (revision::rect-ay b))

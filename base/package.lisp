@@ -90,6 +90,8 @@
 
    ;; ---- Windows & the desktop shell --------------------------------------
    #:window #:window-title #:window-help #:window-kind #:window-scroll-target
+   #:window-dirty-p #:window-esc-dismissable-p        ; close/Esc protocol
+   #:window-save-state #:window-restore-state         ; per-window layout persistence
    #:desktop #:menu-bar #:status-bar #:status-hints #:run-desktop
    #:*desktop* #:*app-done* #:*window-builders* #:*extra-menus*
    #:dt-open #:dt-close-window #:dt-top #:dt-windows #:dt-raise #:dt-refocus
