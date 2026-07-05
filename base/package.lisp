@@ -1,59 +1,122 @@
-;;;; package.lisp --- the REVISION package (the whole framework's namespace).
+;;;; package.lisp --- the REVISION package: the framework's single public API.
 ;;;;
-;;;; One package for the framework: the foundation (geometry, colours, the
+;;;; One package for the whole framework — the foundation (geometry, colours, the
 ;;;; cell/draw-buffer + Unicode/grapheme engine, events, the screen driver, the
-;;;; outline-node struct) defined in base/, and the CLOS kernel (reactive class,
-;;;; events, keymaps/commands, layout, theming, widgets, windows) in revision/.
+;;;; outline-node struct) in base/, and the CLOS kernel (reactive class, events,
+;;;; keymaps/commands, layout, theming, widgets, windows) in revision/.
+;;;;
+;;;; This :export list is the SINGLE source of truth for the public API — a
+;;;; deliberate, grouped contract, not the accidental union of what callers touched.
+;;;; The reference in API.md is generated from these symbols' docstrings (`make api`).
 
 (defpackage #:revision
   (:use #:common-lisp)
   (:documentation "A CLOS-native text-mode UI framework for Common Lisp.")
   (:export
-      #:*desktop* #:*editor-completions-fn* #:*editor-eval-fn*
-   #:*global-keys* #:*help-pages*   #:*lisp-indenter* 
-    #:*paren-matcher*    
-       #:*screen* #:*theme*
-   #:*ui-thread* #:*url-fetch-fn*
-    #:+mb-left+ #:+mb-right+ #:+md-alt+ #:+md-ctrl+ #:+md-shift+
 
-        #:add-laid
-   #:add-subview #:all-focusables #:attr  #:attr-bg #:attr-fg
-   #:attr-rgb-bg #:attr-rgb-fg #:attr-rgb-p #:bind-key  #:button
-   #:button-command #:button-label #:char-width  #:cluster #:cluster-items
-   #:cluster-value #:command #:command-enabled-p  #:command-name #:container
-   #:container-focus #:copy-point #:copy-rect
-        #:define-command
-   #:defkeymap #:deserialize #:desktop  #:dialog #:dialog-result
-   #:digits-validator #:disable-command    #:draw
-    #:enable-command   #:event #:event-delta
-   #:event-keysym #:event-modifiers #:event-where #:exec-view #:fail-validation #:filter-validator
-   #:find-view  #:flush-screen #:focus-next #:focusable-p #:fuzzy-filter
-   #:handle-event #:handled-p #:hide-cursor #:html-view
-   #:input-caret #:input-history-id #:input-line #:input-on-change #:input-text #:input-validator
-   #:invalidate #:key-event #:keymap #:keymap-lookup #:keymap-parent #:layout
-   #:lisp-colorize #:list-box #:list-items #:list-on-activate #:list-selected #:load-object
-   #:make-attr #:make-color-dialog #:make-doc-browser  #:make-file-dialog #:make-help
-    #:make-outline-node
-   #:make-tpoint #:make-trect #:menu-bar #:mouse-down #:mouse-event #:outline
-   #:outline-ensure-children #:outline-focused #:outline-node #:outline-node-children #:outline-node-color #:outline-node-data
-   #:outline-node-expandable-p #:outline-node-expanded #:outline-node-loader #:outline-node-setter #:outline-node-text #:outline-roots
-   #:pack-rgb  #:perform #:persistent-class #:picture-validator #:point-equal-p
-   #:point-x #:point-y #:range-validator #:reactive-class #:rect #:rect-assign
-   #:rect-ax #:rect-ay #:rect-bx #:rect-by #:rect-contains-p #:rect-empty-p
-   #:rect-equal-p #:rect-grow #:rect-height #:rect-intersect #:rect-move #:rect-union
-   #:rect-width #:register-command
-       #:rgb-attr #:role
-   #:row #:run   #:run-desktop #:run-editor
-   #:run-html  #:run-on-ui
-     #:run-view #:save-object #:sb-follow #:sb-on-present
-   #:sb-scroll  #:screen-cell-set #:screen-height
-   #:screen-width #:scrollback #:scrollback-append #:scrollback-clear #:scrollback-present #:serialize
-   #:session #:session-file #:session-filter #:session-line
-   #:set-cursor-pos #:set-cursor-shape  #:set-html  #:show-cursor
-   #:stack #:static-text #:status-bar #:string-width #:subviews #:table-columns
-   #:table-rows #:table-selected #:table-view #:te-colorizer #:te-filename #:te-find
-   #:te-find-regex #:te-load #:te-modified #:te-replace-all #:te-save #:te-set-text
-   #:te-text #:text-edit  #:tpoint #:trect #:ui
-   #:validation-error #:validation-message #:view #:view-bounds #:view-focused-p #:view-keymap
-   #:view-name #:view-owner #:view-root #:wheel-event #:window #:window-title
-   #:with-screen ))
+   ;; ---- Geometry: points & rectangles ------------------------------------
+   #:tpoint #:make-tpoint #:point-x #:point-y #:point-equal-p #:copy-point
+   #:trect #:make-trect #:rect #:rect-ax #:rect-ay #:rect-bx #:rect-by
+   #:rect-width #:rect-height #:rect-move #:rect-grow #:rect-union #:rect-intersect
+   #:rect-contains-p #:rect-empty-p #:rect-equal-p #:rect-assign #:copy-rect
+
+   ;; ---- Colours & display attributes -------------------------------------
+   #:attr #:make-attr #:attr-fg #:attr-bg #:attr-rgb-fg #:attr-rgb-bg #:attr-rgb-p
+   #:rgb-attr #:pack-rgb #:*theme* #:role
+   #:char-width #:string-width                       ; display-column widths (wide CJK / emoji)
+
+   ;; ---- Screen & terminal driver -----------------------------------------
+   #:*screen* #:screen #:screen-width #:screen-height #:with-screen
+   #:flush-screen #:set-cursor-pos #:set-cursor-shape #:show-cursor #:hide-cursor
+   #:screen-cell-set #:screen-next-event #:pump-input          ; low-level: custom host loops
+
+   ;; ---- Events -----------------------------------------------------------
+   #:event #:key-event #:mouse-event #:mouse-down #:wheel-event
+   #:event-keysym #:event-modifiers #:event-where #:event-delta #:handled-p
+   #:+md-ctrl+ #:+md-alt+ #:+md-shift+ #:+mb-left+ #:+mb-right+
+
+   ;; ---- The view protocol & event loop -----------------------------------
+   #:view #:container #:handle-event #:draw #:invalidate #:find-view
+   #:focus-next #:focusable-p #:all-focusables #:add-subview #:add-laid #:subviews
+   #:view-bounds #:view-name #:view-owner #:view-root #:view-keymap #:view-focused-p
+   #:container-focus #:run-view #:run-on-ui
+   #:*running* #:*dirty* #:*root* #:*ui-thread*
+
+   ;; ---- Commands ---------------------------------------------------------
+   #:command #:command-name #:command-enabled-p #:define-command #:register-command
+   #:perform #:disable-command #:enable-command #:reactive-class
+
+   ;; ---- Keymaps ----------------------------------------------------------
+   #:keymap #:keymap-parent #:keymap-lookup #:defkeymap #:bind-key #:ctrl #:translate
+   #:*global-keys* #:*outline-keys* #:*dialog-keys*
+
+   ;; ---- Layout (the UI macro + containers) -------------------------------
+   #:ui #:layout #:stack #:row
+
+   ;; ---- Widgets ----------------------------------------------------------
+   #:static-text #:static-text-text #:label
+   #:button #:button-command #:button-label
+   #:input-line #:input-text #:input-caret #:input-validator #:input-on-change
+   #:input-history-id #:input-notify
+   #:list-box #:list-items #:list-selected #:list-top #:list-on-activate #:list-scroll-fix
+   #:cluster #:cluster-items #:cluster-value
+   #:html-view #:set-html #:*url-fetch-fn*
+
+   ;; ---- Text editor ------------------------------------------------------
+   #:text-edit #:editor-window #:make-editor #:edit
+   #:te-text #:te-set-text #:te-cx #:te-cy #:te-cur #:te-nlines #:te-offset #:te-pos-at-offset
+   #:te-anchor #:te-clamp #:te-ensure-visible #:te-selected-string #:te-select-all
+   #:te-insert #:te-copy #:te-cut #:te-paste
+   #:te-undo #:te-undo! #:te-redo #:te-redo! #:te-save-undo
+   #:te-find #:te-find-regex #:te-replace-all #:te-isearch-start
+   #:te-load #:te-save #:te-filename #:te-modified
+   #:te-auto-close #:te-line-numbers #:te-notes #:te-colorizer #:lisp-colorize
+   #:*lisp-indenter* #:*paren-matcher* #:*editor-eval-fn* #:*editor-completions-fn*
+
+   ;; ---- Scrollback (append-only transcript, e.g. a REPL) -----------------
+   #:scrollback #:scrollback-append #:scrollback-present #:scrollback-clear
+   #:sb-lines #:sb-top #:sb-follow #:sb-pending #:sb-scroll
+   #:sb-input #:sb-iprompt #:sb-icaret #:sb-iactive #:sb-on-submit #:sb-on-present #:sb-set-input
+
+   ;; ---- Table ------------------------------------------------------------
+   #:table-view #:table-columns #:table-rows #:table-selected
+
+   ;; ---- Outline (collapsible tree) + its node model ----------------------
+   #:outline #:outline-roots #:outline-focused #:outline-top #:outline-ensure-children #:ov-current
+   #:outline-node #:make-outline-node #:outline-node-text #:outline-node-children
+   #:outline-node-data #:outline-node-color #:outline-node-expanded #:outline-node-expandable-p
+   #:outline-node-loader #:outline-node-setter
+
+   ;; ---- Windows & the desktop shell --------------------------------------
+   #:window #:window-title #:window-help #:window-kind #:window-scroll-target
+   #:desktop #:menu-bar #:status-bar #:status-hints #:run-desktop
+   #:*desktop* #:*app-done* #:*window-builders* #:*extra-menus*
+   #:dt-open #:dt-close-window #:dt-top #:dt-windows #:dt-raise #:dt-refocus
+   #:dt-save-layout #:dt-load-layout
+   #:context-menu #:popup-choose
+
+   ;; ---- Dialogs & prompts ------------------------------------------------
+   #:dialog #:dialog-result #:exec-view #:make-color-dialog #:make-file-dialog
+   #:prompt-string #:*project-dir*
+
+   ;; ---- Input validators -------------------------------------------------
+   #:validation-error #:validation-message #:fail-validation
+   #:range-validator #:picture-validator #:digits-validator #:filter-validator
+
+   ;; ---- HTML help viewer -------------------------------------------------
+   #:make-help #:make-doc-browser #:*help-pages*
+
+   ;; ---- Persistence (save/restore objects across sessions) ---------------
+   #:session #:persistent-class #:load-object #:save-object #:serialize #:deserialize
+   #:session-file #:session-filter #:session-line
+
+   ;; ---- Text search / fuzzy matching -------------------------------------
+   #:fuzzy-filter
+
+   ;; ---- Standalone full-screen runners (host one widget, no desktop) -----
+   #:run #:run-editor #:run-html
+
+   ;; ---- Reflection: the keybinding + API references (generated) ----------
+   #:keybinding-reference #:keybinding-markdown #:keybinding-html #:keymap-entries
+   #:key-label #:unknown-command-bindings #:*reference-keymaps* #:*widget-key-doc*
+   #:api-markdown))
