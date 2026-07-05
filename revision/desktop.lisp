@@ -632,6 +632,47 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
   (:f5 zoom-window)
   (:f1 help-window))
 
+;;; --- closing a window, prompting to save an unsaved editor first ------------
+
+(defun %dialog-return (v result)
+  "Finish the dialog owning view V with RESULT (used by the Save/Discard buttons)."
+  (let ((d (view-root v))) (when (typep d 'dialog) (setf (dialog-result d) result (dialog-done d) t))))
+(define-command %choose-save    (v e) (%dialog-return v :save))
+(define-command %choose-discard (v e) (%dialog-return v :discard))
+
+(defun %save-discard-cancel (name)
+  "Modal Save / Discard / Cancel prompt for NAME's unsaved changes.  Returns :SAVE,
+:DISCARD, or :CANCEL (Esc = :CANCEL)."
+  (let ((d (ui (dialog (:title " Unsaved changes " :keymap *dialog-keys*)
+                 (stack (1 (static-text :role :label
+                             :text (format nil " ~a has unsaved changes. " (string-trim " " name))))
+                        (:fill (static-text :text ""))
+                        (1 (row (:fill (static-text :text ""))
+                                (10 (button :label "Save"    :command '%choose-save))
+                                (11 (button :label "Discard" :command '%choose-discard))
+                                (10 (button :label "Cancel"  :command 'cancel))
+                                (:fill (static-text :text "")))))))))
+    (let ((r (exec-view d :width 60 :height 8))) (if (member r '(:save :discard)) r :cancel))))
+
+(defun %window-save (dt win)
+  "Save WIN's editor in place, or via Save-As for a scratch buffer.  Return T when it is
+now saved (so the caller may close), NIL if the user cancelled the save."
+  (let ((te (find-view win 'edit)))
+    (cond ((null te) t)
+          ((te-filename te) (te-save te) t)
+          (t (dt-raise dt win) (dt-refocus dt)          ; focus it so %DT-SAVE-AS targets this editor
+             (%dt-save-as dt) (not (te-modified te))))))  ; saved iff no longer modified
+
+(defun %dt-request-close (dt win)
+  "Close WIN, but when it holds unsaved changes first prompt Save / Discard / Cancel so an
+editor is never silently discarded.  Return T when WIN was closed."
+  (if (window-dirty-p win)
+      (ecase (%save-discard-cancel (window-title win))
+        (:save    (when (%window-save dt win) (dt-close-window dt win) t))
+        (:discard (dt-close-window dt win) t)
+        (:cancel  nil))
+      (progn (dt-close-window dt win) t)))
+
 (defmethod handle-event ((dt desktop) (e key-event))
   (let* ((mb (dt-menubar dt)) (top (dt-top dt)) (ks (event-keysym e))
          (mods (event-modifiers e)) (alt (logtest mods revision::+md-alt+))
@@ -649,7 +690,10 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
       (top
        (cond
          ((and (eql ks :esc) (menu-active mb)) (setf (menu-active mb) nil) (invalidate mb))  ; close an open menu
-         ((eql ks :esc) (dt-close-window dt top))            ; else Esc closes the top window
+         ((eql ks :esc)                                      ; Esc: dismiss a transient window; an editor is
+          (if (window-esc-dismissable-p top)                ; never silently discarded -- prompt only if unsaved
+              (dt-close-window dt top)
+              (when (window-dirty-p top) (%dt-request-close dt top))))
          ((menu-active mb) (handle-event mb e))              ; a menu is open over the window -> it drives
          (t (setf *running* t) (handle-event top e)          ; otherwise the focused widget gets the key
             (cond ((not *running*) (dt-close-window dt top))
@@ -692,7 +736,7 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
   (let* ((b (view-bounds win)) (lx (mouse-col win e)) (ly (mouse-row win e)) (w (r-w b)) (h (r-h b)))
     (cond
       ((not (typep e 'mouse-down)) (handle-event win e))            ; wheel etc. -> widgets
-      ((and (zerop ly) (<= 1 lx 3)) (dt-close-window dt win))       ; [✕] close box
+      ((and (zerop ly) (<= 1 lx 3)) (%dt-request-close dt win))     ; [✕] close box (prompts an unsaved editor)
       ((and (zerop ly) (> w 7) (<= (- w 5) lx (- w 3))) (dt-zoom dt win))  ; [↑] zoom box
       ((and (zerop ly) (event-double e)) (dt-zoom dt win))          ; double-click title -> zoom
       ((and (= lx (1- w)) (= ly (1- h))) (setf (dt-drag dt) (list :resize win)))  ; resize grip
@@ -740,7 +784,7 @@ plus the focused widget's own STATUS-HINTS, plus the always-on globals."
                       (cons "Help"      (lambda () (dt-help dt)))
                       (cons "Exit"      (lambda () (setf *app-done* t))))))
     (when top
-      (setf chips (append (list (cons "Close" (lambda () (dt-close-window dt top)))) chips
+      (setf chips (append (list (cons "Close" (lambda () (%dt-request-close dt top)))) chips
                           (status-hints top)                       ; the window's own chips (any focus)
                           (status-hints (container-focus top)))))   ; plus the focused widget's
     chips))
@@ -911,9 +955,10 @@ editor buffer text."
              (list "Tile"            (lambda () (dt-tile dt) (dt-refocus dt)) nil (any-win))
              (list "C~a~scade"       (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))   ; access key A (C = Close)
              (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 revision::+md-alt+) (any-win))  ; Alt-0
-             (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
+             (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (%dt-request-close dt top))))
                    (cons :f3 revision::+md-alt+) (any-win))                        ; Alt-F3 (CUA: close window)
-             (list "Clos~e~ all"     (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
+             (list "Clos~e~ all"     (lambda () (dolist (w (copy-list (dt-windows dt)))   ; stop if a save is cancelled
+                                                  (unless (%dt-request-close dt w) (return)))
                                                 (dt-refocus dt) (invalidate dt))
                    nil (any-win)))
        (list "Options"

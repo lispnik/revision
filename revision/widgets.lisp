@@ -29,6 +29,17 @@ an optional frame scrollbar, and z-order/zoom state for the desktop."))
 frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none.")
   (:method (view) (declare (ignore view)) nil))
 
+(defgeneric window-dirty-p (win)
+  (:documentation "Does WIN hold unsaved changes, so closing it should first prompt to
+save?  Default NIL; a document/editor window overrides it.")
+  (:method (win) (declare (ignore win)) nil))
+
+(defgeneric window-esc-dismissable-p (win)
+  (:documentation "May Esc dismiss WIN?  Default T (transient windows -- pickers, output,
+dialogs -- close on Esc); a document/editor window overrides to NIL so Esc never silently
+discards it.")
+  (:method (win) (declare (ignore win)) t))
+
 (defmethod draw ((w window))
   (let* ((b (view-bounds w))
          (x0 (revision::rect-ax b)) (y0 (revision::rect-ay b))

@@ -123,6 +123,15 @@
               (eql (%menu-mnemonic items -1 #\a) 1)
               (eql (%menu-mnemonic items -1 #\e) 2))))
 
+;;; 8. editor windows resist Esc and report unsaved state, so Esc/close prompts to save
+;;; rather than silently discarding (see the desktop's %DT-REQUEST-CLOSE).
+(let* ((win (make-editor)) (te (find-view win 'edit)))
+  (check "a fresh scratch editor is clean" (not (window-dirty-p win)))
+  (setf (te-modified te) t)
+  (check "an unsaved edit marks the editor window dirty" (window-dirty-p win))
+  (check "an editor window is NOT Esc-dismissable" (not (window-esc-dismissable-p win))))
+(check "a plain window IS Esc-dismissable by default" (window-esc-dismissable-p (make-instance 'window)))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

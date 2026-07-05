@@ -924,6 +924,12 @@ TE-EVALUATOR slot overrides it.  (revl wires it to evaluate the selection in the
 line:col indicator, find/replace prompts and Tab-completion around it."))
 (defmethod draw :before ((w editor-window)) (%editor-status w))   ; keep the status line live each repaint
 
+;; Editors carry unsaved work: Esc must not silently discard them, and closing a
+;; modified one prompts to save (see the desktop's %DT-REQUEST-CLOSE).
+(defmethod window-dirty-p ((w editor-window))
+  (let ((te (find-view w 'edit))) (and te (te-modified te))))
+(defmethod window-esc-dismissable-p ((w editor-window)) (declare (ignore w)) nil)
+
 ;; The container would otherwise grab Tab for focus-next; intercept it here so
 ;; Tab completes the symbol at point (the editor pane is the only focusable).
 (defmethod handle-event ((w editor-window) (e key-event))
