@@ -98,6 +98,18 @@
     (check "ESC ESC[B decodes to Alt-Down"
            (and ev (= (iev-key-code ev) +kb-down+) (logtest (iev-modifiers ev) +md-alt+)))))
 
+;;; 7. menu access keys: an item's first letter selects it (and invokes when unique).
+(let ((items (list (list "New" (lambda () nil)) (list "Open" (lambda () nil)) :--
+                   (list "Save" (lambda () nil)) (list "Save as" (lambda () nil)))))
+  (check "%menu-mnemonic: a unique letter finds the item and reports it sole"
+         (multiple-value-bind (idx sole) (%menu-mnemonic items 0 #\o) (and (eql idx 1) sole)))
+  (check "%menu-mnemonic: a colliding letter is not sole (selects, doesn't invoke)"
+         (multiple-value-bind (idx sole) (%menu-mnemonic items 0 #\s) (and (eql idx 3) (not sole))))
+  (check "%menu-mnemonic: repeating cycles to the next match" (eql (%menu-mnemonic items 3 #\s) 4))
+  (check "%menu-mnemonic: cycling wraps around" (eql (%menu-mnemonic items 4 #\s) 3))
+  (check "%menu-mnemonic: case-insensitive" (eql (%menu-mnemonic items 0 #\O) 1))
+  (check "%menu-mnemonic: no match returns NIL" (null (%menu-mnemonic items 0 #\z))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

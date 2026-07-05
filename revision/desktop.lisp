@@ -98,6 +98,21 @@ handles hotkey/accelerator navigation, and invokes the selected item's command."
               unless (item-separator-p (nth k items)) return k
               finally (return sel)))))
 
+(defun %menu-mnemonic (items from ch)
+  "The next enabled item index after FROM (wrapping) whose label starts with CH
+\(case-insensitive), plus whether it is the ONLY match: (values INDEX SOLE-P), or
+\(values NIL NIL) when nothing matches.  This is the in-menu access key -- an item's
+first letter selects it, and (when unique) invokes it, classic Turbo-Vision style."
+  (let ((matches (loop for it in items for i from 0
+                       when (and (not (item-separator-p it)) (item-enabled it)
+                                 (plusp (length (item-label it)))
+                                 (char-equal (char (item-label it) 0) ch))
+                         collect i)))
+    (if matches
+        (values (or (find-if (lambda (i) (> i from)) matches) (first matches))
+                (null (cdr matches)))
+        (values nil nil))))
+
 (defparameter *menu-order*
   '("≡" "File" "Edit" "Lisp" "Tools" "Options" "Window" "Help")
   "Left-to-right order of the menu bar; menus not listed fall to the right.")
@@ -173,6 +188,8 @@ then order the bar left-to-right by *MENU-ORDER*."
                                     (ia (cond ((and on en) (role :menu-selected)) (en (role :menu)) (t (role :menu-disabled)))))
                                (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) ry #\Space ia))
                                (%text-at (+ bx 2) ry (item-label it) ia)
+                               (when (and en (not on) (plusp (length (item-label it))))  ; access-key letter
+                                 (%put-cell (+ bx 2) ry (char (item-label it) 0) hot))
                                (cond ((item-submenu-p it) (%put-cell (+ bx mww -3) ry #\► ia))
                                      ((item-accel it) (let ((a (accel-label (item-accel it))))
                                                         (%text-at (+ bx mww -2 (- (length a))) ry a ia)))))))
@@ -211,7 +228,13 @@ then order the bar left-to-right by *MENU-ORDER*."
               ((member ks '(:left :esc)) (setf (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
               ((eql ks :enter) (let ((it (nth (menu-sub mb) subs)))
                                  (%menu-run mb (and it (item-enabled it) (item-thunk it))))
-                               (setf (handled-p e) t))))
+                               (setf (handled-p e) t))
+              ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))  ; access key
+               (multiple-value-bind (idx sole) (%menu-mnemonic subs (or (menu-sub mb) 0) ks)
+                 (when idx
+                   (setf (menu-sub mb) idx) (invalidate mb) (setf (handled-p e) t)
+                   (when sole (let ((it (nth idx subs)))
+                               (%menu-run mb (and it (item-enabled it) (item-thunk it))))))))))
           (cond
             ((eql ks :left)  (setf (menu-active mb) (mod (1- (menu-active mb)) n) (menu-sel mb) 0 (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
             ((eql ks :right) (let ((it (nth (menu-sel mb) items)))
@@ -220,7 +243,12 @@ then order the bar left-to-right by *MENU-ORDER*."
                              (invalidate mb) (setf (handled-p e) t))
             ((eql ks :up)    (setf (menu-sel mb) (%menu-step items (menu-sel mb) -1) (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
             ((eql ks :down)  (setf (menu-sel mb) (%menu-step items (menu-sel mb) 1) (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
-            ((eql ks :enter) (menu-invoke-sel mb) (setf (handled-p e) t)))))))
+            ((eql ks :enter) (menu-invoke-sel mb) (setf (handled-p e) t))
+            ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))  ; access key
+             (multiple-value-bind (idx sole) (%menu-mnemonic items (menu-sel mb) ks)
+               (when idx
+                 (setf (menu-sel mb) idx (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t)
+                 (when sole (menu-invoke-sel mb))))))))))
 
 (defun menu-hotkey-index (mb ch)
   (position (char-downcase ch) (menu-menus mb) :key #'menu-hotkey))

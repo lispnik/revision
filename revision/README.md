@@ -132,9 +132,11 @@ menu) and a live colour customiser that edits `*theme*` with instant preview.
 rendered with the HTML view and cross-linked between topics.  The editor also has
 incremental **find**, **replace-all with optional regex** (Find/Next/Replace chips),
 **auto-indent**, and **mouse drag-select**.
-The menu bar has **Alt-hotkeys** (the highlighted letter) and global **CUA
-accelerators** (text-mode / IBM SAA style): `F1` Help, `F2` Save, `F3` Open,
-`Alt-X` Exit, `F5`/`F6` Zoom/Next, `Alt-F3` Close, and the
+The menu bar has **Alt-hotkeys** (the highlighted letter opens a menu) and, in an open
+menu, **access keys** — every item's first letter is highlighted, and pressing it selects
+that item (invoking it immediately when the letter is unique, cycling through the matches
+when it isn't).  Plus global **CUA accelerators** (text-mode / IBM SAA style): `F1` Help,
+`F2` Save, `F3` Open, `Alt-X` Exit, `F5`/`F6` Zoom/Next, `Alt-F3` Close, and the
 clipboard on `Shift+Del`/`Ctrl+Ins`/`Shift+Ins` (`Ctrl-X/C/V` also work); disabled
 items are dimmed.  A **table viewer** (columns + fixed header + scrollbar) is
 available, and input fields support **validators** (filter / range / picture) and
