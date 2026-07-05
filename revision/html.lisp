@@ -503,16 +503,26 @@ ported onto revision &mdash; after the thread monitor, project manager, browser,
 REPL and editor.</p>
 <p><a href=\"index\">&larr; Back to the index</a></p></body></html>")))
 
+(defclass html-window (window)
+  ((page        :initform nil :accessor html-window-page)          ; current page name / url
+   (restore-top :initform nil :accessor html-window-restore-top))  ; scroll to apply after first render
+  (:metaclass reactive-class)
+  (:documentation "An HTML-browser window that remembers its current page (and scroll), so
+the desktop can save and restore where the reader left off."))
+
 (defun make-html (&optional (page "index"))
   "Build an HTML-browser window over the built-in demo site.  Return (values
-WINDOW FOCUS)."
-  (let* ((win (ui (window (:title " HTML browser " :keymap *global-keys*)
-                    (stack
-                      (:fill (html-view :name 'doc))
-                      (1 (static-text :name 'status :role :status :text ""))))))
-         (doc (find-view win 'doc)) (status (find-view win 'status)))
+WINDOW FOCUS OPEN)."
+  (let* ((win (make-instance 'html-window :title " HTML browser " :keymap *global-keys*))
+         (body (ui (stack
+                     (:fill (html-view :name 'doc))
+                     (1 (static-text :name 'status :role :status :text "")))))
+         (doc nil) (status nil))
+    (add-subview win body)
+    (setf doc (find-view win 'doc) status (find-view win 'status))
     (labels ((echo (msg) (setf (static-text-text status) msg) (invalidate status))
              (show (name)
+               (setf (html-window-page win) name)          ; remember the current page for save/restore
                (let ((html (cdr (assoc name *html-demo-pages* :test #'string=))))
                  (if html
                      (progn (set-html doc html) (hv-next-link doc 1)
@@ -522,9 +532,24 @@ WINDOW FOCUS)."
       (setf (hv-on-link doc) (lambda (href) (show href))   ; SHOW renders a known page or echoes an external href
             (hv-on-status doc) #'echo)
       (setf (window-scroll-target win) doc (window-help win) :html)
-      ;; render AFTER the window is laid out (OPEN runs post-layout), so the
-      ;; document wraps to the real width and link-scrolling has bounds
-      (values win doc (lambda (s) (declare (ignore s)) (show page) nil)))))
+      ;; render AFTER the window is laid out (OPEN runs post-layout), so the document
+      ;; wraps to the real width -- navigating to the restored page (if any), else PAGE.
+      (values win doc
+              (lambda (s) (declare (ignore s))
+                (show (or (html-window-page win) page))
+                (when (html-window-restore-top win)
+                  (setf (hv-top doc) (min (html-window-restore-top win) (max 0 (1- (hv-nlines doc)))))
+                  (invalidate doc))
+                nil)))))
+
+(defmethod window-save-state ((w html-window))
+  (let ((doc (find-view w 'doc)))
+    (list :page (html-window-page w) :top (and doc (hv-top doc)))))
+
+(defmethod window-restore-state ((w html-window) state)
+  "Record the saved page + scroll; the post-layout OPEN thunk navigates to it."
+  (when (getf state :page) (setf (html-window-page w) (getf state :page)))
+  (setf (html-window-restore-top w) (getf state :top)))
 
 (defun run-html (&optional (page "index"))
   "Run the ported HTML browser full-screen until Esc."

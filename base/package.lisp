@@ -80,7 +80,8 @@
    #:sb-input #:sb-iprompt #:sb-icaret #:sb-iactive #:sb-on-submit #:sb-on-present #:sb-set-input
 
    ;; ---- Table ------------------------------------------------------------
-   #:table-view #:table-columns #:table-rows #:table-selected
+   #:table-view #:table-window #:table-columns #:table-rows #:table-selected
+   #:table-top #:table-hleft
 
    ;; ---- Outline (collapsible tree) + its node model ----------------------
    #:outline #:outline-roots #:outline-focused #:outline-top #:outline-ensure-children #:ov-current

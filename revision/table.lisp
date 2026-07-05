@@ -105,3 +105,10 @@ scrollbars."))
 (defmethod scroll-hpos  ((tv table-view)) (table-hleft tv))
 (defmethod scroll-hmax  ((tv table-view)) (max 0 (- (%table-width tv) (scroll-hpage tv))))
 (defmethod scroll-hto   ((tv table-view) pos) (setf (table-hleft tv) (max 0 (min pos (scroll-hmax tv)))) (invalidate tv))
+
+;;; A window hosting a TABLE-VIEW; the application (which names the view) provides the
+;;; WINDOW-SAVE-STATE / WINDOW-RESTORE-STATE methods so the view name matches its package.
+(defclass table-window (window) ()
+  (:metaclass reactive-class)
+  (:documentation "A window whose scroll target is a TABLE-VIEW; the desktop saves and
+restores its scroll offset and selected row via the app's persistence methods."))

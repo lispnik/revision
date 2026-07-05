@@ -146,6 +146,7 @@ persists** — the open windows (kind, position, size, Z-order) are saved to
 `~/.revision-desktop` on exit and restored on launch (`dt-save-layout` /
 `dt-load-layout`), and each window contributes its own restorable state through the
 **`window-save-state` / `window-restore-state`** protocol: editors save their filename
-and any unsaved buffer text, and an application's windows extend it freely (in revl, the
-REPL restores its package + input history and the project tree its expanded folders).
+and any unsaved buffer text, and an application's windows extend it freely — in revl the
+REPL restores its package + input history, the project tree its roots + expanded folders,
+the HTML browser its current page + scroll, and the table viewer its selection + scroll.
 revision covers the full Turbo-Vision interaction model end to end.
