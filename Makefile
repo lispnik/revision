@@ -31,10 +31,12 @@ all: $(FRAMEWORK)
 
 test: test-revision
 
-# Headless tests: the editor's display-width (wide CJK / emoji) + widget layout,
-# plus the keybinding-reference drift check.  (The SBCL/IDE-feature tests moved to revl.)
-test-revision: $(FRAMEWORK) tests/revision-editor-tests.lisp
+# Headless tests: the editor's display-width (wide CJK / emoji) + widget layout, the
+# desktop shell + plugin registry, and the keybinding-reference drift check.
+# (The SBCL/IDE-feature tests moved to revl.)
+test-revision: $(FRAMEWORK) tests/revision-editor-tests.lisp tests/revision-desktop-tests.lisp
 	$(SBCL) --script tests/revision-editor-tests.lisp
+	$(SBCL) --script tests/revision-desktop-tests.lisp
 
 # Regenerate the keybinding reference (KEYBINDINGS.md) from the keymaps.
 keybindings: $(FRAMEWORK)

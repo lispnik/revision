@@ -11,6 +11,11 @@
   (:documentation "Signalled when a field or whole-dialog check fails.  The modal loop catches it,
 shows its MESSAGE, and keeps the dialog open so the user can correct the input."))
 
+;;; The reader's function documentation (a condition slot's :documentation doesn't set it).
+(eval-when (:load-toplevel :execute)
+  (setf (documentation 'validation-message 'function)
+        "The user-facing message carried by a VALIDATION-ERROR condition."))
+
 (defun fail-validation (message)
   "Signal a VALIDATION-ERROR carrying MESSAGE, rejecting the current dialog input
 and displaying MESSAGE to the user."

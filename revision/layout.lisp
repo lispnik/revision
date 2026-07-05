@@ -16,6 +16,7 @@ its spec (:FILL shares the remaining rows, an integer fixes the row count)."))
 its spec (:FILL shares the remaining columns, an integer fixes the column count)."))
 
 (defun add-laid (c v spec)
+  "Add view V to container C as a laid-out child governed by SPEC (an integer fixes its extent; :FILL shares the remainder).  Returns V."
   (add-subview c v)
   (setf (layout-specs c) (append (layout-specs c) (list spec)))
   v)

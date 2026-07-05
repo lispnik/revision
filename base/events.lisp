@@ -123,11 +123,13 @@
   (not (gethash command *disabled-commands*)))
 
 (defun disable-command (command)
+  "Mark the command named COMMAND disabled: PERFORM ignores it and its menu/keymap entries grey out."
   (unless (gethash command *disabled-commands*)
     (setf (gethash command *disabled-commands*) t *command-set-changed* t))
   (values))
 
 (defun enable-command (command)
+  "Re-enable COMMAND after a DISABLE-COMMAND."
   (when (gethash command *disabled-commands*)
     (remhash command *disabled-commands*)
     (setf *command-set-changed* t))

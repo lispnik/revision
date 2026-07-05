@@ -35,7 +35,14 @@
              :documentation "Stack of redo snapshots, each a (LINES-LIST CY CX) list; newest first.")
    (colorizer :initform nil :initarg :colorizer :accessor te-colorizer
               :documentation "Optional syntax-highlight hook (LINE IN-STRING) -> (values ATTRS CARRY), or NIL.")
-   (indenter  :initform nil :initarg :indenter  :accessor te-indenter)    ; (te) -> indent column for a new line
+   (indenter  :initform nil :initarg :indenter  :accessor te-indenter
+              :documentation "Per-editor indent hook (TE) -> column for a fresh line; overrides *LISP-INDENTER*.")
+   (completer :initform nil :initarg :completer :accessor te-completer
+              :documentation "Per-editor completion hook (TE TOKEN) -> candidate strings; overrides *EDITOR-COMPLETIONS-FN*.")
+   (paren-matcher :initform nil :initarg :paren-matcher :accessor te-paren-matcher
+                  :documentation "Per-editor bracket-match hook (TEXT OFFSET) -> match offset; overrides *PAREN-MATCHER*.")
+   (evaluator :initform nil :initarg :evaluator :accessor te-evaluator
+              :documentation "Per-editor eval hook (TE) for the Eval chip; overrides *EDITOR-EVAL-FN*.")
    (auto-close :initform nil :accessor te-auto-close
                :documentation "When true, typing an opening ( [ or \" auto-inserts the matching close.")
    (overwrite  :initform nil :accessor te-overwrite)                      ; overwrite (OVR) vs insert (INS) mode
@@ -320,20 +327,24 @@ over it."
                (net  (- (count #\( prev) (count #\) prev))))
           (max 0 (+ lead (if (plusp net) 2 0)))))))
 
-;;; The indenter used for Lisp buffers.  Defaults to the simple heuristic above;
-;;; an embedding app (e.g. revl) can rebind it to a smarter engine.
-(defvar *lisp-indenter* #'lisp-auto-indent)
+(defvar *lisp-indenter* #'lisp-auto-indent
+  "Default indenter hook (TE) -> indent column for a fresh line, used when a text-edit's
+own TE-INDENTER slot is unset.  An embedding app (e.g. revl) rebinds it to a smarter
+engine; a Lisp buffer copies it into TE-INDENTER at creation.")
 
 ;;; --- structural ops: completion + bracket matching --------------------------
-;;; Both reuse an embedding app's language logic via a hook.  When unset, the
+;;; Both reuse an embedding app's language logic via a hook — global by default,
+;;; overridable per editor (TE-COMPLETER / TE-PAREN-MATCHER).  When neither is set the
 ;;; editor simply doesn't offer the chip/key.
 
-;;; (funcall fn TE TOKEN) -> list of completion strings for the symbol prefix
-;;; TOKEN at the cursor (revl wires this to its package-aware completer).
-(defvar *editor-completions-fn* nil)
-;;; (funcall fn TEXT OFFSET) -> the matching paren's offset in TEXT, or NIL
-;;; (TEXT[OFFSET] is a paren; revl wires this to %PAREN-MATCH-OFFSET).
-(defvar *paren-matcher* nil)
+(defvar *editor-completions-fn* nil
+  "Default completion hook (TE TOKEN) -> a list of completion strings for the symbol
+prefix TOKEN at the cursor; a text-edit's TE-COMPLETER slot overrides it.  (revl wires
+it to its package-aware completer.)")
+(defvar *paren-matcher* nil
+  "Default bracket-match hook (TEXT OFFSET) -> the matching paren's offset in TEXT, or
+NIL; a text-edit's TE-PAREN-MATCHER slot overrides it.  (revl wires it to
+%PAREN-MATCH-OFFSET.)")
 
 (defun te-offset (te line col)
   "Char offset where (LINE,COL) sits in TE's buffer (each newline is one char)."
@@ -765,10 +776,10 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
 (defun %editor-complete (te)
   "Complete the symbol prefix at the cursor via *EDITOR-COMPLETIONS-FN*: insert the
 sole candidate, or pop up a chooser when there are several."
-  (when *editor-completions-fn*
+  (when (or (te-completer te) *editor-completions-fn*)
     (multiple-value-bind (token start) (%editor-token-before te)
       (when (plusp (length token))
-        (let ((cands (funcall *editor-completions-fn* te token)))
+        (let ((cands (funcall (or (te-completer te) *editor-completions-fn*) te token)))
           (let ((chosen (cond ((null cands) nil)
                               ((null (cdr cands)) (first cands))
                               (t (popup-choose cands :title " Complete ")))))
@@ -780,12 +791,12 @@ sole candidate, or pop up a chooser when there are several."
 (defun %editor-match-paren (te)
   "Jump the cursor to the paren matching the one at/just-before it, via
 *PAREN-MATCHER*.  Return T when it moved."
-  (when *paren-matcher*
+  (when (or (te-paren-matcher te) *paren-matcher*)
     (let* ((line (te-cur te)) (cx (te-cx te))
            (target (cond ((and (< cx (length line)) (find (char line cx) "()")) (te-offset te (te-cy te) cx))
                          ((and (plusp cx) (find (char line (1- cx)) "()")) (te-offset te (te-cy te) (1- cx))))))
       (when target
-        (let ((m (funcall *paren-matcher* (te-text te) target)))
+        (let ((m (funcall (or (te-paren-matcher te) *paren-matcher*) (te-text te) target)))
           (when m
             (multiple-value-bind (l c) (te-pos-at-offset te m)
               (setf (te-cy te) l (te-cx te) c (te-anchor te) nil)
@@ -879,13 +890,15 @@ sole candidate, or pop up a chooser when there are several."
 
 ;;; Set by an embedding app (revl) to "evaluate the form/region at point in
 ;;; the REPL".  When bound, the editor offers an Eval chip.
-(defvar *editor-eval-fn* nil)
+(defvar *editor-eval-fn* nil
+  "Default eval hook (TE) for the editor's Eval chip / context item; a text-edit's
+TE-EVALUATOR slot overrides it.  (revl wires it to evaluate the selection in the REPL.)")
 
 (defmethod status-hints ((te text-edit))   ; chips the desktop shows while the editor is focused
   (append
-   (when *editor-eval-fn* (list (cons "Eval" (lambda () (funcall *editor-eval-fn* te)))))
-   (when *editor-completions-fn* (list (cons "Complete" (lambda () (%editor-complete te)))))
-   (when *paren-matcher* (list (cons "Match)" (lambda () (%editor-match-paren te)))))
+   (when (or (te-evaluator te) *editor-eval-fn*) (list (cons "Eval" (lambda () (funcall (or (te-evaluator te) *editor-eval-fn*) te)))))
+   (when (or (te-completer te) *editor-completions-fn*) (list (cons "Complete" (lambda () (%editor-complete te)))))
+   (when (or (te-paren-matcher te) *paren-matcher*) (list (cons "Match)" (lambda () (%editor-match-paren te)))))
    (list
         (cons "Find" (lambda () (%editor-find te)))
         (cons "Next" (lambda () (te-find-next te)))
@@ -900,7 +913,7 @@ sole candidate, or pop up a chooser when there are several."
    (list (cons "Cut"   (lambda () (te-cut te) (te-ensure-visible te) (invalidate te)))
          (cons "Copy"  (lambda () (te-copy te)))
          (cons "Paste" (lambda () (te-paste te) (te-ensure-visible te) (invalidate te))))
-   (when *editor-eval-fn* (list (cons "Eval" (lambda () (funcall *editor-eval-fn* te)))))
+   (when (or (te-evaluator te) *editor-eval-fn*) (list (cons "Eval" (lambda () (funcall (or (te-evaluator te) *editor-eval-fn*) te)))))
    (list (cons "Comment region" (lambda () (%comment-region te)))
          (cons "Undo" (lambda () (te-undo! te)))
          (cons "Redo" (lambda () (te-redo! te))))))
@@ -915,7 +928,7 @@ line:col indicator, find/replace prompts and Tab-completion around it."))
 ;; Tab completes the symbol at point (the editor pane is the only focusable).
 (defmethod handle-event ((w editor-window) (e key-event))
   (let ((te (find-view w 'edit)))
-    (if (and (eql (event-keysym e) :tab) *editor-completions-fn* te (view-focused-p te))
+    (if (and (eql (event-keysym e) :tab) (or (te-completer te) *editor-completions-fn*) te (view-focused-p te))
         (progn (%editor-complete te) (setf (handled-p e) t))
         (call-next-method))))
 

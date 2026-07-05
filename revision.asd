@@ -48,4 +48,5 @@
                              (:file "help")
                              (:file "desktop")
                              (:file "emoji")
-                             (:file "reference")))))
+                             (:file "reference")
+                             (:file "reflection")))))

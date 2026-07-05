@@ -8,7 +8,8 @@
 
 (in-package #:revision)
 
-(defvar *running* nil)
+(defvar *running* nil
+  "While non-NIL the active event loop keeps running; setting it NIL exits the loop.")
 
 (defclass outline (view)
   ((roots   :initarg :roots :initform '() :accessor outline-roots
@@ -126,6 +127,14 @@ FOCUSED/TOP are reactive so mutating them auto-repaints."))
   (:enter activate)
   (:right activate)
   (:left  collapse))
+
+;;; DEFKEYMAP expands to a plain DEFPARAMETER (no docstring slot), so document these
+;;; two keymaps here, next to their definitions.
+(eval-when (:load-toplevel :execute)
+  (setf (documentation '*global-keys* 'variable)
+          "The global keymap consulted for every view's keys before its own keymap (quit on q / Esc)."
+        (documentation '*outline-keys* 'variable)
+          "The shared keymap for OUTLINE tree widgets: arrow navigation plus expand/collapse."))
 
 ;;; --- sample data ------------------------------------------------------------
 

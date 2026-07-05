@@ -71,6 +71,7 @@
    #:te-find #:te-find-regex #:te-replace-all #:te-isearch-start
    #:te-load #:te-save #:te-filename #:te-modified
    #:te-auto-close #:te-line-numbers #:te-notes #:te-colorizer #:lisp-colorize
+   #:te-indenter #:te-completer #:te-paren-matcher #:te-evaluator   ; per-editor hook overrides
    #:*lisp-indenter* #:*paren-matcher* #:*editor-eval-fn* #:*editor-completions-fn*
 
    ;; ---- Scrollback (append-only transcript, e.g. a REPL) -----------------

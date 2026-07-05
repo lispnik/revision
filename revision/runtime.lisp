@@ -10,7 +10,8 @@
 ;;; Persistence via the metaobject protocol
 ;;; ===========================================================================
 
-(defclass persistent-class (standard-class) ())
+(defclass persistent-class (standard-class) ()
+  (:documentation "Metaclass for objects whose marked slots are saved and restored across sessions; see SAVE-OBJECT / LOAD-OBJECT."))
 (defmethod sb-mop:validate-superclass ((c persistent-class) (s standard-class)) t)
 
 (defclass persistent-slot-mixin ()
@@ -88,7 +89,8 @@ restored on the next run.  TOUCHED is :transient — recomputed each run, never 
 ;;; Worker -> UI bridge
 ;;; ===========================================================================
 
-(defvar *ui-thread* nil)
+(defvar *ui-thread* nil
+  "The thread running the UI event loop; RUN-ON-UI marshals a closure onto it from worker threads.")
 (defvar *ui-lock* (sb-thread:make-mutex :name "revision-ui-queue"))
 (defvar *ui-queue* '())   ; FIFO list of thunks awaiting the UI thread
 

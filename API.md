@@ -52,7 +52,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`outline-node`**  — One node of a collapsible outline/tree: its display TEXT, child nodes, current expansion state, an arbitrary DATA payload, and optional per-row COLOR, lazy LOADER, and DATA SETTER hooks.
 
-**`persistent-class`**  — Metaclass for objects whose marked slots are saved and restored across sessions (see SAVE-OBJECT / LOAD-OBJECT).
+**`persistent-class`**  — Metaclass for objects whose marked slots are saved and restored across sessions; see SAVE-OBJECT / LOAD-OBJECT.
 
 **`reactive-class`**  — Metaclass whose instances invalidate the screen on any slot write: an :after method on (SETF SLOT-VALUE-USING-CLASS) sets *DIRTY*, so views never repaint themselves -- mutating reactive state schedules one committed frame on the next loop.
 
@@ -196,11 +196,17 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`te-colorizer` (object)**  — Optional syntax-highlight hook (LINE IN-STRING) -> (values ATTRS CARRY), or NIL.
 
+**`te-completer` (object)**  — Per-editor completion hook (TE TOKEN) -> candidate strings; overrides *EDITOR-COMPLETIONS-FN*.
+
 **`te-cx` (object)**  — Cursor column as a code-point index within the current line.
 
 **`te-cy` (object)**  — Cursor line (0-based row index into the line vector).
 
+**`te-evaluator` (object)**  — Per-editor eval hook (TE) for the Eval chip; overrides *EDITOR-EVAL-FN*.
+
 **`te-filename` (object)**  — Pathname backing the buffer, or NIL for a scratch buffer.
+
+**`te-indenter` (object)**  — Per-editor indent hook (TE) -> column for a fresh line; overrides *LISP-INDENTER*.
 
 **`te-line-numbers` (object)**  — When true, show a line-number gutter (flat, non-wrapped mode only).
 
@@ -208,11 +214,13 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`te-notes` (object)**  — Alist of (LINE . SEVERITY) compiler notes drawn as gutter markers.
 
+**`te-paren-matcher` (object)**  — Per-editor bracket-match hook (TEXT OFFSET) -> match offset; overrides *PAREN-MATCHER*.
+
 **`te-redo` (object)**  — Stack of redo snapshots, each a (LINES-LIST CY CX) list; newest first.
 
 **`te-undo` (object)**  — Stack of undo snapshots, each a (LINES-LIST CY CX) list; newest first.
 
-**`validation-message` (condition)**  — The human-readable message carried by a VALIDATION-ERROR condition.
+**`validation-message` (condition)**  — The user-facing message carried by a VALIDATION-ERROR condition.
 
 **`view-bounds` (object)**  — The view's screen rectangle (a revision TRECT), assigned by LAYOUT.
 
@@ -529,21 +537,21 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`*dirty*`**  — Set when reactive state changed since the last frame.
 
-**`*editor-completions-fn*`**  — Hook (TE TOKEN) -> a list of completion strings for the editor's Tab completion.
+**`*editor-completions-fn*`**  — Default completion hook (TE TOKEN) -> a list of completion strings for the symbol prefix TOKEN at the cursor; a text-edit's TE-COMPLETER slot overrides it.  (revl wires it to its package-aware completer.)
 
-**`*editor-eval-fn*`**  — Hook (TE) an application fills to evaluate the editor's selection, or the top-level form at point.
+**`*editor-eval-fn*`**  — Default eval hook (TE) for the editor's Eval chip / context item; a text-edit's TE-EVALUATOR slot overrides it.  (revl wires it to evaluate the selection in the REPL.)
 
 **`*extra-menus*`**  — List of (DESKTOP) -> menu-spec functions; a module pushes here to contribute a top-level menu to the desktop menu bar.
 
-**`*global-keys*`**  — The global keymap consulted for every view before its own keymap.
+**`*global-keys*`**  — The global keymap consulted for every view's keys before its own keymap (quit on q / Esc).
 
 **`*help-pages*`**  — Help topic -> HTML string.
 
-**`*lisp-indenter*`**  — Hook (TE) -> indentation column for a fresh editor line; an application sets it to a real indenter.
+**`*lisp-indenter*`**  — Default indenter hook (TE) -> indent column for a fresh line, used when a text-edit's own TE-INDENTER slot is unset.  An embedding app (e.g. revl) rebinds it to a smarter engine; a Lisp buffer copies it into TE-INDENTER at creation.
 
 **`*outline-keys*`**  — The shared keymap for OUTLINE tree widgets: arrow navigation plus expand/collapse.
 
-**`*paren-matcher*`**  — Hook (STRING TARGET-OFFSET) -> the matching bracket's offset (skipping strings/comments), for bracket highlighting.
+**`*paren-matcher*`**  — Default bracket-match hook (TEXT OFFSET) -> the matching paren's offset in TEXT, or NIL; a text-edit's TE-PAREN-MATCHER slot overrides it.  (revl wires it to %PAREN-MATCH-OFFSET.)
 
 **`*project-dir*`**  — Default root for file dialogs / new project-manager windows; set by Change-dir.
 
