@@ -23,7 +23,7 @@ endef
 FRAMEWORK := revision.asd $(wildcard base/*.lisp) $(wildcard revision/*.lisp)
 
 .DEFAULT_GOAL := all
-.PHONY: all clean test test-revision keybindings help
+.PHONY: all clean test test-revision keybindings api help
 
 # Build check: compile and load the framework (base + revision kernel).
 all: $(FRAMEWORK)
@@ -40,6 +40,11 @@ test-revision: $(FRAMEWORK) tests/revision-editor-tests.lisp
 keybindings: $(FRAMEWORK)
 	$(call asdf-load,(progn (asdf:load-system :revision) (with-open-file (o "KEYBINDINGS.md" :direction :output :if-exists :supersede) (write-string (uiop:symbol-call :revision :keybinding-markdown) o))))
 	@echo "regenerated KEYBINDINGS.md"
+
+# Regenerate the public API reference (API.md) from the exported symbols' docstrings.
+api: $(FRAMEWORK)
+	$(call asdf-load,(progn (asdf:load-system :revision) (with-open-file (o "API.md" :direction :output :if-exists :supersede) (write-string (uiop:symbol-call :revision :api-markdown) o))))
+	@echo "regenerated API.md"
 
 clean:
 	rm -rf $(HOME)/.cache/common-lisp/*tvision* $(HOME)/.cache/common-lisp/*revision* 2>/dev/null || true
