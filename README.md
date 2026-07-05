@@ -20,7 +20,7 @@ for the architecture in depth.
 
 The toolkit standalone; **revl** — the SLIME-class IDE — is one application built on it:
 
-![revl, the SLIME-class IDE built on revision (a separate application) — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
+![revl, the SLIME-class IDE built on revision (a separate application) — the full IDE menu bar, a threaded REPL (background evaluation + Tab-completion), a syntax-highlighting editor, and the REPL + editor tiled](media/tv2-ide.gif)
 
 ![True-colour rendering: exact VGA palette and live theme switching](media/truecolor.gif)
 
