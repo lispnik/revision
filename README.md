@@ -16,6 +16,10 @@ dispatched by multimethods, named **commands** resolved through layered
 **keymaps**, and a **box-model layout DSL**.  See [`revision/README.md`](revision/README.md)
 for the architecture in depth.
 
+![The bare revision desktop — the generic shell: a Tools menu contributed through the plugin registry opens a syntax-highlighting Lisp editor, Options cycles the colour theme live, and the Window menu manages the windows](media/bare-desktop.gif)
+
+The toolkit standalone; **revl** — the SLIME-class IDE — is one application built on it:
+
 ![revl, the SLIME-class IDE built on revision (a separate application) — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
 
 ![True-colour rendering: exact VGA palette and live theme switching](media/truecolor.gif)

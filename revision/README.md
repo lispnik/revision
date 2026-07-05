@@ -24,7 +24,13 @@ image view.
 The desktop is a real window manager — a Turbo-Vision-style **menu bar**, **status
 bar**, and a background hosting **movable / resizable / overlapping windows** — with a
 **plugin registry** (`*window-builders*` for windows, `*extra-menus*` for menus) that
-an application extends.  On the bare toolkit it's a generic shell;
+an application extends.  On the **bare toolkit** it's a generic shell: a `Tools` menu
+contributed through the registry opens the widgets (here the Lisp editor, with syntax
+highlighting + auto-indent), `Options ▸ Colour theme` recolours the whole desktop live,
+and the `Window` menu manages the windows:
+
+![The bare revision desktop: a Tools menu contributed via the plugin registry opens a syntax-highlighting Lisp editor; Options cycles the colour theme; the Window menu manages the windows](../media/bare-desktop.gif)
+
 **[revl](https://github.com/lispnik/revl)** layers the SLIME-class IDE on top — the
 REPL + SLDB debugger, the object inspector, the git project tree, the browsers, and
 the Inspect / Tools / Lisp / Navigate menus (tracing, profiling, paredit, source
