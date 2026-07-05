@@ -36,7 +36,7 @@ REPL + SLDB debugger, the object inspector, the git project tree, the browsers, 
 the Inspect / Tools / Lisp / Navigate menus (tracing, profiling, paredit, source
 navigation, a live HyperSpec lookup):
 
-![revl, the IDE built on revision: the full IDE menu bar, a threaded REPL (background evaluation + Tab-completion), a syntax-highlighting editor, and the REPL + editor tiled](../media/tv2-ide.gif)
+![revl, the IDE built on revision: a tour — the threaded REPL, Tab-completion, a syntax-highlighting editor with a line-number gutter, rename-symbol, the call tree, live colour-theme switching, the emoji palette, and window tiling](../media/tv2-ide.gif)
 
 ## What's different from classic Turbo Vision
 
