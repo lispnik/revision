@@ -281,7 +281,8 @@ validates the whole field on accept.")
                 :documentation "Closure (lb item) called on Enter with the chosen item.")
    (on-select   :initarg :on-select   :initform nil :accessor list-on-select)     ; fired when selection moves
    (on-type     :initarg :on-type     :initform nil :accessor list-on-type)       ; (lb CHAR|:back) -> type-ahead
-   (on-inspect  :initarg :on-inspect  :initform nil :accessor list-on-inspect))   ; (lb ITEM) -> open the inspector (Alt-I)
+   (on-inspect  :initarg :on-inspect  :initform nil :accessor list-on-inspect)    ; (lb ITEM) -> open the inspector (Alt-I)
+   (on-key      :initarg :on-key      :initform nil :accessor list-on-key))        ; (lb ITEM KEYSYM MODS) -> non-NIL when it handled the key
   (:metaclass reactive-class)
   (:documentation "A scrollable, selectable flat list; Enter activates the selected item."))
 
@@ -332,6 +333,11 @@ validates the whole field on accept.")
             (logtest (event-modifiers e) revision::+md-alt+))
        (when (< (list-selected lb) n)
          (funcall (list-on-inspect lb) lb (nth (list-selected lb) (list-items lb))))
+       (setf (handled-p e) t))
+      ;; app-defined per-item action keys (e.g. Describe / Inspect / Goto in a browser);
+      ;; ON-KEY returns non-NIL when it acted, else the key falls through
+      ((and (list-on-key lb) (< (list-selected lb) n)
+            (funcall (list-on-key lb) lb (nth (list-selected lb) (list-items lb)) ks (event-modifiers e)))
        (setf (handled-p e) t))
       ;; type-ahead: forward printable keys / Backspace to an owner (e.g. a filter field)
       ((and (list-on-type lb) (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))
