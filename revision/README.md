@@ -4,27 +4,33 @@ es # revision — a CLOS-native text-mode UI framework for Common Lisp
 *dispatch and construction* layers: if you diverged from classic Turbo Vision and
 rebuilt on top of CLOS, this is what the framework looks like.
 
-It **is** the framework now — the classic view hierarchy it grew up alongside has
-been retired.  revision owns the foundation ([`../base/`](../base): terminal driver,
-screen/cell buffer, geometry, the Unicode/grapheme engine, the `outline-node`
-data structure) and layers the new plumbing — state, events, commands, layout,
-theming, persistence — on top.  The `revl` IDE is built entirely on it.
+It's a **reusable toolkit**, not an application.  revision owns the foundation
+([`../base/`](../base): terminal driver, screen/cell buffer, geometry, the
+Unicode/grapheme engine, the `outline-node` data structure) and layers the new
+plumbing — state, events, commands, layout, theming, persistence — on top, plus a
+widget set and a **desktop shell** with a plugin registry.  The Lisp IDE that
+exercises it, **[revl](https://github.com/lispnik/revl)**, is a *separate
+application*; so are the [revision-term](https://github.com/lispnik/revision-term)
+terminal-emulator widget and the [revision-sixel](https://github.com/lispnik/revision-sixel)
+image view.
 
 ```lisp
 (asdf:load-system "revision")
-(revision:run-desktop)     ; the IDE: a menu bar + status bar + desktop hosting the windows
-;; or run a single window full-screen:
-(revision:run-repl)        ; run-editor, run-project, run-html, run-threadmon, run-packages, …
+(revision:run-desktop)     ; a bare shell: menu bar (Window / Options / Help) + status bar + hosted windows
+;; or host a single widget full-screen:
+(revision:run)             ; the kitchen-sink demo; also run-editor, run-html
 ```
 
-The IDE shell — a Turbo-Vision-style **menu bar**, **status bar**, and a desktop
-that hosts the ported windows (REPL with the SLDB debugger, the syntax-
-highlighting editor, the git project tree, the HTML browser with find-in-page),
-plus the **Inspect / Tools / Lisp / Navigate / Eval / Code / Docs** menus —
-introspection, tracing, profiling, a single-stepper, paredit, source navigation,
-the object inspector, line numbers, and a live HyperSpec lookup:
+The desktop is a real window manager — a Turbo-Vision-style **menu bar**, **status
+bar**, and a background hosting **movable / resizable / overlapping windows** — with a
+**plugin registry** (`*window-builders*` for windows, `*extra-menus*` for menus) that
+an application extends.  On the bare toolkit it's a generic shell;
+**[revl](https://github.com/lispnik/revl)** layers the SLIME-class IDE on top — the
+REPL + SLDB debugger, the object inspector, the git project tree, the browsers, and
+the Inspect / Tools / Lisp / Navigate menus (tracing, profiling, paredit, source
+navigation, a live HyperSpec lookup):
 
-![The revision IDE: the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](../media/tv2-ide.gif)
+![revl, the IDE built on revision: the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](../media/tv2-ide.gif)
 
 ## What's different from classic Turbo Vision
 
@@ -49,7 +55,9 @@ the object inspector, line numbers, and a live HyperSpec lookup:
 - **`layout.lisp`** — the `stack`/`row` layout containers and the compile-time-checked `ui` construction macro.
 - **`modal.lisp`** — value-returning `dialog`s and `exec-view` (the modal loop), with conditions/restarts for validation.
 - **`syntax.lisp`** — pluggable colorizers for the editor (`lisp-colorize`).
-- **`debugger.lisp`** — an SLDB-style restart picker with a live backtrace, per-frame locals, and return-from-frame.
+- **`editor.lisp` / `table.lisp` / `html.lisp`** — the text editor (with per-instance indent/completion/paren/eval hook overrides), the columnar table view, and the HTML view.
+- **`desktop.lisp`** — the menu bar / status bar / window-manager shell and the `*window-builders*` + `*extra-menus*` plugin registry an application extends.
+- **`reference.lisp` / `reflection.lisp`** — the keybinding reference (`KEYBINDINGS.md`) and the public-API reference (`API.md`), both generated from the live definitions.
 
 ## Building views — the `ui` macro
 
@@ -86,24 +94,23 @@ command name, and views react to state changes automatically.
 (define-command cursor-down (v e) (ov-move v 1))
 ```
 
-## The ported windows (real revl windows, rebuilt on revision)
+## Runnable entry points
 
-Each is built entirely from revision parts and verified by driving the built program
-through a pty. Entry points:
+revision ships a few standalone entry points; the Lisp-IDE windows (REPL, debugger,
+inspector, project tree, browsers) live in **[revl](https://github.com/lispnik/revl)**,
+not here.
 
 | Entry point | What it is |
 | --- | --- |
-| `run` | the kitchen-sink demo (outline + list + input + buttons + a `go-to-line` modal + session persistence + a background clock through the bridge) |
-| `run-threadmon` | thread monitor — live `sb-thread` list, spawn/kill, background refresh via `run-on-ui` |
-| `run-project` | project manager — a `git ls-files` tree with lazy directories and a flatten-on-filter input |
-| `run-packages` / `run-systems` / `run-browser` | the filterable picker family (Packages, ASDF systems, …) — one generic `run-browser`; **Alt-I** opens the focused row's object in the inspector |
-| `run-repl` | the Lisp listener — worker-thread eval, live output streaming (a Gray stream), history vars, sticky `in-package`, command history, and the SLDB debugger on error |
-| `run-editor` | the text editor — vector-of-lines model, selection, clipboard, undo/redo, file I/O, Lisp syntax highlighting, and opt-in soft word-wrap (`C-w`) |
-| `run-html` | the HTML browser — revl's tokenizer + layout reused verbatim; styled runs, link navigation, in-document anchors, and find-in-page (`/`, `<`/`>`) |
+| `run-desktop` | the desktop shell — menu bar + status bar hosting movable/resizable/overlapping windows; an application populates it via `*window-builders*` / `*extra-menus*` |
+| `run` | the kitchen-sink demo (outline + list + input + buttons + a `go-to-line` modal + session persistence + a background clock through the worker→UI bridge) |
+| `run-editor` | the text editor — vector-of-lines model, selection, clipboard, undo/redo, file I/O, incremental find + regex replace, opt-in soft word-wrap (`C-w`), and per-instance syntax-colour / indent / completion / paren hooks |
+| `run-html` | the HTML view — a tokenizer + box layout with styled runs, link navigation, in-document anchors, and find-in-page (`/`, `<`/`>`) |
+| `run-view` | host any single view you build full-screen (see *Hello, world* in the repo-root README) |
 
 ## Status & non-goals
 
-revision is a research kernel: it demonstrates the architecture end-to-end, not a
+revision is a compact toolkit: it demonstrates the architecture end-to-end, not a
 hardened release.  **Mouse** is supported — clicks hit-test the view tree to
 focus/select/press (menus, rows, buttons, links, caret placement) and the wheel
 scrolls the view under the pointer.  The desktop is a real window manager:
@@ -121,14 +128,12 @@ incremental **find**, **replace-all with optional regex** (Find/Next/Replace chi
 **auto-indent**, and **mouse drag-select**.
 The menu bar has **Alt-hotkeys** (the highlighted letter) and global **CUA
 accelerators** (text-mode / IBM SAA style): `F1` Help, `F2` Save, `F3` Open,
-`Alt-X` Exit, `F5`/`F6` Zoom/Next, `Alt-F3` Close, `Alt-F2` new REPL, and the
+`Alt-X` Exit, `F5`/`F6` Zoom/Next, `Alt-F3` Close, and the
 clipboard on `Shift+Del`/`Ctrl+Ins`/`Shift+Ins` (`Ctrl-X/C/V` also work); disabled
-items are dimmed.  A **table
-viewer** (columns + fixed header + scrollbar; see the Package-table window) is
-available, and input fields support **validators** (filter / range / picture; see
-File → Validators…) and **Up/Down history** recall.  The type-to-filter inputs
-(browser, project) rank results with **fzf-style fuzzy matching**, and menus
-support **nested submenus** (see Help → Topics).  The **whole desktop persists** —
-the open windows (kind, position, size, Z-order; editor filenames) are saved to
-`~/.revision-desktop` on exit and restored on launch (also File → Save / Restore
-layout).  revision covers the full Turbo-Vision interaction model end to end.
+items are dimmed.  A **table viewer** (columns + fixed header + scrollbar) is
+available, and input fields support **validators** (filter / range / picture) and
+**Up/Down history** recall.  Type-to-filter inputs rank results with **fzf-style
+fuzzy matching**, and menus support **nested submenus**.  The **whole desktop
+persists** — the open windows (kind, position, size, Z-order; editor filenames) are
+saved to `~/.revision-desktop` on exit and restored on launch (`dt-save-layout` /
+`dt-load-layout`).  revision covers the full Turbo-Vision interaction model end to end.

@@ -16,7 +16,7 @@ dispatched by multimethods, named **commands** resolved through layered
 **keymaps**, and a **box-model layout DSL**.  See [`revision/README.md`](revision/README.md)
 for the architecture in depth.
 
-![The revision IDE built on this framework — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
+![revl, the SLIME-class IDE built on revision (a separate application) — the full menu bar, paredit + line numbers, source navigation, and a live HyperSpec lookup](media/tv2-ide.gif)
 
 ![True-colour rendering: exact VGA palette and live theme switching](media/truecolor.gif)
 
@@ -73,12 +73,14 @@ keymaps, commands, theming, and the reactive metaclass.
 | Module | Responsibility |
 |--------|----------------|
 | `base/` | the foundation: `geometry` (points/rects), `colors` (attribute byte ↔ ANSI SGR, RGB themes), `draw-buffer` (the cell model + the Unicode/grapheme/display-width engine), `events` (event records + key/mouse/command codes), `screen` (raw mode, alternate screen, diff-based ANSI rendering, input decoding), and the `outline-node` tree data structure |
-| `revision/`  | the CLOS-native kernel: the reactive metaclass, CLOS event dispatch, keymaps → commands, the `ui` layout DSL, theming, MOP persistence, the worker→UI bridge, and the widget/window/dialog/menu set — plus the fully-featured windows (REPL, editor, HTML browser, project tree, inspector, …) that the example IDE composes |
+| `revision/`  | the CLOS-native toolkit: the reactive metaclass, CLOS event dispatch, keymaps → commands, the `ui` layout DSL, theming, MOP persistence, the worker→UI bridge, and the widget/window/dialog/menu set — the text editor, outline tree, table, scrollback transcript, HTML view, and the **desktop shell** with its window+menu **plugin registry**.  (The Lisp-IDE windows — REPL, debugger, inspector, project tree, browsers — live in the `revl` application, not here.) |
 
 The whole framework lives in a **single `revision` package** (one `defpackage`
 in `base/package.lisp`): `base/` populates it with the foundation symbols and
 `revision/` adds the kernel, so `revision:make-attr`, `revision:run-desktop`, and
-everything else share one namespace.
+everything else share one namespace.  That `:export` is the **single source of
+truth for the public API** — a grouped, deliberate contract; every exported symbol
+is documented, and [`API.md`](API.md) is a generated reference (`make api`).
 
 ## Unicode
 
@@ -133,14 +135,17 @@ the framework's 24-bit colour and text-style attributes with full fidelity
 
 ```sh
 make            # build check: compile + load the framework
-make test       # headless suites (tests/revision-sbcl-tests.lisp + revision-editor-tests.lisp)
+make test       # headless suites (editor display-width + widgets, and the desktop shell)
+make api        # regenerate API.md — the public-API reference — from the docstrings
+make keybindings # regenerate KEYBINDINGS.md from the keymaps
 ```
 
-The headless suites cover the SBCL-specific IDE features and the editor's
-display-width (wide CJK / emoji) + widget layout; they exit non-zero on any
-failure (CI-ready) and need nothing but SBCL.  The example app's own tests — the
-REPL backend, the debugger, the inspector, and an end-to-end pty smoke test —
-live with it in [github.com/lispnik/revl](https://github.com/lispnik/revl).
+The headless suites cover the editor's display-width (wide CJK / emoji) + widget
+layout, the **desktop shell + window/menu plugin registry** (opening/closing windows
+through `*window-builders*`, `*extra-menus*` merging), and a keybinding-reference
+drift check; they exit non-zero on any failure (CI-ready) and need nothing but SBCL.
+The example app's own tests — the REPL backend, the debugger, the inspector, and an
+end-to-end pty smoke test — live with it in [github.com/lispnik/revl](https://github.com/lispnik/revl).
 
 ## License
 
