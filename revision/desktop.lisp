@@ -80,7 +80,21 @@ thunk, plus any transient tool note right-aligned."))
 handles hotkey/accelerator navigation, and invokes the selected item's command."))
 
 (defun item-separator-p (it) (eq it :--))                                   ; :-- is a horizontal rule
-(defun item-label    (it) (if (item-separator-p it) "" (first it)))
+(defun %strip-tildes (s) (if (find #\~ s) (remove #\~ s) s))
+;; A menu label may mark its access key with a Turbo-Vision `~x~' bracket, e.g.
+;; "C~a~scade" makes `a' the access key (so it doesn't clash with "Close").  The
+;; tildes are stripped for display; an unmarked label uses its first letter.
+(defun item-label    (it) (if (item-separator-p it) "" (%strip-tildes (first it))))
+(defun item-mnemonic (it)
+  "ITEM's access-key character: the char after a ~ marker, else the label's first char."
+  (unless (item-separator-p it)
+    (let* ((raw (first it)) (tilde (and (stringp raw) (position #\~ raw))))
+      (cond ((and tilde (< (1+ tilde) (length raw))) (char raw (1+ tilde)))
+            (t (let ((d (item-label it))) (and (plusp (length d)) (char d 0))))))))
+(defun item-mnemonic-pos (it)
+  "The display-string index of ITEM's access-key char (for the highlight)."
+  (let* ((raw (first it)) (tilde (and (stringp raw) (position #\~ raw))))
+    (if (and tilde (< (1+ tilde) (length raw))) tilde 0)))
 (defun item-submenu-p (it) (and (consp it) (eq (second it) :submenu)))      ; (LABEL :submenu item...)
 (defun item-thunk    (it) (and (consp it) (not (item-submenu-p it)) (second it)))
 (defun item-accel    (it) (and (consp it) (not (item-submenu-p it)) (third it)))  ; submenu parents have no accel
@@ -104,9 +118,8 @@ handles hotkey/accelerator navigation, and invokes the selected item's command."
 \(values NIL NIL) when nothing matches.  This is the in-menu access key -- an item's
 first letter selects it, and (when unique) invokes it, classic Turbo-Vision style."
   (let ((matches (loop for it in items for i from 0
-                       when (and (not (item-separator-p it)) (item-enabled it)
-                                 (plusp (length (item-label it)))
-                                 (char-equal (char (item-label it) 0) ch))
+                       for m = (and (not (item-separator-p it)) (item-enabled it) (item-mnemonic it))
+                       when (and m (char-equal m ch))
                          collect i)))
     (if matches
         (values (or (find-if (lambda (i) (> i from)) matches) (first matches))
@@ -189,7 +202,8 @@ then order the bar left-to-right by *MENU-ORDER*."
                                (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) ry #\Space ia))
                                (%text-at (+ bx 2) ry (item-label it) ia)
                                (when (and en (not on) (plusp (length (item-label it))))  ; access-key letter
-                                 (%put-cell (+ bx 2) ry (char (item-label it) 0) hot))
+                                 (let ((p (item-mnemonic-pos it)))
+                                   (%put-cell (+ bx 2 p) ry (char (item-label it) p) hot)))
                                (cond ((item-submenu-p it) (%put-cell (+ bx mww -3) ry #\► ia))
                                      ((item-accel it) (let ((a (accel-label (item-accel it))))
                                                         (%text-at (+ bx mww -2 (- (length a))) ry a ia)))))))
@@ -895,11 +909,11 @@ editor buffer text."
              (list "Previous"        (lambda () (dt-prev dt) (dt-refocus dt))
                    (cons :f6 revision::+md-shift+) (any-win))                      ; Shift-F6
              (list "Tile"            (lambda () (dt-tile dt) (dt-refocus dt)) nil (any-win))
-             (list "Cascade"         (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))
+             (list "C~a~scade"       (lambda () (dt-cascade dt) (dt-refocus dt)) nil (any-win))   ; access key A (C = Close)
              (list "List…"           (lambda () (%dt-window-list dt)) (cons #\0 revision::+md-alt+) (any-win))  ; Alt-0
              (list "Close"           (lambda () (let ((top (dt-top dt))) (when top (dt-close-window dt top))))
                    (cons :f3 revision::+md-alt+) (any-win))                        ; Alt-F3 (CUA: close window)
-             (list "Close all"       (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
+             (list "Clos~e~ all"     (lambda () (mapc (lambda (w) (dt-close-window dt w)) (copy-list (dt-windows dt)))
                                                 (dt-refocus dt) (invalidate dt))
                    nil (any-win)))
        (list "Options"

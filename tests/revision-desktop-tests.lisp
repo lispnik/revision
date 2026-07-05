@@ -110,6 +110,19 @@
   (check "%menu-mnemonic: case-insensitive" (eql (%menu-mnemonic items 0 #\O) 1))
   (check "%menu-mnemonic: no match returns NIL" (null (%menu-mnemonic items 0 #\z))))
 
+;;; 7b. Turbo-Vision ~x~ hotkey markers give an item a non-first-letter access key,
+;;; so same-first-letter items (Cascade / Close / Close all) get distinct keys.
+(check "item-label strips a ~x~ marker" (string= (item-label (list "C~a~scade" #'identity)) "Cascade"))
+(check "item-mnemonic reads the marked letter" (char-equal (item-mnemonic (list "C~a~scade" #'identity)) #\a))
+(check "item-mnemonic-pos indexes the marked letter" (= (item-mnemonic-pos (list "C~a~scade" #'identity)) 1))
+(check "an unmarked item falls back to its first letter"
+       (char-equal (item-mnemonic (list "Close" #'identity)) #\c))
+(let ((items (list (list "Close" #'identity) (list "C~a~scade" #'identity) (list "Clos~e~ all" #'identity))))
+  (check "markers resolve the C conflict: c->Close, a->Cascade, e->Close all"
+         (and (eql (%menu-mnemonic items -1 #\c) 0)
+              (eql (%menu-mnemonic items -1 #\a) 1)
+              (eql (%menu-mnemonic items -1 #\e) 2))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))
