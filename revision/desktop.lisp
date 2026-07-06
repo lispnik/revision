@@ -1008,8 +1008,9 @@ Returns on File→Exit."
                   (draw dt)))
             (revision:flush-screen s)))
         (revision::pump-input s (%tool-message-timeout (revision::input-timeout s)))
-        (let ((tev (revision::screen-next-event s)))
-          (when tev (let ((ev (translate tev))) (when ev (handle-event dt ev))))))
+        (loop for tev = (revision::screen-next-event s)   ; drain ALL decoded events before blocking
+              while (and tev (not *app-done*))
+              do (let ((ev (translate tev))) (when ev (handle-event dt ev)))))
       (dt-save-layout dt)                                    ; persist the desktop for next launch
       (dolist (win (dt-windows dt))                          ; stop any open windows' threads
         (when (window-cleanup win) (ignoring-errors ("window cleanup") (funcall (window-cleanup win))))))))

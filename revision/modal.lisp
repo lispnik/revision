@@ -97,8 +97,9 @@ finishes; return its result value, or :CANCEL."
       (draw dialog)                        ; modal on top (centred, smaller)
       (revision:flush-screen s)
       (revision::pump-input s (revision::input-timeout s))
-      (let ((tev (revision::screen-next-event s)))
-        (when tev (let ((ev (translate tev))) (when ev (handle-event dialog ev))))))
+      (loop for tev = (revision::screen-next-event s)     ; drain ALL decoded events before blocking
+            while (and tev (not (dialog-done dialog)))
+            do (let ((ev (translate tev))) (when ev (handle-event dialog ev)))))
     (invalidate *root*)                    ; force the background to repaint cleanly
     (dialog-result dialog)))
 

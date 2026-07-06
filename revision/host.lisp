@@ -33,8 +33,9 @@ never lingers when focus moves to a non-text widget."
       (setf *dirty-views* nil *full-redraw* nil *dirty* nil)   ; single full-screen view: always a full draw
       (draw root) (revision:flush-screen s))
     (revision::pump-input s (revision::input-timeout s))
-    (let ((tev (revision::screen-next-event s)))
-      (when tev (let ((ev (translate tev))) (when ev (handle-event root ev)))))))
+    (loop for tev = (revision::screen-next-event s)      ; drain ALL decoded events before blocking
+          while (and tev *running*)
+          do (let ((ev (translate tev))) (when ev (handle-event root ev))))))
 
 (defun run-view (win &key focus open)
   "Run WIN full-screen in its own screen session until it quits.  FOCUS is the

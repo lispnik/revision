@@ -374,7 +374,10 @@ a mouse button is held (so a held button keeps repeating), else the long idle bl
 
 (defun pump-input (s timeout)
   "Wait up to TIMEOUT seconds for input, decode it, and queue events.  If a
-mouse button is held with nothing else pending, synthesize ev-mouse-auto."
+mouse button is held with nothing else pending, synthesize ev-mouse-auto.
+Never blocks while events are already decoded and waiting (so batched/pasted input
+isn't processed one key per idle-timeout)."
+  (when (screen-event-queue s) (setf timeout 0))
   (let ((ready (if *input-multiplexer*
                    (funcall *input-multiplexer* timeout)
                    (and (sb-sys:wait-until-fd-usable 0 :input timeout nil) :fd0))))

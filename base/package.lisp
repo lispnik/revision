@@ -60,7 +60,7 @@
    #:input-history-id #:input-notify
    #:list-box #:list-items #:list-selected #:list-top #:list-on-activate #:list-scroll-fix
    #:cluster #:cluster-items #:cluster-value
-   #:html-view #:set-html #:*url-fetch-fn*
+   #:html-view #:set-html #:hv-on-link #:hv-on-status #:*url-fetch-fn*
 
    ;; ---- Text editor ------------------------------------------------------
    #:text-edit #:editor-window #:make-editor #:edit

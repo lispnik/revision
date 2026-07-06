@@ -294,6 +294,16 @@
                 (let ((o (load-object p))) (and o (eql 7 (%st-a o)) (eql 1 (gethash :x (%st-b o)))))))
   (ignore-errors (delete-file p)))
 
+;;; 17. pump-input must NOT honor a long idle timeout while decoded events are already
+;;; queued — else batched/pasted input is processed one key per idle-block (a regression
+;;; the long idle wait introduced).
+(let ((s (make-screen)))
+  (setf (screen-event-queue s) (list :queued))          ; pretend input is already decoded
+  (let ((t0 (get-internal-real-time)))
+    (pump-input s 30.0)                                  ; a 30s timeout must be ignored here
+    (check "pump-input returns immediately when events are already queued"
+           (< (/ (- (get-internal-real-time) t0) internal-time-units-per-second) 1.0))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))
