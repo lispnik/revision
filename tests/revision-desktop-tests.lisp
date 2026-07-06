@@ -142,6 +142,71 @@
     (check "editor window-restore-state restores the text" (search "SAVED-TEXT" (te-text (find-view w2 'edit))))))
 (check "a plain window's save-state is NIL by default" (null (window-save-state (make-instance 'window))))
 
+;;; 9. FIND-VIEW matches names by NAME, not object identity, so a name interned in a
+;;; DIFFERENT package still resolves (the cross-package footgun that silently returned
+;;; NIL for an app's 'EDIT vs the framework's 'EDIT).
+(check "view-name= matches same-name symbols across packages"
+       (view-name= 'revision::edit (intern "EDIT" :cl-user)))
+(check "view-name= rejects genuinely different names" (not (view-name= 'edit 'other)))
+(check "view-name= treats NIL names as no-match" (not (view-name= nil nil)))
+(let* ((leaf (make-instance 'view :name (intern "WIDGET" :cl-user)))     ; named in CL-USER
+       (win  (make-instance 'window)))
+  (add-subview win leaf)
+  (check "find-view resolves a subview named in another package"
+         (eq leaf (find-view win 'revision::widget)))
+  (check "find-view still returns NIL for an absent name" (null (find-view win 'nope))))
+
+;;; 10. reactive invalidation now tracks WHICH view changed and skips no-op writes,
+;;; so the loop can repaint just the affected window and an idle UI can block.
+(let ((v (make-instance 'window :title " X ")))
+  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (setf (window-title v) " Y ")                                 ; a real change
+    (check "a changed slot marks the UI dirty" *dirty*)
+    (check "a changed slot records the view for a partial repaint" (member v *dirty-views*))
+    (check "a leaf change does not force a full redraw" (not *full-redraw*)))
+  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (setf (window-title v) (window-title v))                      ; write the SAME value back
+    (check "a no-op write (same EQL value) schedules no frame"
+           (and (not *dirty*) (null *dirty-views*))))
+  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (setf (view-bounds v) (rect 1 1 9 9))                         ; geometry moved
+    (check "a bounds change forces a full redraw (vacated cells)" *full-redraw*))
+  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (invalidate 'not-a-view)                                      ; a non-view invalidation
+    (check "a non-view invalidation forces a full redraw" *full-redraw*)))
+
+;;; 11. the desktop's partial-frame gate: repaint only the top window when every dirty
+;;; view is inside it and no dropdown is open; fall back to a full redraw otherwise.
+(let ((*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
+  (let* ((dt (%make-test-desktop)))
+    (dt-open dt (%win-builder " Lower ")) (dt-open dt (%win-builder " Top "))
+    (let* ((top (dt-top dt)) (lower (first (dt-windows dt))))
+      (check "partial frame when the only dirty view is inside the top window"
+             (%partial-frame-p dt (list top) nil))
+      (check "full frame when a lower window is dirty"
+             (not (%partial-frame-p dt (list lower) nil)))
+      (check "full frame when *full-redraw* is set" (not (%partial-frame-p dt (list top) t)))
+      (check "full frame with no dirty views" (not (%partial-frame-p dt '() nil)))
+      (setf (menu-active (dt-menubar dt)) 0)                      ; a dropdown overlays the windows
+      (check "full frame while a menu dropdown is open"
+             (not (%partial-frame-p dt (list top) nil))))))
+
+;;; 12. the idle event-wait: block long when idle, short (auto-repeat) while a mouse
+;;; button is held; the status-note deadline caps the block so a note still auto-clears.
+(let ((s (make-screen)))
+  (setf (screen-mouse-buttons s) 0)
+  (check "input-timeout blocks for the long idle interval when idle"
+         (= (input-timeout s) *idle-timeout*))
+  (setf (screen-mouse-buttons s) +mb-left+)
+  (check "input-timeout drops to the auto-repeat interval while a button is held"
+         (< (input-timeout s) 1.0)))
+(let ((*tool-message* "") (*tool-message-time* 0))
+  (check "no pending note leaves the idle timeout unchanged"
+         (= (%tool-message-timeout 30.0) 30.0)))
+(let ((*tool-message* "hi") (*tool-message-time* (get-internal-real-time)))
+  (check "a pending note caps the idle timeout to its remaining TTL"
+         (<= (%tool-message-timeout 30.0) *tool-message-ttl*)))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

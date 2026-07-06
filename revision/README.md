@@ -42,18 +42,18 @@ navigation, a live HyperSpec lookup):
 
 | Concern | Classic Turbo Vision | revision |
 | --- | --- | --- |
-| Redraw | call `draw-view` after mutating | a **reactive metaclass** invalidates the screen on any slot write |
+| Redraw | call `draw-view` after mutating | a **reactive metaclass** repaints on a *changed* slot write, tracking which view changed to repaint just the affected window |
 | Events | integer `+ev-*+` type tags, `cond` on type | **CLOS event classes** dispatched by multimethods `(view × event)` |
 | Commands | 138 integer `+cm-*+` constants + a central dispatch `cond` | **named command objects** resolved through layered **keymaps** → `perform` |
 | Layout | hand-computed `TRect` bounds | a **box-model DSL** (`stack`/`row` with `:fill`/integer sizes) via the `ui` macro |
 | Colours | byte palettes walked up the owner chain | **named roles** resolved through `*theme*` |
 | Modal result | boolean `Valid` + error flags | dialogs that **return values**; validation via **conditions/restarts** |
 | Persistence | `TStream` `read`/`write` methods | **MOP-based** `serialize`/`deserialize` with a `:transient` slot option |
-| Background work | — | a **worker→UI bridge** (`run-on-ui`/`drain-ui-callbacks`): only the UI thread touches the screen |
+| Background work | — | a **worker→UI bridge** (`run-on-ui`/`drain-ui-callbacks`): only the UI thread touches the screen, and posting a callback wakes the idle event loop instantly (a self-pipe breaks its `select`) |
 
 ## Kernel layers (load order)
 
-- **`kernel.lisp`** — the `reactive-class` metaclass (`(setf slot-value-using-class) :after` → `invalidate`); the `view` base class; geometry helpers; the event class hierarchy and `translate` (a raw INPUT-EVENT → a CLOS revision event); `keymap`/`defkeymap`/`keymap-lookup`; `command`/`define-command`/`perform`; drawing helpers; `*theme*`/`role`; the `container` protocol (focus routing, Tab cycling, event bubbling).
+- **`kernel.lisp`** — the `reactive-class` metaclass (`(setf slot-value-using-class) :around` → `invalidate` on a *changed* value, recording the view for a partial repaint); the `view` base class; geometry helpers; the event class hierarchy and `translate` (a raw INPUT-EVENT → a CLOS revision event); `keymap`/`defkeymap`/`keymap-lookup`; `command`/`define-command`/`perform`; drawing helpers; `*theme*`/`role`; the `container` protocol (focus routing, Tab cycling, event bubbling).
 - **`runtime.lisp`** — the `persistent-class` metaclass + `:transient` slots, `serialize`/`deserialize`/`save-object`/`load-object`, the `session` object, and the worker→UI bridge.
 - **`outline.lisp`** — the `outline` tree view (reuses the base `outline-node`, supports lazy children).
 - **`widgets.lisp`** — `window`, `button`, `static-text`, `input-line`, `list-box`.

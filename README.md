@@ -11,7 +11,7 @@ colour** (`make-rgb`) when it wants a gradient or image.
 
 Where a classic Turbo Vision port hand-computes `TRect` bounds, dispatches on 138
 integer command constants and calls `draw-view` after every mutation, revision uses a
-**reactive metaclass** (slot writes invalidate the screen), **CLOS event classes**
+**reactive metaclass** (a changed slot write invalidates just the affected window), **CLOS event classes**
 dispatched by multimethods, named **commands** resolved through layered
 **keymaps**, and a **box-model layout DSL**.  See [`revision/README.md`](revision/README.md)
 for the architecture in depth.

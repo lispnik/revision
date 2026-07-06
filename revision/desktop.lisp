@@ -33,6 +33,25 @@ Returns T when it cleared (so the loop can mark the screen dirty)."
     (setf *tool-message* "")
     t))
 
+(defun %tool-message-timeout (default)
+  "Cap DEFAULT so the idle loop still wakes when a lingering status-bar note is due to
+auto-clear (else a note could sit past its TTL until the next input)."
+  (if (plusp (length *tool-message*))
+      (let ((remaining (- (* *tool-message-ttl* internal-time-units-per-second)
+                          (- (get-internal-real-time) *tool-message-time*))))
+        (max 0.0 (min default (/ remaining internal-time-units-per-second))))
+      default))
+
+(defun %partial-frame-p (dt views full)
+  "True when this frame can repaint just the top window instead of the whole desktop:
+nothing forced a full redraw, no dropdown is open (a menu overlays windows), and every
+invalidated view lives inside the current top window -- so nothing behind or around it
+changed and, being topmost in Z-order, nothing overlaps it."
+  (and (not full) views
+       (null (menu-active (dt-menubar dt)))
+       (let ((top (dt-top dt)))
+         (and top (every (lambda (v) (and (typep v 'view) (eq (view-root v) top))) views)))))
+
 (defclass status-bar (view)
   ((provider :initarg :provider :initform nil :accessor stb-provider)  ; thunk -> ((LABEL . THUNK) ...)
    (ranges   :initform '() :accessor stb-ranges))                      ; ((X0 X1 . THUNK) ...) for hit-testing
@@ -971,15 +990,21 @@ Returns on File→Exit."
       (setf (dt-menubar dt)   (make-instance 'menu-bar :menus (%desktop-menus dt))
             (dt-statusbar dt)  (make-instance 'status-bar :provider (lambda () (dt-status-items dt))))
       (layout dt (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
-      (setf *root* dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil *dirty* t)
+      (setf *root* dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil
+            *dirty* t *full-redraw* t)
       (dt-load-layout dt)                                    ; restore the previous session's windows
       (loop until *app-done* do
         (drain-ui-callbacks)
-        (when (%expire-tool-message) (setf *dirty* t))        ; auto-clear the status-bar note
-        (when *dirty*
-          (revision:hide-cursor s)
-          (draw dt) (revision:flush-screen s) (setf *dirty* nil))
-        (revision::pump-input s 0.05)
+        (let ((expired (%expire-tool-message)))               ; auto-clear the status-bar note
+          (when (or *dirty* expired)
+            (revision:hide-cursor s)
+            (let ((views *dirty-views*) (full (or *full-redraw* expired)))
+              (setf *dirty-views* nil *full-redraw* nil *dirty* nil)
+              (if (%partial-frame-p dt views full)             ; hot path: repaint only the focused window
+                  (progn (draw (dt-top dt)) (draw (dt-statusbar dt)))
+                  (draw dt)))
+            (revision:flush-screen s)))
+        (revision::pump-input s (%tool-message-timeout (revision::input-timeout s)))
         (let ((tev (revision::screen-next-event s)))
           (when tev (let ((ev (translate tev))) (when ev (handle-event dt ev))))))
       (dt-save-layout dt)                                    ; persist the desktop for next launch

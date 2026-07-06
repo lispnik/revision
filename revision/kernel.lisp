@@ -6,28 +6,49 @@
 ;;; ---------------------------------------------------------------------------
 ;;; Reactive metaclass: mutating any slot of a reactive instance invalidates the
 ;;; screen, so views never call DRAW on themselves -- the loop commits one frame
-;;; per iteration.  (A refinement would mark individual slots :reactive and track
-;;; damage regions; whole-instance invalidation is enough to prove the model.)
+;;; per iteration.  An :AROUND method on (SETF SLOT-VALUE-USING-CLASS) invalidates
+;;; only on a *changed* value (writing a slot back to its current EQL value is a
+;;; no-op, so per-frame bookkeeping like WINDOW-ACTIVE doesn't perpetually re-dirty
+;;; the screen), and records WHICH view changed so the loop can repaint just the
+;;; affected top window (INVALIDATE / *DIRTY-VIEWS*) instead of the whole desktop.
 ;;; ---------------------------------------------------------------------------
 
 (defclass reactive-class (standard-class) ()
-  (:documentation "Metaclass whose instances invalidate the screen on any slot write:
-an :after method on (SETF SLOT-VALUE-USING-CLASS) sets *DIRTY*, so views never repaint
-themselves -- mutating reactive state schedules one committed frame on the next loop."))
+  (:documentation "Metaclass whose instances invalidate the screen when a slot write CHANGES
+its value: an :around method on (SETF SLOT-VALUE-USING-CLASS) calls INVALIDATE, so views
+never repaint themselves -- mutating reactive state schedules one committed frame on the
+next loop, and a no-op write (same EQL value) schedules nothing."))
 (defmethod sb-mop:validate-superclass ((c reactive-class) (s standard-class)) t)
 
 (defvar *dirty* nil "Set when reactive state changed since the last frame.")
 (defvar *root* nil "The current top-level window (the modal background).")
-(defun invalidate (object)
-  "Mark the UI dirty so the event loop commits a fresh frame next iteration.
-OBJECT is accepted (and ignored) for a future per-view damage-tracking refinement;
-today any change triggers a whole-screen redraw."
-  (declare (ignore object)) (setf *dirty* t))
+(defvar *dirty-views* nil
+  "Views invalidated since the last committed frame.  When every entry lives inside the
+current top window (and nothing structural changed), the loop repaints just that window
+instead of the whole desktop -- see the desktop loop's partial-frame path.")
+(defvar *full-redraw* t
+  "Forces the next commit to repaint the whole tree (reset after each frame).  Set by any
+invalidation the partial path can't localize: a non-view change, or a BOUNDS change (which
+can vacate cells a partial repaint would leave stale).")
 
-(defmethod (setf sb-mop:slot-value-using-class) :after
+(defun invalidate (&optional object slot)
+  "Mark the UI dirty so the event loop commits a fresh frame next iteration.  When OBJECT
+is a VIEW whose geometry did not change, record it for a partial repaint (only the affected
+top window is redrawn); anything else -- a non-view, or a BOUNDS change that can vacate
+cells -- forces a full-screen redraw.  SLOT is the changed slot's name (NIL from explicit
+callers, which are treated as a localizable view change)."
+  (setf *dirty* t)
+  (cond ((not (typep object 'view)) (setf *full-redraw* t))
+        ((eq slot 'bounds)          (setf *full-redraw* t))
+        (t (pushnew object *dirty-views* :test #'eq))))
+
+(defmethod (setf sb-mop:slot-value-using-class) :around
     (new (class reactive-class) object slot)
-  (declare (ignore new slot))
-  (invalidate object))
+  (let* ((bound (sb-mop:slot-boundp-using-class class object slot))
+         (old   (and bound (sb-mop:slot-value-using-class class object slot))))
+    (prog1 (call-next-method)
+      (unless (and bound (eql old new))        ; a no-op write (same value) schedules no frame
+        (invalidate object (sb-mop:slot-definition-name slot))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Views.  Bounds reuse revision's TRECT; capabilities would be mixins -- here we
@@ -473,9 +494,21 @@ owner to C.  Returns V."
   "The topmost owner of V (the root window): follow VIEW-OWNER up until it is NIL."
   (if (view-owner v) (view-root (view-owner v)) v))
 
+(defun view-name= (a b)
+  "Compare two view-name designators by NAME, not object identity, so a name interned
+in a different package still matches -- e.g. an application's 'EDIT and the framework's
+'EDIT name the same view.  (EQL on symbols is package-sensitive, which silently made
+FIND-VIEW return NIL across packages; comparing SYMBOL-NAMEs removes that footgun.)"
+  (cond ((or (null a) (null b)) nil)
+        ((and (typep a '(or symbol string character))
+              (typep b '(or symbol string character)))
+         (string= (string a) (string b)))
+        (t (eql a b))))
+
 (defun find-view (root name)
-  "Depth-first search for the subview named NAME, or NIL."
-  (cond ((and name (eql (view-name root) name)) root)
+  "Depth-first search for the subview named NAME, or NIL.  Names match by NAME string
+\(see VIEW-NAME=), so a lookup works even when NAME is interned in another package."
+  (cond ((view-name= (view-name root) name) root)
         ((typep root 'container) (some (lambda (sv) (find-view sv name)) (subviews root)))
         (t nil)))
 

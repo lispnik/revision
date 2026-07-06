@@ -91,11 +91,12 @@ finishes; return its result value, or :CANCEL."
           (dialog-done dialog) nil)
     (loop until (dialog-done dialog) do
       (drain-ui-callbacks)                 ; keep background threads (the clock) live
+      (setf *dirty-views* nil *full-redraw* nil *dirty* nil)   ; modal always full-draws; don't accrue tracking
       (revision:hide-cursor s)
       (when *root* (draw *root*))          ; background
       (draw dialog)                        ; modal on top (centred, smaller)
       (revision:flush-screen s)
-      (revision::pump-input s 0.05)
+      (revision::pump-input s (revision::input-timeout s))
       (let ((tev (revision::screen-next-event s)))
         (when tev (let ((ev (translate tev))) (when ev (handle-event dialog ev))))))
     (invalidate *root*)                    ; force the background to repaint cleanly

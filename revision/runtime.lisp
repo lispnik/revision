@@ -101,7 +101,9 @@ restored on the next run.  TOUCHED is :transient — recomputed each run, never 
 the event loop to drain.  The single rule that keeps views single-threaded."
   (if (ui-thread-p)
       (funcall thunk)
-      (sb-thread:with-mutex (*ui-lock*) (setf *ui-queue* (append *ui-queue* (list thunk))))))
+      (progn
+        (sb-thread:with-mutex (*ui-lock*) (setf *ui-queue* (append *ui-queue* (list thunk))))
+        (wake-ui))))                       ; break the loop's idle SELECT so the callback drains now
 
 (defun drain-ui-callbacks ()
   "Run (on the UI thread) every thunk posted since the last drain."

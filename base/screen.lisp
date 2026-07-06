@@ -288,10 +288,76 @@ frame, then place the hardware cursor where a focused view asked for it."
   "Configure the maximum gap (in seconds) for double/triple-click detection."
   (setf *double-click-ticks* (max 1 (round (* seconds internal-time-units-per-second)))))
 
-(defvar *input-multiplexer* nil
-  "When set (by the concurrency layer), a function (TIMEOUT) -> :FD0 | NIL that
-waits for terminal input OR a worker-thread wakeup, so background evaluation can
-wake the UI loop instantly.  When NIL, PUMP-INPUT just polls fd 0 directly.")
+;;; ---------------------------------------------------------------------------
+;;; Idle blocking + the worker wakeup.  PUMP-INPUT does a real SELECT on fd 0, so
+;;; it returns the instant a key/mouse byte arrives -- no busy-poll.  The one thing
+;;; a bare fd-0 wait can't see is a background thread posting a UI callback (a REPL
+;;; result, the clock), so a self-pipe lets WAKE-UI break the wait immediately; the
+;;; loop then blocks for *IDLE-TIMEOUT* seconds when genuinely idle instead of
+;;; spinning at a fixed 20 Hz.  This is the *INPUT-MULTIPLEXER* the loop always uses.
+;;; ---------------------------------------------------------------------------
+
+(defparameter *idle-timeout* 30.0
+  "Maximum seconds the event loop blocks on input when nothing is scheduled.  The wait
+is a real SELECT, so a key/mouse byte returns instantly and a worker thread wakes it
+sooner through WAKE-UI; this only bounds how long a fully idle UI sleeps between
+housekeeping ticks (near-zero CPU instead of a fixed-interval poll).")
+
+(defvar *wake-r* nil "Read end of the self-pipe a SELECT waits on alongside fd 0.")
+(defvar *wake-w* nil "Write end of the self-pipe; WAKE-UI writes a byte to break the wait.")
+(defvar *wake-1*   (make-array 1  :element-type '(unsigned-byte 8) :initial-element 1))
+(defvar *wake-drn* (make-array 64 :element-type '(unsigned-byte 8)))
+
+(defun %ensure-wakeup ()
+  "Lazily create the wakeup self-pipe; return its read fd (or NIL if unavailable)."
+  (unless *wake-r*
+    (multiple-value-bind (r w) (ignore-errors (sb-unix:unix-pipe))
+      (when (and r w) (setf *wake-r* r *wake-w* w))))
+  *wake-r*)
+
+(defun wake-ui ()
+  "Interrupt a blocked event loop so a UI callback posted from a worker thread is
+drained promptly (instead of after the idle timeout).  Safe to call from any thread;
+a no-op before the loop has created its pipe."
+  (let ((w *wake-w*))
+    (when w
+      (sb-sys:with-pinned-objects (*wake-1*)
+        (ignore-errors (sb-unix:unix-write w (sb-sys:vector-sap *wake-1*) 0 1))))))
+
+(defun %wait-fd0-or-wake (r timeout)
+  "SELECT on fd 0 and the wakeup pipe R for up to TIMEOUT seconds.  Returns true when
+terminal input is ready on fd 0 (the wakeup, if any, is drained here)."
+  (multiple-value-bind (secs frac) (floor timeout)
+    (let ((usecs (floor (* frac 1000000))))
+      (sb-alien:with-alien ((rfds (sb-alien:struct sb-unix:fd-set)))
+        (sb-unix:fd-zero rfds)
+        (sb-unix:fd-set 0 rfds)
+        (sb-unix:fd-set r rfds)
+        (multiple-value-bind (count err)
+            (sb-unix:unix-fast-select (1+ (max 0 r)) (sb-alien:addr rfds) nil nil secs usecs)
+          (declare (ignore err))
+          (when (and count (plusp count))
+            (when (sb-unix:fd-isset r rfds)               ; drain the wakeup byte(s)
+              (sb-sys:with-pinned-objects (*wake-drn*)
+                (ignore-errors (sb-unix:unix-read r (sb-sys:vector-sap *wake-drn*) 64))))
+            (sb-unix:fd-isset 0 rfds)))))))
+
+(defvar *input-multiplexer*
+  (lambda (timeout)
+    "Default multiplexer: wait for terminal input OR a WAKE-UI poke.  Returns :FD0 when
+fd 0 has bytes to read, else NIL (a bare wakeup / timeout)."
+    (let ((r (%ensure-wakeup)))
+      (if r
+          (and (%wait-fd0-or-wake r timeout) :fd0)
+          (and (sb-sys:wait-until-fd-usable 0 :input timeout nil) :fd0))))  ; pipe unavailable: fall back
+  "A function (TIMEOUT) -> :FD0 | NIL that waits for terminal input OR a worker-thread
+wakeup, so background evaluation wakes the UI loop instantly.  Installed by default
+(fd 0 + a self-pipe); rebind to layer in another input source.")
+
+(defun input-timeout (s)
+  "How long PUMP-INPUT should block this iteration: the short auto-repeat interval while
+a mouse button is held (so a held button keeps repeating), else the long idle block."
+  (if (plusp (screen-mouse-buttons s)) 0.05 *idle-timeout*))
 
 (defun %auto-repeat (s)
   "No new input, but a mouse button is held -> synthesize ev-mouse-auto."

@@ -30,8 +30,9 @@ never lingers when focus moves to a non-text widget."
     (drain-ui-callbacks)
     (when *dirty*
       (revision:hide-cursor s)
-      (draw root) (revision:flush-screen s) (setf *dirty* nil))
-    (revision::pump-input s 0.05)
+      (setf *dirty-views* nil *full-redraw* nil *dirty* nil)   ; single full-screen view: always a full draw
+      (draw root) (revision:flush-screen s))
+    (revision::pump-input s (revision::input-timeout s))
     (let ((tev (revision::screen-next-event s)))
       (when tev (let ((ev (translate tev))) (when ev (handle-event root ev)))))))
 
@@ -43,7 +44,7 @@ and return a cleanup thunk."
     (layout win (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
     (setf *root* win
           (container-focus win) (or focus (first (all-focusables win)))
-          *ui-thread* sb-thread:*current-thread* *running* t *dirty* t)
+          *ui-thread* sb-thread:*current-thread* *running* t *dirty* t *full-redraw* t)
     (let ((cleanup (and open (funcall open s))))
       (unwind-protect (event-loop s win)
         (when cleanup (ignore-errors (funcall cleanup)))))))
