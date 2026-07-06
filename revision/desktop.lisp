@@ -905,10 +905,12 @@ so relaunching restores the whole session."
                       collect (let ((b (view-bounds w)))
                                 (list k (revision::rect-ax b) (revision::rect-ay b)
                                       (revision::rect-bx b) (revision::rect-by b)
-                                      (ignoring-errors ("window-save-state") (window-save-state w)))))))
+                                      ;; serialize per-window so a window whose state has a
+                                      ;; container / bad value drops only its own state, not the file
+                                      (ignoring-errors ("window-save-state") (serialize (window-save-state w))))))))
     (ignoring-errors ("dt-save-layout write")
      (with-open-file (s path :direction :output :if-exists :supersede :if-does-not-exist :create)
-       (prin1 layout s)))
+       (let ((*print-readably* t)) (prin1 layout s))))
     layout))
 
 (defun dt-load-layout (dt &optional (path (%desktop-file)))
@@ -922,7 +924,7 @@ registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
          (when builder
            (multiple-value-bind (win focus open) (funcall builder)
              (when win
-               (ignoring-errors ("window-restore-state") (window-restore-state win state))
+               (ignoring-errors ("window-restore-state") (window-restore-state win (deserialize state)))
                (dt-add dt win focus open kind (rect x0 y0 x1 y1)))))))))
   (dt-refocus dt) (invalidate dt))
 

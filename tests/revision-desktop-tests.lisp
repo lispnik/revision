@@ -249,6 +249,51 @@
            (and (= 1 (length (outline-node-children node)))
                 (string= "child-a" (outline-node-text (first (outline-node-children node))))))))
 
+;;; 16. SERIALIZE/DESERIALIZE hardening: containers round-trip through the reader,
+;;; :transient slots are skipped, and cycles / unserializable values SIGNAL (no silent
+;;; corruption, no infinite loop) so a bad save fails loud instead of writing garbage.
+(defclass %ser-test ()
+  ((a :initarg :a :accessor %st-a)
+   (b :initarg :b :accessor %st-b)
+   (tmp :initarg :tmp :initform 99 :accessor %st-tmp :transient t))
+  (:metaclass persistent-class))
+
+(flet ((round-trip (x)
+         (deserialize (read-from-string
+                       (with-output-to-string (s) (let ((*print-readably* t)) (prin1 (serialize x) s)))))))
+  (check "a plain list round-trips unchanged" (equal '(:page "u" :top 3) (round-trip '(:page "u" :top 3))))
+  (check "a vector round-trips (elements recursed, not left unreadable)"
+         (equalp #(1 "two" :three) (round-trip #(1 "two" :three))))
+  (let ((h (round-trip (let ((h (make-hash-table :test 'equal))) (setf (gethash "k" h) 42) h))))
+    (check "a hash-table round-trips (test + entries)"
+           (and (hash-table-p h) (eql 42 (gethash "k" h)) (eq 'equal (hash-table-test h)))))
+  (let ((o (round-trip (make-instance '%ser-test :a 1 :b #(10 20) :tmp 5))))
+    (check "a persistent object round-trips its bound, non-transient slots (incl. a container slot)"
+           (and (typep o '%ser-test) (eql 1 (%st-a o)) (equalp #(10 20) (%st-b o))))
+    (check "a :transient slot is NOT persisted (keeps its initform)" (eql 99 (%st-tmp o)))))
+
+(let ((c (list 1 2)))
+  (setf (cddr c) c)                                    ; a circular list
+  (check "serialize SIGNALS on a circular structure instead of hanging"
+         (nth-value 1 (ignore-errors (serialize c)))))
+(let ((o (make-instance '%ser-test :a nil :b nil)))
+  (setf (%st-a o) o)                                   ; a self-referential object
+  (check "serialize SIGNALS on a self-referential object"
+         (nth-value 1 (ignore-errors (serialize o)))))
+(check "serialize SIGNALS on an unserializable value (a function)"
+       (nth-value 1 (ignore-errors (serialize #'identity))))
+(check "serialize SIGNALS on a plain (non-persistent) CLOS object"
+       (nth-value 1 (ignore-errors (serialize (make-instance 'window)))))
+
+(let ((p (merge-pathnames "revision-ser-test.dat" (uiop:temporary-directory))))
+  (check "save-object returns NIL (fails loud) when the object can't be serialized"
+         (null (save-object #'identity p)))
+  (check "save-object + load-object round-trip an object holding a hash-table"
+         (progn (save-object (make-instance '%ser-test :a 7
+                                            :b (let ((h (make-hash-table))) (setf (gethash :x h) 1) h)) p)
+                (let ((o (load-object p))) (and o (eql 7 (%st-a o)) (eql 1 (gethash :x (%st-b o)))))))
+  (ignore-errors (delete-file p)))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

@@ -78,38 +78,102 @@ so a swallowed failure on a persistence/desktop path stays diagnosable."
     (setf (slot-value eslot 'transient) (some #'slot-transient-p dslots))
     eslot))
 
+;;; SERIALIZE walks OBJECT into a form the Lisp reader can read back.  It handles the
+;;; readable atoms (numbers, strings, symbols, characters, pathnames), the aggregate
+;;; containers (cons, vector, array, hash-table -- recursed, not left as unreadable
+;;; #<...> text), and persistent-class objects.  Two deliberate guarantees:
+;;;   * a CYCLE signals (a bounded, logged error) instead of recursing forever;
+;;;   * an unserializable value (a function, a stream, a plain CLOS object) SIGNALS
+;;;     rather than being written as text that won't read back -- fail loud, not silent.
+;;; Shared (non-cyclic) structure is NOT preserved: a value reachable by two paths is
+;;; written twice, so it deserializes to two EQUAL-but-not-EQ copies.  The reserved
+;;; head markers are :object :vector :array :hash -- a list starting with one of those
+;;; is interpreted as an encoding, so plain data must not begin with them.
+
+(defvar *serialize-seen* nil
+  "Set of aggregates on the current SERIALIZE recursion path (for cycle detection).")
+
+(defmethod serialize :around ((x t))
+  "Establish the cycle-detection table once, at the outermost SERIALIZE call."
+  (if *serialize-seen* (call-next-method)
+      (let ((*serialize-seen* (make-hash-table :test 'eq))) (call-next-method))))
+
+(defun %ser-agg (x body-fn)
+  "Run BODY-FN to serialize aggregate X, guarding against a cycle back through X."
+  (when (gethash x *serialize-seen*)
+    (error "SERIALIZE: circular structure through a ~a -- cannot persist it" (type-of x)))
+  (setf (gethash x *serialize-seen*) t)
+  (unwind-protect (funcall body-fn) (remhash x *serialize-seen*)))
+
 (defgeneric serialize (object)
-  (:documentation "A readable representation of OBJECT.  Persistent-class objects
-become (:object CLASS slot val ...) over their non-transient, bound slots.")
-  (:method ((x t)) x)                                   ; numbers, strings, symbols, t, nil
-  (:method ((x cons)) (cons (serialize (car x)) (serialize (cdr x))))
+  (:documentation "A readable representation of OBJECT (see the notes above): readable atoms
+pass through, cons/vector/array/hash-table recurse, and persistent-class objects become
+(:object CLASS slot val ...) over their non-transient, bound slots.  Cycles and
+unserializable values SIGNAL.  Extend it with methods for an application's own types.")
+  ;; readable atoms -- pass through (STRING is a VECTOR, so it needs its own method
+  ;; to win over the VECTOR method below)
+  (:method ((x number))    x)
+  (:method ((x symbol))    x)                          ; nil, t, keywords
+  (:method ((x string))    x)
+  (:method ((x character)) x)
+  (:method ((x pathname))  x)
+  (:method ((x cons))
+    (%ser-agg x (lambda () (cons (serialize (car x)) (serialize (cdr x))))))
+  (:method ((x vector))                                ; non-string vectors
+    (%ser-agg x (lambda () (list* :vector (map 'list #'serialize x)))))
+  (:method ((x array))                                 ; rank >= 2 (VECTOR is more specific)
+    (%ser-agg x (lambda () (list :array (array-dimensions x)
+                                 (loop for i below (array-total-size x)
+                                       collect (serialize (row-major-aref x i)))))))
+  (:method ((x hash-table))
+    (%ser-agg x (lambda () (list* :hash (hash-table-test x)
+                                  (loop for k being the hash-keys of x using (hash-value v)
+                                        collect (serialize k) collect (serialize v))))))
   (:method ((obj standard-object))
     (let ((class (class-of obj)))
-      (if (typep class 'persistent-class)
-          (list* :object (class-name class)
-                 (loop for slot in (sb-mop:class-slots class)
-                       for name = (sb-mop:slot-definition-name slot)
-                       unless (or (slot-transient-p slot) (not (slot-boundp obj name)))
-                         append (list name (serialize (slot-value obj name)))))
-          obj))))
+      (unless (typep class 'persistent-class)
+        (error "SERIALIZE: ~s is a plain ~a, not a persistent-class instance -- mark the ~
+                owning slot :transient or add a SERIALIZE method for its type"
+               obj (class-name class)))
+      (%ser-agg obj
+                (lambda ()
+                  (list* :object (class-name class)
+                         (loop for slot in (sb-mop:class-slots class)
+                               for name = (sb-mop:slot-definition-name slot)
+                               unless (or (slot-transient-p slot) (not (slot-boundp obj name)))
+                                 append (list name (serialize (slot-value obj name)))))))))
+  (:method ((x t))
+    (error "SERIALIZE: cannot serialize ~s (a ~a) -- mark the owning slot :transient, ~
+            or add a SERIALIZE/DESERIALIZE method for its type" x (type-of x))))
 
 (defun deserialize (form)
-  "Reconstruct what SERIALIZE produced."
+  "Reconstruct what SERIALIZE produced (SERIALIZE guarantees acyclic output, so this
+never needs cycle handling)."
   (cond
-    ((and (consp form) (eq (car form) :object))
+    ((atom form) form)
+    ((eq (car form) :object)
      (let ((obj (make-instance (second form))))
        (loop for (name val) on (cddr form) by #'cddr
              do (setf (slot-value obj name) (deserialize val)))
        obj))
-    ((consp form) (cons (deserialize (car form)) (deserialize (cdr form))))
-    (t form)))
+    ((eq (car form) :vector) (map 'vector #'deserialize (cdr form)))
+    ((eq (car form) :array)
+     (let ((arr (make-array (second form))))
+       (loop for i below (array-total-size arr) for v in (third form)
+             do (setf (row-major-aref arr i) (deserialize v)))
+       arr))
+    ((eq (car form) :hash)
+     (let ((h (make-hash-table :test (second form))))
+       (loop for (k v) on (cddr form) by #'cddr do (setf (gethash (deserialize k) h) (deserialize v)))
+       h))
+    (t (cons (deserialize (car form)) (deserialize (cdr form))))))
 
 (defun save-object (object path)
   "Serialize OBJECT (via SERIALIZE) and write it readably to PATH, replacing any
 existing file.  Returns T on success, NIL if the write failed."
   (ignoring-errors ("save-object")
    (with-open-file (s path :direction :output :if-exists :supersede :if-does-not-exist :create)
-     (let ((*print-readably* nil)) (prin1 (serialize object) s)))
+     (let ((*print-readably* t)) (prin1 (serialize object) s)))   ; readably: an escapee fails loud
    t))
 
 (defun load-object (path)
