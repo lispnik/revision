@@ -978,7 +978,7 @@ registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
              (list "Validators…"     (lambda () (%validators-dialog))))
        (list "Help"
              (list "This window"     (lambda () (dt-help dt)) :f1)))
-      (mapcar (lambda (f) (funcall f dt)) (reverse *extra-menus*))))))   ; modules' Edit + consolidated Lisp menus
+      (remove nil (mapcar (lambda (f) (funcall f dt)) (reverse *extra-menus*)))))))   ; modules' menus (a NIL result = a contributor that opted out)
 
 ;;; ensure-repl (open-or-focus the desktop's REPL) is IDE glue — see revl's
 ;;; ide/desktop-ide.lisp.
