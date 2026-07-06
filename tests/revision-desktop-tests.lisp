@@ -304,6 +304,29 @@
     (check "pump-input returns immediately when events are already queued"
            (< (/ (- (get-internal-real-time) t0) internal-time-units-per-second) 1.0))))
 
+;;; 18. HTML definition lists: a <dd> description hangs indented under its <dt> term
+;;; (mandoc renders man-page option lists as <dl>), instead of both flush-left.
+(flet ((lines-of (html w)
+         (multiple-value-bind (toks links) (html->tokens html)
+           (map 'list (lambda (l) (apply #'concatenate 'string (mapcar #'html-run-text l)))
+                (%html-layout toks w links))))
+       (lead (s) (- (length s) (length (string-left-trim " " s)))))
+  (let* ((texts (lines-of "<dl><dt>Term</dt><dd>A definition body here.</dd></dl>" 60))
+         (term  (find-if (lambda (s) (search "Term" s)) texts))
+         (def   (find-if (lambda (s) (search "definition" s)) texts)))
+    (check "a <dt> term stays flush-left" (and term (zerop (lead term))))
+    (check "a <dd> description hangs indented under the term"
+           (and def (>= (lead def) *html-list-indent*))))
+  ;; a wrapped <dd> keeps its indent on the continuation line
+  (let* ((texts (lines-of "<dl><dt>T</dt><dd>alpha bravo charlie delta echo foxtrot golf hotel india</dd></dl>" 24))
+         (cont  (remove-if-not (lambda (s) (or (search "alpha" s) (search "hotel" s) (search "india" s))) texts)))
+    (check "a wrapped <dd> stays indented on every line"
+           (and (>= (length cont) 2) (every (lambda (s) (>= (lead s) *html-list-indent*)) cont))))
+  ;; a following heading resets the indent (no runaway if a list isn't closed)
+  (let* ((texts (lines-of "<dl><dt>T</dt><dd>d</dd></dl><h2>Next</h2><p>flush again</p>" 60))
+         (after (find-if (lambda (s) (search "flush again" s)) texts)))
+    (check "content after the list is flush-left again" (and after (zerop (lead after))))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

@@ -54,7 +54,7 @@
 
 ;;; ===========================================================================
 ;;; Tokenizer (pure): HTML -> flat token stream + links vector
-;;;   :space :break :para :hr  (:text STR STYLE LINK) (:pre STR) (:anchor NAME)
+;;;   :space :break :para :hr  (:text STR STYLE LINK) (:pre STR) (:anchor NAME) (:indent N)
 ;;; ===========================================================================
 
 (defstruct (html-run (:constructor make-html-run (&key text style link)))
@@ -63,9 +63,13 @@
   (href "") (line nil))
 
 (defparameter +html-block-tags+
-  '("p" "div" "ul" "ol" "dl" "dt" "dd" "blockquote" "table" "tr" "thead"
+  '("p" "div" "ul" "ol" "blockquote" "table" "tr" "thead"    ; dl/dt/dd handled specially (indented)
     "tbody" "center" "form" "fieldset" "caption" "th" "td" "section" "article"
     "nav" "header" "footer" "main" "figure"))
+
+(defparameter *html-list-indent* 4
+  "Columns a definition's <dd> body (and nested list content) is indented under its
+<dt> term, so a description hangs under its term instead of sitting flush-left.")
 
 (defun %html-read-tag (s i)
   "S[i] is #\\<.  Return (values name attrs closing next-index)."
@@ -126,6 +130,7 @@
         (i 0) (n (length html))
         (bold 0) (emph 0) (code 0) (heading 0) (cur-link nil)
         (skip 0) (pre 0)
+        (dl-base 0) (dl-stack '()) (dl-cur 0)          ; definition-list indent + nesting stack
         (text (make-string-output-stream)))
     (labels
         ((style ()
@@ -175,6 +180,8 @@
               (if closing (when (plusp code) (decf code)) (incf code)))
              ((member name '("h1" "h2" "h3" "h4" "h5" "h6") :test #'string=)
               (emit :para)
+              (unless closing                            ; a heading resets any (mis)nested list indent
+                (setf dl-base 0 dl-stack '() dl-cur 0) (emit (list :indent 0)))
               (if closing (when (plusp heading) (decf heading)) (incf heading)))
              ((string= name "a")
               (if closing
@@ -193,6 +200,21 @@
                   (progn (emit :break)
                          (emit (list :text (string (code-char #x2022)) :normal nil))
                          (emit :space))))
+             ;; Definition lists: the <dt> term sits at the list's base indent, its
+             ;; <dd> description hangs *html-list-indent* columns under it (instead of
+             ;; both flush-left).  DL open/close tracks a base so nested lists stack.
+             ((string= name "dl")
+              (if closing
+                  (progn (setf dl-base (if dl-stack (pop dl-stack) 0) dl-cur dl-base)
+                         (emit :break) (emit (list :indent dl-cur)))
+                  (progn (push dl-base dl-stack) (setf dl-base dl-cur) (emit :break))))
+             ((string= name "dt")
+              (if closing (emit :break)
+                  (progn (setf dl-cur dl-base) (emit :break) (emit (list :indent dl-cur)))))
+             ((string= name "dd")
+              (if closing (emit :break)
+                  (progn (setf dl-cur (+ dl-base *html-list-indent*))
+                         (emit :break) (emit (list :indent dl-cur)))))
              ((member name +html-block-tags+ :test #'string=) (emit :break))
              (t nil))))
       (loop while (< i n) do
@@ -224,7 +246,7 @@
   (let* ((w (max 4 width))
          (lines (make-array 0 :adjustable t :fill-pointer 0))
          (anchors '())
-         (cur '()) (col 0) (pending nil))
+         (cur '()) (col 0) (pending nil) (indent 0))
     (loop for lk across links do (setf (html-link-line lk) nil))
     (labels
         ((cur-empty () (and (null cur) (zerop col)))
@@ -236,10 +258,18 @@
            (when (and (plusp (fill-pointer lines))
                       (aref lines (1- (fill-pointer lines))))
              (push-line '())))
+         ;; lay the current INDENT as leading spaces on a fresh line, lazily (only
+         ;; when real content follows), so an indented block never emits blank
+         ;; indent-only lines and CUR-EMPTY still detects truly-empty lines.
+         (lay-indent ()
+           (when (and (plusp indent) (null cur) (zerop col))
+             (push (make-html-run :text (make-string indent :initial-element #\Space) :style :normal) cur)
+             (setf col indent pending nil)))
          (add (str style link)
+           (lay-indent)
            (let ((sp (if (and pending (plusp col)) 1 0)))
              (when (and (plusp col) (> (+ col sp (length str)) w))
-               (finish) (setf sp 0))
+               (finish) (lay-indent) (setf sp 0))
              (when (= sp 1)
                (let ((lr (first cur)))
                  (when lr (setf (html-run-text lr) (concatenate 'string (html-run-text lr) " "))))
@@ -257,6 +287,7 @@
           ((eq tok :space) (setf pending t))
           ((eq tok :break) (do-break))
           ((eq tok :para)  (do-para))
+          ((and (consp tok) (eq (car tok) :indent)) (setf indent (second tok)))
           ((eq tok :hr)
            (do-break)
            (push-line (list (make-html-run :text (make-string (max 1 (1- w))
