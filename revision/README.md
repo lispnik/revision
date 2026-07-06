@@ -51,6 +51,14 @@ navigation, a live HyperSpec lookup):
 | Persistence | `TStream` `read`/`write` methods | **MOP-based** `serialize`/`deserialize` with a `:transient` slot option |
 | Background work | — | a **worker→UI bridge** (`run-on-ui`/`drain-ui-callbacks`): only the UI thread touches the screen, and posting a callback wakes the idle event loop instantly (a self-pipe breaks its `select`) |
 
+`serialize`/`deserialize` recurse into the readable atoms **and the containers**
+(cons, vector, array, hash-table) and persistent-class objects; a **cycle** signals a
+bounded error instead of hanging, and an **unserializable** value (a function, a plain
+CLOS object) signals rather than being written as text that won't read back — so a bad
+`save-object` fails loud (returns `NIL`) instead of silently corrupting the file:
+
+![A live SBCL REPL exercising the serializer: a hash-table and a vector round-trip through serialize/deserialize; a circular structure and an unserializable function each signal a caught error; and save-object returns NIL rather than writing a corrupt file](../media/serialize.gif)
+
 ## Kernel layers (load order)
 
 - **`kernel.lisp`** — the `reactive-class` metaclass (`(setf slot-value-using-class) :around` → `invalidate` on a *changed* value, recording the view for a partial repaint); the `view` base class; geometry helpers; the event class hierarchy and `translate` (a raw INPUT-EVENT → a CLOS revision event); `keymap`/`defkeymap`/`keymap-lookup`; `command`/`define-command`/`perform`; drawing helpers; `*theme*`/`role`; the `container` protocol (focus routing, Tab cycling, event bubbling).
