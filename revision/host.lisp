@@ -47,4 +47,4 @@ and return a cleanup thunk."
           *ui-thread* sb-thread:*current-thread* *running* t *dirty* t *full-redraw* t)
     (let ((cleanup (and open (funcall open s))))
       (unwind-protect (event-loop s win)
-        (when cleanup (ignore-errors (funcall cleanup)))))))
+        (when cleanup (ignoring-errors ("run-view cleanup") (funcall cleanup)))))))

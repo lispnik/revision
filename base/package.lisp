@@ -39,7 +39,7 @@
    #:view #:container #:handle-event #:draw #:invalidate #:find-view
    #:focus-next #:focusable-p #:all-focusables #:add-subview #:add-laid #:subviews
    #:view-bounds #:view-name #:view-owner #:view-root #:view-keymap #:view-focused-p
-   #:container-focus #:run-view #:run-on-ui
+   #:container-focus #:run-view #:run-on-ui #:run-async
    #:*running* #:*dirty* #:*root* #:*ui-thread*
 
    ;; ---- Commands ---------------------------------------------------------
@@ -113,6 +113,9 @@
    ;; ---- Persistence (save/restore objects across sessions) ---------------
    #:session #:persistent-class #:load-object #:save-object #:serialize #:deserialize
    #:session-file #:session-filter #:session-line
+
+   ;; ---- Diagnostics: a log for otherwise-swallowed failures --------------
+   #:revision-log #:log-messages #:*log-file* #:ignoring-errors
 
    ;; ---- Text search / fuzzy matching -------------------------------------
    #:fuzzy-filter

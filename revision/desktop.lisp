@@ -447,7 +447,7 @@ directly, not persisted).  Cascade-positioned, focused on top."
 
 (defun dt-close-window (dt win)
   "Close WIN on desktop DT: run its cleanup, remove it from the Z-order, and refocus."
-  (when (window-cleanup win) (ignore-errors (funcall (window-cleanup win))))
+  (when (window-cleanup win) (ignoring-errors ("window cleanup") (funcall (window-cleanup win))))
   (setf (dt-windows dt) (remove win (dt-windows dt)))
   (dt-refocus dt) (invalidate dt))
 
@@ -905,8 +905,8 @@ so relaunching restores the whole session."
                       collect (let ((b (view-bounds w)))
                                 (list k (revision::rect-ax b) (revision::rect-ay b)
                                       (revision::rect-bx b) (revision::rect-by b)
-                                      (ignore-errors (window-save-state w)))))))
-    (ignore-errors
+                                      (ignoring-errors ("window-save-state") (window-save-state w)))))))
+    (ignoring-errors ("dt-save-layout write")
      (with-open-file (s path :direction :output :if-exists :supersede :if-does-not-exist :create)
        (prin1 layout s)))
     layout))
@@ -914,14 +914,15 @@ so relaunching restores the whole session."
 (defun dt-load-layout (dt &optional (path (%desktop-file)))
   "Reopen the windows recorded in PATH at their saved positions.  Each is rebuilt by its
 registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
-  (dolist (entry (ignore-errors (with-open-file (s path :if-does-not-exist nil) (and s (read s nil nil)))))
-    (ignore-errors
+  (dolist (entry (ignoring-errors ("dt-load-layout read")
+                   (with-open-file (s path :if-does-not-exist nil) (and s (read s nil nil)))))
+    (ignoring-errors ("dt-load-layout entry")
      (destructuring-bind (kind x0 y0 x1 y1 &optional state) entry
        (let ((builder (cdr (assoc kind *window-builders*))))
          (when builder
            (multiple-value-bind (win focus open) (funcall builder)
              (when win
-               (ignore-errors (window-restore-state win state))
+               (ignoring-errors ("window-restore-state") (window-restore-state win state))
                (dt-add dt win focus open kind (rect x0 y0 x1 y1)))))))))
   (dt-refocus dt) (invalidate dt))
 
@@ -1009,7 +1010,7 @@ Returns on File→Exit."
           (when tev (let ((ev (translate tev))) (when ev (handle-event dt ev))))))
       (dt-save-layout dt)                                    ; persist the desktop for next launch
       (dolist (win (dt-windows dt))                          ; stop any open windows' threads
-        (when (window-cleanup win) (ignore-errors (funcall (window-cleanup win))))))))
+        (when (window-cleanup win) (ignoring-errors ("window cleanup") (funcall (window-cleanup win))))))))
 
 ;;; (The application-facing symbols this file provides — *desktop*, the plugin
 ;;; registry, dt-* — are exported with the rest of the API in base/package.lisp.)

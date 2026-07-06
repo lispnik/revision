@@ -207,6 +207,35 @@
   (check "a pending note caps the idle timeout to its remaining TTL"
          (<= (%tool-message-timeout 30.0) *tool-message-ttl*)))
 
+;;; 13. IGNORING-ERRORS swallows like IGNORE-ERRORS but LOGS the condition, so a
+;;; failure on a persistence/desktop path is diagnosable instead of vanishing.
+(let ((*log-ring* (make-array *log-capacity* :initial-element nil)) (*log-count* 0))
+  (check "ignoring-errors returns the body value on success"
+         (= 42 (ignoring-errors ("ctx") 42)))
+  (check "ignoring-errors returns NIL on error (like ignore-errors)"
+         (null (ignoring-errors ("boom-ctx") (error "kaboom"))))
+  (check "ignoring-errors logs the context and the condition"
+         (and (find-if (lambda (l) (search "boom-ctx" l)) (log-messages))
+              (find-if (lambda (l) (search "kaboom" l)) (log-messages)))))
+
+;;; 14. RUN-ASYNC runs blocking work on a background thread and delivers the result
+;;; to THEN (via the worker->UI bridge), routing a worker error to ON-ERROR.
+(let ((box (list nil)))
+  (sb-thread:join-thread
+   (run-async (lambda () sb-thread:*current-thread*)
+              :then (lambda (r) (setf (car box) r)) :label "test"))
+  (check "run-async runs WORK on a background thread, not the caller"
+         (and (car box) (not (eq (car box) sb-thread:*current-thread*)))))
+(let ((box (list nil)))
+  (sb-thread:join-thread
+   (run-async (lambda () (* 6 7)) :then (lambda (r) (setf (car box) r)) :label "test"))
+  (check "run-async delivers the work result to THEN" (eql (car box) 42)))
+(let ((box (list :none)) (*log-ring* (make-array *log-capacity* :initial-element nil)) (*log-count* 0))
+  (sb-thread:join-thread
+   (run-async (lambda () (error "worker-boom"))
+              :on-error (lambda (e) (declare (ignore e)) (setf (car box) :handled)) :label "test"))
+  (check "run-async routes a worker error to ON-ERROR" (eq (car box) :handled)))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))
