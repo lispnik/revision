@@ -37,6 +37,22 @@ FOCUSED/TOP are reactive so mutating them auto-repaints."))
       (walk roots 0))
     (nreverse out)))
 
+(defun async-children (node view work &key (placeholder "  …"))
+  "A non-blocking lazy loader for a slow OUTLINE-NODE: start WORK (a 0-arg thunk that
+may block -- a subprocess, a file read -- and returns a list of child nodes) on a worker
+thread, and return a single PLACEHOLDER child immediately.  DRAW therefore never blocks
+on the load (OUTLINE-ENSURE-CHILDREN calls the loader, sometimes mid-repaint); when WORK
+lands, its result replaces the placeholder and VIEW is repainted.  Use it as a node's
+LOADER:  (setf (outline-node-loader n)
+                (lambda () (async-children n tree (lambda () (compute-children n)))))"
+  (run-async work
+             :then (lambda (kids)
+                     (setf (outline-node-children node)
+                           (or kids (list (make-outline-node "  (empty)"))))
+                     (when view (invalidate view)))
+             :label "outline-load")
+  (list (make-outline-node placeholder)))
+
 (defmethod draw ((ol outline))
   (let* ((b (view-bounds ol)) (h (revision::rect-height b)) (w (revision::rect-width b))
          (vis (ov-visible (outline-roots ol))) (top (outline-top ol))

@@ -236,6 +236,19 @@
               :on-error (lambda (e) (declare (ignore e)) (setf (car box) :handled)) :label "test"))
   (check "run-async routes a worker error to ON-ERROR" (eq (car box) :handled)))
 
+;;; 15. ASYNC-CHILDREN: a non-blocking lazy loader — a placeholder child now, the real
+;;; children (computed off-thread) later, so DRAW never blocks on a slow expand.
+(let* ((*ui-thread* :other) (*ui-queue* nil)          ; force RUN-ON-UI to marshal via the queue
+       (view (make-instance 'window))
+       (node (make-outline-node "parent")))
+  (let ((ph (async-children node view (lambda () (list (make-outline-node "child-a"))))))
+    (check "async-children returns one placeholder child immediately, no real children yet"
+           (and (= 1 (length ph)) (null (outline-node-children node))))
+    (loop repeat 300 until (outline-node-children node) do (drain-ui-callbacks) (sleep 0.01))
+    (check "async-children installs the off-thread work result as the node's children"
+           (and (= 1 (length (outline-node-children node)))
+                (string= "child-a" (outline-node-text (first (outline-node-children node))))))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

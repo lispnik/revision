@@ -87,7 +87,7 @@
    #:outline #:outline-roots #:outline-focused #:outline-top #:outline-ensure-children #:ov-current
    #:outline-node #:make-outline-node #:outline-node-text #:outline-node-children
    #:outline-node-data #:outline-node-color #:outline-node-expanded #:outline-node-expandable-p
-   #:outline-node-loader #:outline-node-setter
+   #:outline-node-loader #:outline-node-setter #:async-children
 
    ;; ---- Windows & the desktop shell --------------------------------------
    #:window #:window-title #:window-help #:window-kind #:window-scroll-target
