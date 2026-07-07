@@ -33,8 +33,8 @@
 ;;; 1. the window plugin registry: a self-registered builder opens through DT-OPEN
 (let ((*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
   (let ((dt (%make-test-desktop)) (built nil))
-    (pushnew (cons :test-win (lambda () (setf built t) (funcall (%win-builder))))
-             *window-builders* :key #'car)
+    (register-window :test-win (lambda () (setf built t) (funcall (%win-builder))))
+    (check "register-window adds the kind to the registry" (member :test-win (window-kinds)))
     (dt-open dt :test-win)
     (check "dt-open resolves a builder keyword from *window-builders*" built)
     (check "the opened window is hosted and topmost"
@@ -63,13 +63,29 @@
 ;;; 4. the *EXTRA-MENUS* contribution seam + same-title merge in %ORDER-MENUS
 (let ((*extra-menus* nil) (*desktop* nil))
   (let ((dt (%make-test-desktop)))
-    (push (lambda (d) (declare (ignore d)) (list "Tools" (list "Frob" (lambda () nil)))) *extra-menus*)
-    (check "an *extra-menus* contribution appears in the menu bar"
+    (register-menu :frob (lambda (d) (declare (ignore d)) (list "Tools" (list "Frob" (lambda () nil)))))
+    (check "a register-menu contribution appears in the menu bar"
            (member "Tools" (mapcar #'car (%desktop-menus dt)) :test #'string=))
-    (push (lambda (d) (declare (ignore d)) (list "Help" (list "Extra topic" (lambda () nil)))) *extra-menus*)
+    (register-menu :extra-help (lambda (d) (declare (ignore d)) (list "Help" (list "Extra topic" (lambda () nil)))))
     (let ((titles (mapcar #'car (%desktop-menus dt))))
       (check "%order-menus merges a contributed Help into the shell's single Help menu"
-             (= 1 (count "Help" titles :test #'string=))))))
+             (= 1 (count "Help" titles :test #'string=))))
+    ;; idempotency: re-registering the SAME name replaces, not duplicates
+    (register-menu :frob (lambda (d) (declare (ignore d)) (list "Tools" (list "Frob2" (lambda () nil)))))
+    (check "re-registering a menu name replaces (no duplicate contribution)"
+           (= 1 (count :frob *extra-menus* :key #'car)))))
+
+;;; 4b. register-window is idempotent by KIND: re-registering REPLACES the builder.
+;;; (A plain PUSHNEW kept the stale one, so reloading a window's file wouldn't update
+;;; it; the explicit registry fixes that -- the concrete win of formalizing the seam.)
+(let ((*window-builders* (copy-alist *window-builders*)))
+  (register-window :dup (lambda () :first))
+  (register-window :dup (lambda () :second))
+  (check "register-window replaces a re-registered kind (fresh builder, no duplicate)"
+         (and (= 1 (count :dup *window-builders* :key #'car))
+              (eq :second (funcall (cdr (assoc :dup *window-builders*))))))
+  (unregister-window :dup)
+  (check "unregister-window removes the kind" (not (member :dup (window-kinds)))))
 
 ;;; 5. drawing a bare desktop (with a window) is safe when no screen is attached
 (let ((*screen* nil) (*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
@@ -346,6 +362,27 @@
   (let* ((texts (lines-of "<dl><dt>T</dt><dd>d</dd></dl><h2>Next</h2><p>flush again</p>" 60))
          (after (find-if (lambda (s) (search "flush again" s)) texts)))
     (check "content after the list is flush-left again" (and after (zerop (lead after))))))
+
+;;; 20. widget intrinsic-key introspection: a widget's own keys (handled inside its
+;;; HANDLE-EVENT, not a keymap) are declared as data via VIEW-KEY-HINTS, so the
+;;; keybinding reference is complete and DESCRIBE-VIEW-KEYS answers "what does a key
+;;; do here" across BOTH dispatch paths from one place.
+(let ((lb (make-instance 'list-box :items '("a" "b"))))
+  (check "view-key-hints declares a widget's intrinsic keys"
+         (assoc "Enter" (view-key-hints lb) :test #'string=))
+  (check "a bare view has no intrinsic-key hints" (null (view-key-hints (make-instance 'view))))
+  ;; describe-view-keys merges the intrinsic hints with the keymap chain
+  (setf (view-keymap lb) (let ((km (make-instance 'keymap)))
+                           (bind-key km (ctrl #\r) 'refresh) km))
+  (let ((desc (describe-view-keys lb)))
+    (check "describe-view-keys includes the widget's intrinsic keys"
+           (assoc "Up / Down" desc :test #'string=))
+    (check "describe-view-keys also includes the view's keymap bindings"
+           (find "Ctrl+R" desc :key #'car :test #'string=))))
+;; the reference registry can't rot: every *widget-key-views* class must really
+;; declare hints (a typo'd or hint-less class would silently drop from the doc).
+(check "every *widget-key-views* class declares view-key-hints"
+       (every (lambda (pair) (%view-key-section (car pair) (cdr pair))) *widget-key-views*))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)

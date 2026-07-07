@@ -57,6 +57,20 @@ HANDLED-P once they consume it.  The default method ignores the event.")
   (let ((cmd (keymap-lookup (view-keymap v) (event-keysym e) (event-modifiers e))))
     (when cmd (perform cmd v e) (setf (handled-p e) t))))
 
+;;; The other side of dispatch, made introspectable.  A widget handles some keys
+;;; INTRINSICALLY in its own HANDLE-EVENT (typing, arrows) and bubbles the rest to
+;;; the keymap chain via CALL-NEXT-METHOD.  Those intrinsic keys used to be visible
+;;; only by reading the COND clauses; VIEW-KEY-HINTS declares them as data next to
+;;; the widget, so the generated keybinding reference stays complete and co-located,
+;;; and DESCRIBE-VIEW-KEYS (see reference.lisp) can answer "what does a key do here"
+;;; across BOTH paths from one place.
+(defgeneric view-key-hints (view)
+  (:method (v) (declare (ignore v)) nil)
+  (:documentation "The (KEY-LABEL . DESCRIPTION) list of keys VIEW handles INTRINSICALLY -- inside its
+own HANDLE-EVENT rather than through a keymap.  Default: none.  A widget specializes this next to
+its HANDLE-EVENT, making the widget the single source of truth for its own keys; the keybinding
+reference and DESCRIBE-VIEW-KEYS read it."))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Focus + containers.  FOCUSABLE-P is a protocol GF (default NIL); a container
 ;;; routes key events to its focused child, handles Tab/Shift-Tab itself, and

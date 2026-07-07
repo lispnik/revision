@@ -107,6 +107,8 @@
    #:window-save-state #:window-restore-state         ; per-window layout persistence
    #:desktop #:menu-bar #:status-bar #:status-hints #:run-desktop
    #:*desktop* #:*app-done* #:*window-builders* #:*extra-menus*
+   ;; the plugin registry API (windows + menu contributions register by key):
+   #:register-window #:unregister-window #:window-kinds #:register-menu
    #:dt-open #:dt-close-window #:dt-top #:dt-windows #:dt-raise #:dt-refocus
    #:dt-save-layout #:dt-load-layout
    #:context-menu #:popup-choose
@@ -138,4 +140,5 @@
    ;; ---- Reflection: the keybinding + API references (generated) ----------
    #:keybinding-reference #:keybinding-markdown #:keybinding-html #:keymap-entries
    #:key-label #:unknown-command-bindings #:*reference-keymaps* #:*widget-key-doc*
+   #:view-key-hints #:describe-view-keys #:*widget-key-views*   ; widget intrinsic-key introspection
    #:api-markdown))

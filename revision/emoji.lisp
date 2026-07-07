@@ -129,4 +129,4 @@ copies the emoji."
     (setf (window-scroll-target win) (find-view win 'list) (window-help win) :emoji)
     (values win (find-view win 'list))))
 
-(pushnew (cons :emoji #'make-emoji) *window-builders* :key #'car)   ; register for Tools menu + layout restore
+(register-window :emoji #'make-emoji)   ; for the Tools menu + layout restore

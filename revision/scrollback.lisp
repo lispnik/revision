@@ -183,3 +183,9 @@ bubbles to the window keymap: Up/Down history, Tab completion, Ctrl-R, Esc quit)
       ((and (not (sb-iactive sb)) (eql ks :left))  (scroll-hto sb (- (sb-hleft sb) 8)) (setf (handled-p e) t))
       ((and (not (sb-iactive sb)) (eql ks :right)) (scroll-hto sb (+ (sb-hleft sb) 8)) (setf (handled-p e) t))
       (t (call-next-method)))))                       ; Up/Down (history), Tab, Ctrl-R, q/Esc bubble
+
+(defmethod view-key-hints ((sb scrollback))
+  '(("PgUp / PgDn"  . "scroll the log by a page")
+    ("Up / Down"    . "scroll one line (when there is no inline input)")
+    ("Home / End"   . "jump to the top / follow the tail")
+    ("Left / Right" . "scroll horizontally")))

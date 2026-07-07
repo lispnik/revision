@@ -496,6 +496,15 @@ and jumping to the first.  Match columns are virtual columns = on-screen columns
       ((eql ks #\<)    (hv-find-next v -1)  (setf (handled-p e) t))   ; prev match
       (t (call-next-method)))))                                       ; q / Esc bubble
 
+(defmethod view-key-hints ((v html-view))
+  '(("Up / Down"   . "scroll one line")
+    ("PgUp / PgDn" . "scroll by a page")
+    ("Home / End"  . "jump to the top / bottom")
+    ("n / p"       . "next / previous link")
+    ("Enter"       . "follow the focused link")
+    ("/"           . "find in page")
+    ("< / >"       . "previous / next match")))
+
 ;;; --- entry point: a small multi-page demo "site" ----------------------------
 
 (defparameter *html-demo-pages*
@@ -647,4 +656,4 @@ fetches and renders the target.  Return (values WINDOW FOCUS OPEN)."
       (values win doc (lambda (s) (declare (ignore s)) (render html base-url) nil)))))
 
 ;;; register with the desktop (Tools menu / layout-restore)
-(pushnew (cons :html (lambda () (make-html))) *window-builders* :key #'car)
+(register-window :html (lambda () (make-html)))

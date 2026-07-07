@@ -980,4 +980,4 @@ WINDOW FOCUS)."
   (multiple-value-bind (w f) (make-editor path) (run-view w :focus f)))
 
 ;;; register with the desktop (File▸New / layout-restore)
-(pushnew (cons :editor (lambda () (make-editor))) *window-builders* :key #'car)
+(register-window :editor (lambda () (make-editor)))

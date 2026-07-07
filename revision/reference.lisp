@@ -57,12 +57,40 @@ name."
 appends its own keymaps (e.g. revl adds Inspector / Project / REPL input / Call-tree).
 The menu accelerators are added separately, built from the desktop menu tree.")
 
-(defparameter *widget-key-doc*
-  '(("Object lists & tables" .
-     (("Alt-I" . "inspect the focused object in the inspector")
-      ("Enter" . "activate the focused row (show detail / follow / open)"))))
-  "Widget-level keys handled inside the widgets (list-box / table-view) rather than a
-keymap -- listed here so the reference stays complete.")
+(defparameter *widget-key-views*
+  '(("Input field"           . input-line)
+    ("List box"              . list-box)
+    ("Radio / check cluster" . cluster)
+    ("Table"                 . table-view)
+    ("Transcript / REPL log" . scrollback)
+    ("HTML / help viewer"    . html-view))
+  "(SECTION-TITLE . VIEW-CLASS) for the widgets whose intrinsic keys -- handled inside
+HANDLE-EVENT rather than a keymap -- are declared via VIEW-KEY-HINTS.  The reference reads
+those methods, so each widget's keys are documented once, next to the code that implements
+them (no separate hand-maintained list to drift).")
+
+(defparameter *widget-key-doc* nil
+  "Extra (SECTION-TITLE . ((KEY-LABEL . DESC) ...)) widget-key groups appended verbatim to the
+reference, for keys not tied to a toolkit view class (an application may push its own).  The
+toolkit's own widget keys now come from VIEW-KEY-HINTS via *WIDGET-KEY-VIEWS*.")
+
+(defun %view-key-section (title class)
+  "A (TITLE . HINTS) reference section from CLASS's VIEW-KEY-HINTS, or NIL when it declares
+none.  Reads the class prototype, so no instance (or its initargs) is needed."
+  (let ((c (find-class class nil)))
+    (when c
+      (ignore-errors (sb-mop:finalize-inheritance c))
+      (let ((hints (ignore-errors (view-key-hints (sb-mop:class-prototype c)))))
+        (and hints (cons title hints))))))
+
+(defun describe-view-keys (view)
+  "Every key VIEW responds to, as (KEY-LABEL . DESCRIPTION): its intrinsic keys (VIEW-KEY-HINTS,
+handled inside its own HANDLE-EVENT) followed by the bindings from its keymap chain (each resolved
+to its command's doc).  The single place to answer \"what does a key do for this view\" across
+BOTH dispatch paths.  Keys it ignores bubble to its owner's keymap -- walk VIEW-OWNER for those."
+  (append (view-key-hints view)
+          (loop for km = (view-keymap view) then (keymap-parent km)
+                while km nconc (keymap-entries km))))
 
 (defun unknown-command-bindings ()
   "Command NAMES bound in the reference keymaps that are NOT registered in *COMMANDS*
@@ -79,9 +107,9 @@ test calls this so a typo is caught at build time instead."
                   bad)))
 
 (defun keybinding-reference ()
-  "A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu
-accelerators, every named keymap (derived from the live keymaps), and the widget-
-level keys in *WIDGET-KEY-DOC*."
+  "A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu accelerators,
+every named keymap (derived from the live keymaps), each widget's intrinsic keys (from its
+VIEW-KEY-HINTS, via *WIDGET-KEY-VIEWS*), and any application extras in *WIDGET-KEY-DOC*."
   (append
    (list (cons "Menu accelerators"
                (keymap-entries
@@ -89,6 +117,9 @@ level keys in *WIDGET-KEY-DOC*."
    (loop for (title . var) in *reference-keymaps*
          when (boundp var)
            collect (cons title (keymap-entries (symbol-value var))))
+   (loop for (title . cls) in *widget-key-views*      ; widget intrinsic keys, from VIEW-KEY-HINTS
+         for sec = (%view-key-section title cls)
+         when sec collect sec)
    *widget-key-doc*))
 
 (defun keybinding-markdown (&optional (ref (keybinding-reference)))

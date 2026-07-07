@@ -51,6 +51,10 @@ toggles the item under the cursor.  See CLUSTER-VALUE for the selection."))
       ((member ks '(#\Space #\x #\X) :test #'eql) (cluster-toggle c) (setf (handled-p e) t))
       (t (call-next-method)))))
 
+(defmethod view-key-hints ((c cluster))
+  '(("Up / Down"  . "move between options")
+    ("Space / X"  . "toggle the current option")))
+
 (defmethod handle-event ((c cluster) (e mouse-down))
   (let ((i (mouse-row c e)))
     (when (and (>= i 0) (< i (length (cluster-items c))))

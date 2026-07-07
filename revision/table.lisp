@@ -87,6 +87,14 @@ scrollbars."))
        (setf (handled-p e) t))
       (t (call-next-method)))))
 
+(defmethod view-key-hints ((tv table-view))
+  '(("Up / Down"    . "move the selected row")
+    ("PgUp / PgDn"  . "page the selection")
+    ("Home / End"   . "first / last row")
+    ("Left / Right" . "scroll columns horizontally")
+    ("Enter"        . "activate the selected row")
+    ("Alt+I"        . "inspect the selected row (when enabled)")))
+
 (defmethod handle-event ((tv table-view) (e mouse-down))
   (let ((row (+ (table-top tv) (1- (mouse-row tv e)))))         ; row 0 is the header
     (when (and (>= (mouse-row tv e) 1) (< row (length (table-rows tv))))

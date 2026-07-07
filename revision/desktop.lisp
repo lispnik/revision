@@ -520,7 +520,7 @@ editors, the theme radio re-skins the desktop, the timeout field is immediate."
 
 ;;; make-options (the Settings dialog) is a toolkit window; register it.  The IDE
 ;;; windows (including :ptable) self-register in their own files.
-(pushnew (cons :options #'make-options) *window-builders* :key #'car)
+(register-window :options #'make-options)
 
 (defun %desktop-file () (merge-pathnames ".revision-desktop" (user-homedir-pathname)))
 
@@ -606,7 +606,7 @@ registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
              (list "Validators…"     (lambda () (%validators-dialog))))
        (list "Help"
              (list "This window"     (lambda () (dt-help dt)) :f1)))
-      (remove nil (mapcar (lambda (f) (funcall f dt)) (reverse *extra-menus*)))))))   ; modules' menus (a NIL result = a contributor that opted out)
+      (remove nil (mapcar (lambda (e) (funcall (cdr e) dt)) (reverse *extra-menus*)))))))   ; modules' menus by registration order (a NIL result = a contributor that opted out)
 
 ;;; ensure-repl (open-or-focus the desktop's REPL) is IDE glue — see revl's
 ;;; ide/desktop-ide.lisp.

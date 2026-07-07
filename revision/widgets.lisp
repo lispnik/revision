@@ -287,6 +287,14 @@ validates the whole field on accept.")
                        (setf (handled-p e) t))
       (t (call-next-method)))))               ; Enter/Tab/Esc bubble (submit, focus, quit)
 
+(defmethod view-key-hints ((il input-line))
+  '(("(printable)"  . "type to insert at the caret")
+    ("Ctrl+U"       . "clear the whole field")
+    ("Bksp / Del"   . "delete before / at the caret")
+    ("Left / Right" . "move the caret")
+    ("Up / Down"    . "recall older / newer history (when the field keeps history)")
+    ("Home / End"   . "caret to start / end")))
+
 ;;; --- list-box: a scrollable, selectable flat list --------------------------
 ;;; Like INPUT-LINE it dispatches keys directly (no keymap); SELECTED/TOP are
 ;;; reactive, and Enter calls an ON-ACTIVATE closure with the chosen item.
@@ -367,6 +375,13 @@ validates the whole field on accept.")
       ((and (list-on-type lb) (eql ks :back))
        (funcall (list-on-type lb) lb :back) (setf (handled-p e) t))
       (t (call-next-method)))))
+
+(defmethod view-key-hints ((lb list-box))
+  '(("Up / Down"    . "move the selection")
+    ("Home / End"   . "first / last item")
+    ("Left / Right" . "scroll horizontally")
+    ("Enter"        . "activate the selected item")
+    ("Alt+I"        . "inspect the selected item (when enabled)")))
 
 ;;; --- mouse: click to focus/select/press, wheel to scroll -------------------
 

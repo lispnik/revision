@@ -15,12 +15,46 @@
 ;;; the seam an application (e.g. revl) uses to add its windows + menus to the shell.
 
 (defvar *window-builders* nil
-  "Alist of KEYWORD -> 0-arg builder returning (values WINDOW FOCUS OPEN).  Windows
-self-register here; DT-OPEN and layout-restore look a builder up by keyword.")
+  "Alist of KIND (keyword) -> 0-arg builder returning (values WINDOW FOCUS OPEN).  Managed
+through REGISTER-WINDOW; DT-OPEN and layout save/restore look a builder up by keyword.")
 
 (defvar *extra-menus* nil
-  "List of (DESKTOP) -> menu-spec functions; a module pushes here to contribute a
-top-level menu to the desktop menu bar.")
+  "Alist of NAME (keyword) -> a (DESKTOP) -> menu-spec function.  Managed through
+REGISTER-MENU; the desktop merges each contribution into its menu bar (see %DESKTOP-MENUS).")
+
+;;; The desktop plugin API: windows and menus register by KIND/NAME through these
+;;; functions rather than by hand-splicing the alists, so a contributor never depends
+;;; on the representation -- and re-registration is idempotent (replace by key), which
+;;; a plain PUSHNEW/PUSH got wrong: PUSHNEW kept the STALE builder on a file reload, and
+;;; PUSH duplicated a menu.  Registration by key fixes both.
+
+(defun register-window (kind builder)
+  "Register BUILDER -- a 0-arg function returning (values WINDOW FOCUS OPEN) -- under KIND
+(a keyword), so the desktop can open it by keyword (from a menu, or when restoring a saved
+layout).  Idempotent: re-registering KIND REPLACES its builder, so reloading the window's
+file updates it cleanly.  Returns KIND."
+  (check-type kind keyword)
+  (setf *window-builders* (acons kind builder (remove kind *window-builders* :key #'car)))
+  kind)
+
+(defun unregister-window (kind)
+  "Remove KIND's window builder from the registry; returns T when one was registered."
+  (prog1 (and (assoc kind *window-builders*) t)
+    (setf *window-builders* (remove kind *window-builders* :key #'car))))
+
+(defun window-kinds ()
+  "The registered window-builder keywords (e.g. for a picker or introspection)."
+  (mapcar #'car *window-builders*))
+
+(defun register-menu (name contributor)
+  "Register CONTRIBUTOR -- a function of the desktop returning a menu spec (LABEL item...),
+or NIL to contribute nothing -- under NAME (a keyword), as a desktop menu-bar contribution.
+A contribution whose title matches a built-in menu merges into it; otherwise it adds a new
+top-level menu, positioned by *MENU-ORDER*.  Idempotent: re-registering NAME replaces it, so
+a file reload doesn't duplicate the menu.  Returns NAME."
+  (check-type name keyword)
+  (setf *extra-menus* (acons name contributor (remove name *extra-menus* :key #'car)))
+  name)
 
 (defun event-loop (s root)
   "Drive ROOT until *RUNNING* becomes NIL.  The cursor is hidden every frame and

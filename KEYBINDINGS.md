@@ -68,9 +68,62 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | `Enter` | `Accept the dialog: validate the fields and return its value.` |
 | `Esc` | `Cancel the dialog.` |
 
-## Object lists & tables
+## Input field
 
 | Key | Command |
 |-----|---------|
-| `Alt-I` | `inspect the focused object in the inspector` |
-| `Enter` | `activate the focused row (show detail / follow / open)` |
+| `(printable)` | `type to insert at the caret` |
+| `Ctrl+U` | `clear the whole field` |
+| `Bksp / Del` | `delete before / at the caret` |
+| `Left / Right` | `move the caret` |
+| `Up / Down` | `recall older / newer history (when the field keeps history)` |
+| `Home / End` | `caret to start / end` |
+
+## List box
+
+| Key | Command |
+|-----|---------|
+| `Up / Down` | `move the selection` |
+| `Home / End` | `first / last item` |
+| `Left / Right` | `scroll horizontally` |
+| `Enter` | `activate the selected item` |
+| `Alt+I` | `inspect the selected item (when enabled)` |
+
+## Radio / check cluster
+
+| Key | Command |
+|-----|---------|
+| `Up / Down` | `move between options` |
+| `Space / X` | `toggle the current option` |
+
+## Table
+
+| Key | Command |
+|-----|---------|
+| `Up / Down` | `move the selected row` |
+| `PgUp / PgDn` | `page the selection` |
+| `Home / End` | `first / last row` |
+| `Left / Right` | `scroll columns horizontally` |
+| `Enter` | `activate the selected row` |
+| `Alt+I` | `inspect the selected row (when enabled)` |
+
+## Transcript / REPL log
+
+| Key | Command |
+|-----|---------|
+| `PgUp / PgDn` | `scroll the log by a page` |
+| `Up / Down` | `scroll one line (when there is no inline input)` |
+| `Home / End` | `jump to the top / follow the tail` |
+| `Left / Right` | `scroll horizontally` |
+
+## HTML / help viewer
+
+| Key | Command |
+|-----|---------|
+| `Up / Down` | `scroll one line` |
+| `PgUp / PgDn` | `scroll by a page` |
+| `Home / End` | `jump to the top / bottom` |
+| `n / p` | `next / previous link` |
+| `Enter` | `follow the focused link` |
+| `/` | `find in page` |
+| `< / >` | `previous / next match` |
