@@ -114,7 +114,7 @@ and a background thread driving the clock through the worker->UI bridge."
                                                         "syntax.lisp" "theme.lisp" "keymap.lisp" "repl.lisp")
                                                :on-activate (lambda (lb item)
                                                               (declare (ignore lb))
-                                                              (let ((echo (find-view *root* 'echo)))
+                                                              (let ((echo (find-view (context-root *context*) 'echo)))
                                                                 (when echo
                                                                   (setf (static-text-text echo)
                                                                         (format nil " opened ~a " item)))))))))))
@@ -134,9 +134,9 @@ and a background thread driving the clock through the worker->UI bridge."
         (let ((nvis (length (ov-visible (outline-roots ol)))))
           (when (plusp nvis)
             (setf (outline-focused ol) (max 0 (min (1- (session-line sess)) (1- nvis)))))))
-      (setf *root* win
+      (setf (context-root *context*) win
             (container-focus win) (first (all-focusables win))
-            *ui-thread* sb-thread:*current-thread* *running* t *dirty* t)
+            *ui-thread* sb-thread:*current-thread* *running* t (context-dirty *context*) t)
       ;; a background thread updates the clock via the worker->UI bridge
       (let ((start (get-universal-time)))
         (sb-thread:make-thread
@@ -144,15 +144,15 @@ and a background thread driving the clock through the worker->UI bridge."
            (loop while *running* do
              (sleep 1)
              (run-on-ui (lambda ()
-                          (let ((c (find-view *root* 'clock)))
+                          (let ((c (find-view (context-root *context*) 'clock)))
                             (when c (setf (static-text-text c)
                                           (format nil " bg-thread: ~ds " (- (get-universal-time) start)))))))))
          :name "revision-bg-clock"))
       (loop while *running* do
         (drain-ui-callbacks)                           ; run thunks posted by other threads
-        (when *dirty*
+        (when (context-dirty *context*)
           (revision:hide-cursor s)
-          (draw win) (revision:flush-screen s) (setf *dirty* nil))
+          (draw win) (revision:flush-screen s) (setf (context-dirty *context*) nil))
         (revision::pump-input s 0.05)
         (let ((tev (revision::screen-next-event s)))
           (when tev

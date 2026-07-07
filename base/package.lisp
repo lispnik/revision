@@ -8,6 +8,15 @@
 ;;;; This :export list is the SINGLE source of truth for the public API — a
 ;;;; deliberate, grouped contract, not the accidental union of what callers touched.
 ;;;; The reference in API.md is generated from these symbols' docstrings (`make api`).
+;;;;
+;;;; The boundary is two-tier and enforced, not merely conventional:
+;;;;   • Exported symbols (below) are the contract.  A downstream package `:use's
+;;;;     REVISION and reads them unqualified; `revision:foo' resolves ONLY here.
+;;;;   • Everything else is internal.  A `%'-prefixed name is a private helper;
+;;;;     reaching one as `revision::%foo' is a smell — the symbol should either be
+;;;;     promoted to the contract above or the calling code restructured.
+;;;; tests/revision-api-tests.lisp enforces this: every export must resolve to a
+;;;; real definition (no rot), and no `%'-private symbol may appear in the list.
 
 (defpackage #:revision
   (:use #:common-lisp)
@@ -39,8 +48,11 @@
    #:view #:container #:handle-event #:draw #:invalidate #:find-view
    #:focus-next #:focusable-p #:all-focusables #:add-subview #:add-laid #:subviews
    #:view-bounds #:view-name #:view-owner #:view-root #:view-keymap #:view-focused-p
-   #:container-focus #:run-view #:run-on-ui #:run-async
-   #:*running* #:*dirty* #:*root* #:*ui-thread*
+   #:container-focus #:run-view #:run-on-ui #:run-async #:drain-ui-callbacks
+   #:*running* #:*ui-thread*
+   ;; the frame-invalidation context (dirty flags + ROOT), one running UI instance:
+   #:context #:*context* #:make-context #:with-fresh-context
+   #:context-dirty #:context-dirty-views #:context-full-redraw #:context-root
 
    ;; ---- Commands ---------------------------------------------------------
    #:command #:command-name #:command-enabled-p #:define-command #:register-command

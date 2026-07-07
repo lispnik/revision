@@ -16,31 +16,8 @@
   "When set, the desktop routes arrow keys to move (Shift: resize) this window
 until Enter/Esc.  Driven from Window ▸ Size/move.")
 
-;;; --- status bar -------------------------------------------------------------
-
-(defvar *tool-message* ""
-  "Last transient note (from %TOOL-NOTE); shown right-aligned on the status bar so
-tool feedback is visible without raising or refocusing any window.")
-(defvar *tool-message-time* 0 "INTERNAL-REAL-TIME when *TOOL-MESSAGE* was last set.")
-(defparameter *tool-message-ttl* 4 "Seconds a status-bar note lingers before auto-clearing.")
-
-(defun %expire-tool-message ()
-  "Clear the status-bar note once it has been shown for *TOOL-MESSAGE-TTL* seconds.
-Returns T when it cleared (so the loop can mark the screen dirty)."
-  (when (and (plusp (length *tool-message*))
-             (> (- (get-internal-real-time) *tool-message-time*)
-                (* *tool-message-ttl* internal-time-units-per-second)))
-    (setf *tool-message* "")
-    t))
-
-(defun %tool-message-timeout (default)
-  "Cap DEFAULT so the idle loop still wakes when a lingering status-bar note is due to
-auto-clear (else a note could sit past its TTL until the next input)."
-  (if (plusp (length *tool-message*))
-      (let ((remaining (- (* *tool-message-ttl* internal-time-units-per-second)
-                          (- (get-internal-real-time) *tool-message-time*))))
-        (max 0.0 (min default (/ remaining internal-time-units-per-second))))
-      default))
+;;; The status bar (STATUS-BAR, the *TOOL-MESSAGE* infra, %TOOL-NOTE's note
+;;; target) lives in status-bar.lisp; the menu bar in menu-bar.lisp.
 
 (defun %partial-frame-p (dt views full)
   "True when this frame can repaint just the top window instead of the whole desktop:
@@ -52,320 +29,7 @@ changed and, being topmost in Z-order, nothing overlaps it."
        (let ((top (dt-top dt)))
          (and top (every (lambda (v) (and (typep v 'view) (eq (view-root v) top))) views)))))
 
-(defclass status-bar (view)
-  ((provider :initarg :provider :initform nil :accessor stb-provider)  ; thunk -> ((LABEL . THUNK) ...)
-   (ranges   :initform '() :accessor stb-ranges))                      ; ((X0 X1 . THUNK) ...) for hit-testing
-  (:metaclass reactive-class)
-  (:documentation "The desktop's bottom bar: draws clickable action chips supplied by its PROVIDER
-thunk, plus any transient tool note right-aligned."))
-
-(defmethod draw ((b status-bar))
-  (let* ((attr (role :status)) (w (r-w (view-bounds b)))
-         (items (and (stb-provider b) (funcall (stb-provider b))))
-         (msg (and (plusp (length *tool-message*)) (format nil " ~a " *tool-message*)))
-         (limit (if msg (max 0 (- w (length msg))) w))       ; reserve the right for the note
-         (x 0))
-    (fill-row b 0 0 w attr)
-    (setf (stb-ranges b) '())
-    (dolist (it items)
-      (let* ((label (format nil " ~a " (car it))) (n (length label)))
-        (when (< (+ x n) limit)
-          (draw-text b x 0 label attr)
-          (push (list x (+ x n) (cdr it)) (stb-ranges b))
-          (incf x n)
-          (when (< (1+ x) limit) (draw-text b x 0 "│" attr) (incf x 1)))))
-    (when msg                                                ; right-aligned transient note, always visible
-      (draw-text b (max 0 (- w (length msg))) 0 msg (role :focused)))))
-
-(defmethod handle-event ((b status-bar) (e mouse-down))
-  (let ((col (mouse-col b e)))
-    (dolist (r (stb-ranges b))
-      (when (and (>= col (first r)) (< col (second r))) (funcall (third r)) (return))))
-  (setf (handled-p e) t))
-
-;;; --- menu bar (pull-down menus with hotkeys / accelerators) -----------------
-;;; A menu is (LABEL . ITEMS); its hotkey (Alt-X) is the label's first letter.
-;;; An item is (LABEL THUNK &optional ACCEL ENABLED): ACCEL is a global-shortcut
-;;; keysym (e.g. (ctrl #\o)); ENABLED a thunk -> generalized boolean (or NIL).
-
-(defclass menu-bar (view)
-  ((menus  :initarg :menus :initform '() :accessor menu-menus)
-   (active :initform 0 :accessor menu-active)                    ; open menu index, or NIL
-   (sel    :initform 0 :accessor menu-sel)
-   (sub    :initform nil :accessor menu-sub)                     ; open submenu index, or NIL
-   (accel-km :initform nil :accessor mb-accel-km))               ; keymap: accelerator token -> command (built from MENUS)
-  (:metaclass reactive-class)
-  (:documentation "The desktop's top pull-down menu bar: draws the titles and dropdowns from MENUS,
-handles hotkey/accelerator navigation, and invokes the selected item's command."))
-
-(defun item-separator-p (it) (eq it :--))                                   ; :-- is a horizontal rule
-(defun %strip-tildes (s) (if (find #\~ s) (remove #\~ s) s))
-;; A menu label may mark its access key with a Turbo-Vision `~x~' bracket, e.g.
-;; "C~a~scade" makes `a' the access key (so it doesn't clash with "Close").  The
-;; tildes are stripped for display; an unmarked label uses its first letter.
-(defun item-label    (it) (if (item-separator-p it) "" (%strip-tildes (first it))))
-(defun item-mnemonic (it)
-  "ITEM's access-key character: the char after a ~ marker, else the label's first char."
-  (unless (item-separator-p it)
-    (let* ((raw (first it)) (tilde (and (stringp raw) (position #\~ raw))))
-      (cond ((and tilde (< (1+ tilde) (length raw))) (char raw (1+ tilde)))
-            (t (let ((d (item-label it))) (and (plusp (length d)) (char d 0))))))))
-(defun item-mnemonic-pos (it)
-  "The display-string index of ITEM's access-key char (for the highlight)."
-  (let* ((raw (first it)) (tilde (and (stringp raw) (position #\~ raw))))
-    (if (and tilde (< (1+ tilde) (length raw))) tilde 0)))
-(defun item-submenu-p (it) (and (consp it) (eq (second it) :submenu)))      ; (LABEL :submenu item...)
-(defun item-thunk    (it) (and (consp it) (not (item-submenu-p it)) (second it)))
-(defun item-accel    (it) (and (consp it) (not (item-submenu-p it)) (third it)))  ; submenu parents have no accel
-(defun item-enabled  (it) (and (not (item-separator-p it))
-                               (let ((f (and (consp it) (not (item-submenu-p it)) (fourth it))))
-                                 (or (null f) (funcall f)))))
-(defun item-submenu   (it) (cddr it))
-
-(defun %menu-step (items sel dir)
-  "Next selectable (non-separator) index from SEL in direction DIR, wrapping."
-  (let ((n (length items)))
-    (if (zerop n) 0
-        (loop for i from 1 to n
-              for k = (mod (+ sel (* dir i)) n)
-              unless (item-separator-p (nth k items)) return k
-              finally (return sel)))))
-
-(defun %menu-mnemonic (items from ch)
-  "The next enabled item index after FROM (wrapping) whose label starts with CH
-\(case-insensitive), plus whether it is the ONLY match: (values INDEX SOLE-P), or
-\(values NIL NIL) when nothing matches.  This is the in-menu access key -- an item's
-first letter selects it, and (when unique) invokes it, classic Turbo-Vision style."
-  (let ((matches (loop for it in items for i from 0
-                       for m = (and (not (item-separator-p it)) (item-enabled it) (item-mnemonic it))
-                       when (and m (char-equal m ch))
-                         collect i)))
-    (if matches
-        (values (or (find-if (lambda (i) (> i from)) matches) (first matches))
-                (null (cdr matches)))
-        (values nil nil))))
-
-(defparameter *menu-order*
-  '("≡" "File" "Edit" "Lisp" "Tools" "Options" "Window" "Help")
-  "Left-to-right order of the menu bar; menus not listed fall to the right.")
-
-(defun %order-menus (menus)
-  "Combine menus that share a title (so a module can contribute items to an existing
-menu — e.g. add to Options or Help — with the contributed group set off by a rule),
-then order the bar left-to-right by *MENU-ORDER*."
-  (let ((merged '()))
-    (dolist (m menus)
-      (let ((cell (assoc (car m) merged :test #'string=)))
-        (if cell
-            (setf (cdr cell) (append (cdr cell) (list :--) (cdr m)))
-            (setf merged (nconc merged (list (cons (car m) (copy-list (cdr m)))))))))
-    (stable-sort merged #'<
-                 :key (lambda (m) (or (position (car m) *menu-order* :test #'string=)
-                                      most-positive-fixnum)))))
-(defun menu-items   (mb) (cdr (nth (menu-active mb) (menu-menus mb))))
-(defun menu-hotkey  (m)  (and (plusp (length (car m))) (char-downcase (char (car m) 0))))
-
-;;; An accelerator is a keysym (e.g. :f5, or a Ctrl char like (ctrl #\o)) or a
-;;; (KEYSYM . MODIFIER-FLAGS) cons for modified keys (e.g. (:f6 . shift) for
-;;; Shift-F6).  ACCEL-MODS is the modifier set an accel expects to match against.
-(defun accel-key  (a) (if (consp a) (car a) a))
-(defun accel-mods (a)
-  (cond ((consp a) (cdr a))
-        ((and (characterp a) (< (char-code a) 32)) revision::+md-ctrl+)   ; a Ctrl char carries Ctrl intrinsically
-        (t 0)))
-
-(defun accel-label (a)
-  (if (null a) ""
-      (let ((ks (accel-key a)) (m (if (consp a) (cdr a) 0)))
-        (concatenate 'string
-                     (if (logtest m revision::+md-ctrl+)  "Ctrl+"  "")
-                     (if (logtest m revision::+md-alt+)   "Alt+"   "")
-                     (if (logtest m revision::+md-shift+) "Shift+" "")
-                     (cond ((and (characterp ks) (< (char-code ks) 32)) (format nil "Ctrl+~a" (code-char (+ 64 (char-code ks)))))
-                           ((characterp ks) (string-upcase (string ks)))
-                           ((eq ks :del)  "Del") ((eq ks :ins) "Ins") ((eq ks :back) "Bksp")
-                           (t (string-upcase (string ks))))))))
-
-(defun menu-dropdown-width (items)
-  (+ 4 (reduce #'max items :initial-value 8
-               :key (lambda (it) (+ (length (item-label it))
-                                    (if (item-accel it) (+ 2 (length (accel-label (item-accel it)))) 0))))))
-
-(defmethod draw ((mb menu-bar))
-  (let* ((b (view-bounds mb)) (w (r-w b)) (ax (revision::rect-ax b)) (ay (revision::rect-ay b))
-         (bar (role :menu-bar)) (hot (role :menu-hotkey)) (x 1))
-    (fill-row mb 0 0 w bar)
-    (loop for menu in (menu-menus mb) for i from 0 do
-      (let* ((label (car menu)) (open (eql i (menu-active mb))) (attr (if open (role :menu-selected) bar)))
-        (%text-at (+ ax x) ay (format nil " ~a " label) attr)
-        (%put-cell (+ ax x 1) ay (char label 0) (if open attr hot))   ; highlight the hotkey letter
-        (when open
-          (let* ((items (cdr menu)) (x0 (+ ax x)) (box-top (1+ ay)) (mw (menu-dropdown-width items))
-                 (nb (role :menu)))                                    ; frame colour (same as the menu body)
-            (flet ((draw-items (items bx bt sel)
-                     ;; a bordered dropdown box: ┌─┐ top, │ … │ items, ├─┤ separators,
-                     ;; └─┘ bottom -- like the original Turbo Vision (items inset 1 cell).
-                     (let ((mww (menu-dropdown-width items)) (n (length items)))
-                       (%drop-shadow bx bt (+ bx mww -1) (+ bt n 1))
-                       (%put-cell bx bt #\┌ nb)                        ; top border
-                       (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) bt #\─ nb))
-                       (%put-cell (+ bx mww -1) bt #\┐ nb)
-                       (loop for it in items for r from 0 for ry = (+ bt 1 r) do
-                         (%put-cell bx ry #\│ nb) (%put-cell (+ bx mww -1) ry #\│ nb)   ; side borders
-                         (if (item-separator-p it)
-                             (progn (%put-cell bx ry #\├ nb)           ; tee-connected divider
-                                    (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) ry #\─ nb))
-                                    (%put-cell (+ bx mww -1) ry #\┤ nb))
-                             (let* ((on (eql r sel)) (en (item-enabled it))
-                                    (ia (cond ((and on en) (role :menu-selected)) (en (role :menu)) (t (role :menu-disabled)))))
-                               (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) ry #\Space ia))
-                               (%text-at (+ bx 2) ry (item-label it) ia)
-                               (when (and en (not on) (plusp (length (item-label it))))  ; access-key letter
-                                 (let ((p (item-mnemonic-pos it)))
-                                   (%put-cell (+ bx 2 p) ry (char (item-label it) p) hot)))
-                               (cond ((item-submenu-p it) (%put-cell (+ bx mww -3) ry #\► ia))
-                                     ((item-accel it) (let ((a (accel-label (item-accel it))))
-                                                        (%text-at (+ bx mww -2 (- (length a))) ry a ia)))))))
-                       (let ((by (+ bt n 1)))                          ; bottom border
-                         (%put-cell bx by #\└ nb)
-                         (loop for k from 1 below (1- mww) do (%put-cell (+ bx k) by #\─ nb))
-                         (%put-cell (+ bx mww -1) by #\┘ nb)))))
-              (draw-items items x0 box-top (menu-sel mb))
-              (when (menu-sub mb)                                      ; second-level dropdown (overlaps the parent's right border)
-                (let ((parent (nth (menu-sel mb) items)))
-                  (when (item-submenu-p parent)
-                    (draw-items (item-submenu parent) (+ x0 mw -1) (+ box-top 1 (menu-sel mb)) (menu-sub mb))))))))
-        (incf x (+ 2 (length label)))))))
-
-(defun %menu-run (mb thunk)
-  "Close the menu, then run THUNK -- so the menu doesn't linger over the result."
-  (setf (menu-active mb) nil (menu-sub mb) nil)
-  (invalidate mb)
-  (when thunk (funcall thunk)))
-
-(defun menu-invoke-sel (mb)
-  "Open a submenu parent, or invoke (and close on) a normal selected item."
-  (let ((it (nth (menu-sel mb) (menu-items mb))))
-    (cond ((null it) nil)
-          ((item-submenu-p it) (setf (menu-sub mb) 0) (invalidate mb))
-          ((and (item-enabled it) (item-thunk it)) (%menu-run mb (item-thunk it))))))
-
-(defmethod handle-event ((mb menu-bar) (e key-event))
-  (when (menu-active mb)
-    (let ((ks (event-keysym e)) (n (length (menu-menus mb))) (items (menu-items mb)))
-      (if (menu-sub mb)                                            ; navigating an open submenu
-          (let ((subs (item-submenu (nth (menu-sel mb) items))))
-            (cond
-              ((eql ks :up)   (setf (menu-sub mb) (%menu-step subs (menu-sub mb) -1)) (invalidate mb) (setf (handled-p e) t))
-              ((eql ks :down) (setf (menu-sub mb) (%menu-step subs (menu-sub mb) 1)) (invalidate mb) (setf (handled-p e) t))
-              ((member ks '(:left :esc)) (setf (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
-              ((eql ks :enter) (let ((it (nth (menu-sub mb) subs)))
-                                 (%menu-run mb (and it (item-enabled it) (item-thunk it))))
-                               (setf (handled-p e) t))
-              ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))  ; access key
-               (multiple-value-bind (idx sole) (%menu-mnemonic subs (or (menu-sub mb) 0) ks)
-                 (when idx
-                   (setf (menu-sub mb) idx) (invalidate mb) (setf (handled-p e) t)
-                   (when sole (let ((it (nth idx subs)))
-                               (%menu-run mb (and it (item-enabled it) (item-thunk it))))))))))
-          (cond
-            ((eql ks :left)  (setf (menu-active mb) (mod (1- (menu-active mb)) n) (menu-sel mb) 0 (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
-            ((eql ks :right) (let ((it (nth (menu-sel mb) items)))
-                               (if (item-submenu-p it) (setf (menu-sub mb) 0)
-                                   (setf (menu-active mb) (mod (1+ (menu-active mb)) n) (menu-sel mb) 0)))
-                             (invalidate mb) (setf (handled-p e) t))
-            ((eql ks :up)    (setf (menu-sel mb) (%menu-step items (menu-sel mb) -1) (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
-            ((eql ks :down)  (setf (menu-sel mb) (%menu-step items (menu-sel mb) 1) (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t))
-            ((eql ks :enter) (menu-invoke-sel mb) (setf (handled-p e) t))
-            ((and (characterp ks) (graphic-char-p ks) (zerop (event-modifiers e)))  ; access key
-             (multiple-value-bind (idx sole) (%menu-mnemonic items (menu-sel mb) ks)
-               (when idx
-                 (setf (menu-sel mb) idx (menu-sub mb) nil) (invalidate mb) (setf (handled-p e) t)
-                 (when sole (menu-invoke-sel mb))))))))))
-
-(defun menu-hotkey-index (mb ch)
-  (position (char-downcase ch) (menu-menus mb) :key #'menu-hotkey))
-
-(defun %accel-command (item)
-  "A command that runs menu ITEM's thunk, enabled iff the item's guard is.  Registered in
-*COMMANDS* under a label-derived name, so menu actions join the same registry as the
-keymap commands.  Enablement flows through the command's predicate -- PERFORM's own
-COMMAND-ENABLED-P check gates it, so there is no second hand-rolled check in the action."
-  (register-command (intern (format nil "MENU ~a" (item-label item)) :keyword)
-                    (lambda (v e) (declare (ignore v e)) (funcall (item-thunk item)))
-                    (item-label item)
-                    (lambda () (item-enabled item))))
-
-(defun %menu-accel-keymap (menus)
-  "Build a keymap binding each accelerated menu item's key-token to a command that
-runs the item's thunk, so menu accelerators use the SAME keymap/PERFORM machinery
-as view keymaps.  Warns on a duplicate accelerator instead of silently shadowing."
-  (let ((km (make-instance 'keymap)))
-    (labels ((walk (items)
-               (dolist (it items)
-                 (cond
-                   ((item-submenu-p it) (walk (item-submenu it)))
-                   ((and (consp it) (not (item-separator-p it)) (item-accel it))
-                    (let ((tok (key-token (item-accel it))))
-                      (when (gethash tok (keymap-bindings km))
-                        (warn "revision: duplicate menu accelerator ~a (~s)"
-                              (accel-label (item-accel it)) (item-label it)))
-                      (setf (gethash tok (keymap-bindings km)) (%accel-command it))))))))
-      (dolist (menu menus) (walk (cdr menu))))
-    km))
-
-(defmethod initialize-instance :after ((mb menu-bar) &key)
-  (setf (mb-accel-km mb) (%menu-accel-keymap (menu-menus mb))))
-
-(defun menu-accel-command (mb ks mods)
-  "The command bound to accelerator KS+MODS in MB's accelerator keymap, or NIL."
-  (and (mb-accel-km mb) (keymap-lookup (mb-accel-km mb) ks mods)))
-
-(defun menu-title-x (mb i)
-  (let ((x 1)) (dotimes (k i x) (incf x (+ 2 (length (car (nth k (menu-menus mb)))))))))
-
-(defun menu-dropdown-cols (mb)
-  (when (menu-active mb)
-    (values (menu-title-x mb (menu-active mb)) (menu-dropdown-width (menu-items mb)))))
-
-(defun menu-sub-cols (mb)
-  "(values SX SY0 COUNT WIDTH) of the open submenu dropdown, or NIL.  SY0 is the
-box's top-border row; its items occupy rows SY0+1 .. SY0+COUNT."
-  (when (and (menu-active mb) (menu-sub mb))
-    (let ((parent (nth (menu-sel mb) (menu-items mb))))
-      (when (item-submenu-p parent)
-        (multiple-value-bind (x0 mw) (menu-dropdown-cols mb)
-          (values (+ x0 mw -1) (+ 2 (menu-sel mb)) (length (item-submenu parent))
-                  (menu-dropdown-width (item-submenu parent))))))))
-
-(defun menu-hit-p (mb x y)
-  (or (zerop y)
-      (and (menu-active mb) (>= y 1) (<= y (+ 2 (length (menu-items mb))))    ; main box incl. borders
-           (multiple-value-bind (x0 mw) (menu-dropdown-cols mb)
-             (and x0 (>= x x0) (< x (+ x0 mw)))))
-      (multiple-value-bind (sx sy0 cnt smw) (menu-sub-cols mb)   ; open submenu box incl. borders
-        (and sx (>= x sx) (< x (+ sx smw)) (>= y sy0) (<= y (+ sy0 cnt 1))))))
-
-(defmethod handle-event ((mb menu-bar) (e mouse-down))
-  (let ((col (mouse-col mb e)) (row (mouse-row mb e)))
-    (multiple-value-bind (sx sy0 cnt smw) (menu-sub-cols mb)
-      (cond
-        ((and sx (>= col sx) (< col (+ sx smw)) (> row sy0) (<= row (+ sy0 cnt)))   ; submenu item (row sy0 is the border)
-         (let* ((idx (- row sy0 1)) (subs (item-submenu (nth (menu-sel mb) (menu-items mb)))) (it (nth idx subs)))
-           (setf (menu-sub mb) idx) (invalidate mb)
-           (%menu-run mb (and it (item-enabled it) (item-thunk it)))))
-        ((zerop row)                                  ; clicked a title -> open that menu
-         (let ((x 1))
-           (loop for menu in (menu-menus mb) for i from 0 do
-             (let ((tw (+ 2 (length (car menu)))))
-               (when (and (>= col x) (< col (+ x tw)))
-                 (setf (menu-active mb) i (menu-sel mb) 0 (menu-sub mb) nil) (invalidate mb) (return))
-               (incf x tw)))))
-        ((menu-active mb)                             ; clicked a dropdown item -> invoke / open submenu
-         (let ((idx (- row 2)) (items (menu-items mb)))   ; row 1 is the top border; item 0 is at row 2
-           (when (and (>= idx 0) (< idx (length items)))
-             (setf (menu-sel mb) idx (menu-sub mb) nil) (invalidate mb) (menu-invoke-sel mb))))))
-    (setf (handled-p e) t)))
+;;; --- the menu bar (MENU-BAR and its navigation) lives in menu-bar.lisp ---
 
 ;;; --- desktop ----------------------------------------------------------------
 
@@ -590,44 +254,8 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
 ;;; %dt-save-transcript / %dt-save-script / %dt-clear-repl (REPL glue that drives the
 ;;; moved repl-window's save/clear ops) live in revl — see ide/desktop-ide.lisp.
 
-;;; --- colour themes ----------------------------------------------------------
+;;; --- the colour palettes and APPLY-THEME / CYCLE-THEME live in themes.lisp ---
 
-(defparameter *theme-classic* (copy-list *theme*))
-(defparameter *theme-dark*
-  (list :normal          (revision:make-attr 7 0)     :focused         (revision:make-attr 15 4)
-        :frame           (revision:make-attr 15 0)    :frame-inactive  (revision:make-attr 8 0)
-        :menu-bar        (revision:make-attr 0 7)     :menu            (revision:make-attr 0 7)
-        :menu-selected   (revision:make-attr 15 4)    :menu-hotkey     (revision:make-attr 4 7)
-        :menu-disabled   (revision:make-attr 8 7)     :status          (revision:make-attr 15 8)
-        :button          (revision:make-attr 0 7)     :button-focused  (revision:make-attr 15 4)
-        :label           (revision:make-attr 14 0)    :input           (revision:make-attr 15 8)
-        :input-focused   (revision:make-attr 15 0)    :error           (revision:make-attr 15 4)
-        :desktop         (revision:make-attr 8 0)     :scrollbar       (revision:make-attr 7 8)
-        :scrollbar-thumb (revision:make-attr 15 8)))
-(defparameter *theme-light*
-  (list :normal          (revision:make-attr 0 7)     :focused         (revision:make-attr 15 1)
-        :frame           (revision:make-attr 0 7)     :frame-inactive  (revision:make-attr 8 7)
-        :menu-bar        (revision:make-attr 0 7)     :menu            (revision:make-attr 0 7)
-        :menu-selected   (revision:make-attr 15 1)    :menu-hotkey     (revision:make-attr 4 7)
-        :menu-disabled   (revision:make-attr 8 7)     :status          (revision:make-attr 0 3)
-        :button          (revision:make-attr 15 1)    :button-focused  (revision:make-attr 14 1)
-        :label           (revision:make-attr 1 7)     :input           (revision:make-attr 0 15)
-        :input-focused   (revision:make-attr 0 15)    :error           (revision:make-attr 15 4)
-        :desktop         (revision:make-attr 8 7)     :scrollbar       (revision:make-attr 0 7)
-        :scrollbar-thumb (revision:make-attr 1 7)))
-(defparameter *themes* (list (cons "Blue" *theme-classic*) (cons "Dark" *theme-dark*) (cons "Light" *theme-light*)))
-(defvar *theme-index* 0)
-
-(defun apply-theme (dt index &key note)
-  "Switch to theme INDEX (into *THEMES*) and redraw; optionally announce it."
-  (setf *theme-index* (mod index (length *themes*)))
-  (destructuring-bind (name . palette) (nth *theme-index* *themes*)
-    (setf *theme* palette)
-    (invalidate dt)
-    (when note (%tool-note (format nil "colour theme: ~a" name)))))
-
-(defun cycle-theme (dt)
-  (apply-theme dt (1+ *theme-index*) :note t))
 
 ;;; The static global desktop keys as a keymap of named commands -- introspectable
 ;;; and in the generated reference.  (Alt-<hotkey>, Alt-0, Esc and size/move stay
@@ -993,16 +621,16 @@ Returns on File→Exit."
       (setf (dt-menubar dt)   (make-instance 'menu-bar :menus (%desktop-menus dt))
             (dt-statusbar dt)  (make-instance 'status-bar :provider (lambda () (dt-status-items dt))))
       (layout dt (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
-      (setf *root* dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil
-            *dirty* t *full-redraw* t)
+      (setf (context-root *context*) dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil
+            (context-dirty *context*) t (context-full-redraw *context*) t)
       (dt-load-layout dt)                                    ; restore the previous session's windows
       (loop until *app-done* do
         (drain-ui-callbacks)
-        (let ((expired (%expire-tool-message)))               ; auto-clear the status-bar note
-          (when (or *dirty* expired)
+        (let ((c *context*) (expired (%expire-tool-message)))  ; auto-clear the status-bar note
+          (when (or (context-dirty c) expired)
             (revision:hide-cursor s)
-            (let ((views *dirty-views*) (full (or *full-redraw* expired)))
-              (setf *dirty-views* nil *full-redraw* nil *dirty* nil)
+            (let ((views (context-dirty-views c)) (full (or (context-full-redraw c) expired)))
+              (setf (context-dirty-views c) nil (context-full-redraw c) nil (context-dirty c) nil)
               (if (%partial-frame-p dt views full)             ; hot path: repaint only the focused window
                   (progn (draw (dt-top dt)) (draw (dt-statusbar dt)))
                   (draw dt)))
@@ -1017,3 +645,4 @@ Returns on File→Exit."
 
 ;;; (The application-facing symbols this file provides — *desktop*, the plugin
 ;;; registry, dt-* — are exported with the rest of the API in base/package.lisp.)
+

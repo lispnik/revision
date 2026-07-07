@@ -26,16 +26,17 @@ top-level menu to the desktop menu bar.")
   "Drive ROOT until *RUNNING* becomes NIL.  The cursor is hidden every frame and
 re-shown by whichever focused widget owns it (input-line / text-edit), so it
 never lingers when focus moves to a non-text widget."
-  (loop while *running* do
-    (drain-ui-callbacks)
-    (when *dirty*
-      (revision:hide-cursor s)
-      (setf *dirty-views* nil *full-redraw* nil *dirty* nil)   ; single full-screen view: always a full draw
-      (draw root) (revision:flush-screen s))
-    (revision::pump-input s (revision::input-timeout s))
-    (loop for tev = (revision::screen-next-event s)      ; drain ALL decoded events before blocking
-          while (and tev *running*)
-          do (let ((ev (translate tev))) (when ev (handle-event root ev))))))
+  (let ((c *context*))
+    (loop while *running* do
+      (drain-ui-callbacks)
+      (when (context-dirty c)
+        (revision:hide-cursor s)
+        (setf (context-dirty-views c) nil (context-full-redraw c) nil (context-dirty c) nil)  ; one full-screen view: always a full draw
+        (draw root) (revision:flush-screen s))
+      (revision::pump-input s (revision::input-timeout s))
+      (loop for tev = (revision::screen-next-event s)      ; drain ALL decoded events before blocking
+            while (and tev *running*)
+            do (let ((ev (translate tev))) (when ev (handle-event root ev)))))))
 
 (defun run-view (win &key focus open)
   "Run WIN full-screen in its own screen session until it quits.  FOCUS is the
@@ -43,9 +44,10 @@ initial focused widget; OPEN (a thunk of the screen) may start background work
 and return a cleanup thunk."
   (revision:with-screen (s)
     (layout win (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
-    (setf *root* win
+    (setf (context-root *context*) win
           (container-focus win) (or focus (first (all-focusables win)))
-          *ui-thread* sb-thread:*current-thread* *running* t *dirty* t *full-redraw* t)
+          *ui-thread* sb-thread:*current-thread* *running* t
+          (context-dirty *context*) t (context-full-redraw *context*) t)
     (let ((cleanup (and open (funcall open s))))
       (unwind-protect (event-loop s win)
         (when cleanup (ignoring-errors ("run-view cleanup") (funcall cleanup)))))))

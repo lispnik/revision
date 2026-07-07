@@ -91,16 +91,17 @@ finishes; return its result value, or :CANCEL."
           (dialog-done dialog) nil)
     (loop until (dialog-done dialog) do
       (drain-ui-callbacks)                 ; keep background threads (the clock) live
-      (setf *dirty-views* nil *full-redraw* nil *dirty* nil)   ; modal always full-draws; don't accrue tracking
+      (let ((c *context*))
+        (setf (context-dirty-views c) nil (context-full-redraw c) nil (context-dirty c) nil))  ; modal always full-draws; don't accrue tracking
       (revision:hide-cursor s)
-      (when *root* (draw *root*))          ; background
+      (let ((bg (context-root *context*))) (when bg (draw bg)))   ; background
       (draw dialog)                        ; modal on top (centred, smaller)
       (revision:flush-screen s)
       (revision::pump-input s (revision::input-timeout s))
       (loop for tev = (revision::screen-next-event s)     ; drain ALL decoded events before blocking
             while (and tev (not (dialog-done dialog)))
             do (let ((ev (translate tev))) (when ev (handle-event dialog ev)))))
-    (invalidate *root*)                    ; force the background to repaint cleanly
+    (let ((bg (context-root *context*))) (when bg (invalidate bg)))   ; force the background to repaint cleanly
     (dialog-result dialog)))
 
 ;;; --- a command that opens a modal dialog and uses its result ----------------
@@ -150,7 +151,7 @@ thunk.  Modal: ↑/↓ navigate, Enter/click invokes, Esc / click-outside cancel
       (loop until done do
         (drain-ui-callbacks)
         (revision:hide-cursor s)
-        (when *root* (draw *root*))
+        (let ((bg (context-root *context*))) (when bg (draw bg)))
         (%drop-shadow x y (+ x w -1) (+ y n -1))
         (loop for it in items for r from 0 do
           (let ((ia (if (= r sel) (role :menu-selected) (role :menu))))
@@ -173,5 +174,5 @@ thunk.  Modal: ↑/↓ navigate, Enter/click invokes, Esc / click-outside cancel
                      (if (and (<= x mx (+ x w -1)) (<= y my (+ y n -1)))
                          (setf chosen (nth (- my y) items) done t)
                          (setf done t))))))))))    ; click outside cancels
-      (invalidate *root*)
+      (let ((bg (context-root *context*))) (when bg (invalidate bg)))
       (when (and chosen (cdr chosen)) (funcall (cdr chosen))))))

@@ -222,7 +222,7 @@ type-ahead.  Returns a pathname, or NIL on cancel."
          (role (nth (cluster-value (find-view d 'role)) *color-roles*))
          (fg (sw-value (find-view d 'fg))) (bg (sw-value (find-view d 'bg))))
     (setf (getf *theme* role) (revision:make-attr fg bg))
-    (when *root* (invalidate *root*))))
+    (let ((bg-view (context-root *context*))) (when bg-view (invalidate bg-view)))))
 
 (defun make-color-dialog ()
   "Visual colour customiser: pick a role, then a foreground and background from

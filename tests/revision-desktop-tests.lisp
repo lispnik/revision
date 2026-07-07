@@ -157,23 +157,43 @@
   (check "find-view still returns NIL for an absent name" (null (find-view win 'nope))))
 
 ;;; 10. reactive invalidation now tracks WHICH view changed and skips no-op writes,
-;;; so the loop can repaint just the affected window and an idle UI can block.
+;;; so the loop can repaint just the affected window and an idle UI can block.  The
+;;; frame state lives on the ambient CONTEXT; each sub-test runs on a fresh one
+;;; (:full-redraw nil = a clean slate, nothing pending) so the checks read cleanly.
 (let ((v (make-instance 'window :title " X ")))
-  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+  (let* ((c (make-context :full-redraw nil)) (*context* c))
     (setf (window-title v) " Y ")                                 ; a real change
-    (check "a changed slot marks the UI dirty" *dirty*)
-    (check "a changed slot records the view for a partial repaint" (member v *dirty-views*))
-    (check "a leaf change does not force a full redraw" (not *full-redraw*)))
-  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (check "a changed slot marks the UI dirty" (context-dirty c))
+    (check "a changed slot records the view for a partial repaint" (member v (context-dirty-views c)))
+    (check "a leaf change does not force a full redraw" (not (context-full-redraw c))))
+  (let* ((c (make-context :full-redraw nil)) (*context* c))
     (setf (window-title v) (window-title v))                      ; write the SAME value back
     (check "a no-op write (same EQL value) schedules no frame"
-           (and (not *dirty*) (null *dirty-views*))))
-  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+           (and (not (context-dirty c)) (null (context-dirty-views c)))))
+  (let* ((c (make-context :full-redraw nil)) (*context* c))
     (setf (view-bounds v) (rect 1 1 9 9))                         ; geometry moved
-    (check "a bounds change forces a full redraw (vacated cells)" *full-redraw*))
-  (let ((*dirty* nil) (*dirty-views* nil) (*full-redraw* nil))
+    (check "a bounds change forces a full redraw (vacated cells)" (context-full-redraw c)))
+  (let* ((c (make-context :full-redraw nil)) (*context* c))
     (invalidate 'not-a-view)                                      ; a non-view invalidation
-    (check "a non-view invalidation forces a full redraw" *full-redraw*)))
+    (check "a non-view invalidation forces a full redraw" (context-full-redraw c))))
+
+;;; 10b. contexts are independent: a slot write dirties only the ambient *context*,
+;;; so an embedded, headless, or under-test UI never bleeds invalidations into the
+;;; app's context (nor is dirtied by it).  This is what the CONTEXT object unlocks
+;;; over a lone set of process-global specials.
+(let ((v (make-instance 'window :title " Z "))
+      (a (make-context :full-redraw nil)) (b (make-context :full-redraw nil)))
+  (let ((*context* a)) (setf (window-title v) " Z2 "))            ; mutate under context A
+  (check "a slot write dirties the ambient context" (context-dirty a))
+  (check "the view is recorded in A's dirty set" (member v (context-dirty-views a)))
+  (check "a second context is untouched by A's invalidation"
+         (and (not (context-dirty b)) (null (context-dirty-views b))
+              (not (context-full-redraw b))))
+  (with-fresh-context ()                                          ; the macro form, isolating BODY
+    (setf (window-title v) " Z3 ")
+    (check "with-fresh-context runs BODY on its own distinct, isolated context"
+           (and (context-dirty *context*) (not (eq *context* a)) (not (eq *context* b))
+                (not (context-dirty b))))))                        ; b, never mutated, stays clean
 
 ;;; 11. the desktop's partial-frame gate: repaint only the top window when every dirty
 ;;; view is inside it and no dropdown is open; fall back to a full redraw otherwise.
@@ -185,7 +205,7 @@
              (%partial-frame-p dt (list top) nil))
       (check "full frame when a lower window is dirty"
              (not (%partial-frame-p dt (list lower) nil)))
-      (check "full frame when *full-redraw* is set" (not (%partial-frame-p dt (list top) t)))
+      (check "full frame when full-redraw is set" (not (%partial-frame-p dt (list top) t)))
       (check "full frame with no dirty views" (not (%partial-frame-p dt '() nil)))
       (setf (menu-active (dt-menubar dt)) 0)                      ; a dropdown overlays the windows
       (check "full frame while a menu dropdown is open"

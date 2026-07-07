@@ -1,7 +1,7 @@
 ;;;; scrollbar.lisp --- the scroller protocol for the scrollable widgets, plus
 ;;;; the geometry the desktop uses to hit-test a window's frame scrollbar.
 ;;;;
-;;;; A window draws a vertical scrollbar (kernel DRAW-VSCROLL) on its right frame
+;;;; A window draws a vertical scrollbar (DRAW-VSCROLL, in draw.lisp) on its right frame
 ;;;; edge, bound to its WINDOW-SCROLL-TARGET; each scrollable widget answers
 ;;;; SCROLL-POS / SCROLL-MAX / SCROLL-PAGE / SCROLL-TO in terms of its own state.
 

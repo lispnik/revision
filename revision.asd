@@ -27,7 +27,11 @@
                (:module "revision"
                 :serial t
                 :components ((:file "package")
-                             (:file "kernel")
+                             (:file "reactive")   ; the reactive metaclass + screen invalidation
+                             (:file "events")     ; events as a class hierarchy + terminal translation
+                             (:file "commands")   ; keymaps + commands (input bindings and behaviour as data)
+                             (:file "view")       ; the view hierarchy, containers, focus, (view x event) dispatch
+                             (:file "draw")       ; theming, drawing primitives, chrome, the scroll protocol
                              (:file "fuzzy")
                              (:file "runtime")
                              (:file "outline")
@@ -46,7 +50,10 @@
                              (:file "table")
                              (:file "dialogs")
                              (:file "help")
-                             (:file "desktop")
+                             (:file "status-bar") ; the desktop's bottom bar + tool notes
+                             (:file "menu-bar")   ; the desktop's pull-down menu bar
+                             (:file "themes")     ; the built-in colour palettes + switching
+                             (:file "desktop")    ; the IDE shell: windows, Z-order, the event loop
                              (:file "emoji")
                              (:file "reference")
                              (:file "reflection")))))
