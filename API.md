@@ -8,7 +8,11 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`defkeymap` (name (&optional parent) &body bindings)**  — Define a keymap NAME (optionally inheriting PARENT) from (KEYSYM COMMAND) pairs.
 
+**`ignoring-errors` ((context) &body body)**  — Evaluate BODY like IGNORE-ERRORS -- returning NIL on any ERROR instead of propagating -- but first REVISION-LOG the condition under CONTEXT (a short string), so a swallowed failure on a persistence/desktop path stays diagnosable.
+
 **`ui` (form)**  — Build a view tree declaratively; the structure is checked at macroexpansion.
+
+**`with-fresh-context` ((&key root) &body body)**  — Run BODY on a fresh, isolated UI context (its own dirty flags, dirty-view set, and ROOT). INVALIDATE and any event loop inside BODY see only this context, so an embedded, headless, or under-test UI never dirties -- or is dirtied by -- the ambient application's context.
 
 **`with-screen` ((&optional var) &body body)**  — Run BODY with an initialised screen, guaranteeing teardown on exit.
 
@@ -21,6 +25,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`command`**  — A named, reactive unit of behaviour: an ACTION closure over (VIEW EVENT) plus an ENABLED flag.  Reactive, so toggling ENABLED auto-repaints menus/buttons that show it. Invoked by name through PERFORM; keymaps and menus reference commands by NAME.
 
 **`container`**  — A VIEW that holds SUBVIEWS: it draws each child, routes key events to its focused leaf, handles Tab/Shift-Tab focus movement, and hit-tests mouse events down the tree.  On the root window CONTAINER-FOCUS names the focused leaf anywhere in the subtree.
+
+**`context`**  — One running UI instance's frame state: the invalidation flags the event loop consults each iteration plus the ROOT view (the modal background) they target.  Bound as *CONTEXT*; create a fresh one with WITH-FRESH-CONTEXT to isolate an embedded or headless UI.
 
 **`desktop`**  — The IDE shell: a menu bar, a status bar, and a background hosting movable, resizable, overlapping windows.  Owns the single event loop and window Z-order.
 
@@ -54,7 +60,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`persistent-class`**  — Metaclass for objects whose marked slots are saved and restored across sessions; see SAVE-OBJECT / LOAD-OBJECT.
 
-**`reactive-class`**  — Metaclass whose instances invalidate the screen on any slot write: an :after method on (SETF SLOT-VALUE-USING-CLASS) sets *DIRTY*, so views never repaint themselves -- mutating reactive state schedules one committed frame on the next loop.
+**`reactive-class`**  — Metaclass whose instances invalidate the screen when a slot write CHANGES its value: an :around method on (SETF SLOT-VALUE-USING-CLASS) calls INVALIDATE, so views never repaint themselves -- mutating reactive state schedules one committed frame on the next loop, and a no-op write (same EQL value) schedules nothing.
 
 **`row`**  — A horizontal layout container: children are placed left-to-right, each sized by its spec (:FILL shares the remaining columns, an integer fixes the column count).
 
@@ -71,6 +77,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`status-bar`**  — The desktop's bottom bar: draws clickable action chips supplied by its PROVIDER thunk, plus any transient tool note right-aligned.
 
 **`table-view`**  — A columnar table/grid viewer: a fixed header over scrollable, selectable data rows.  COLUMNS defines the (title, width, accessor) of each column; supports keyboard and mouse selection, the wheel, and the scroller protocol for frame scrollbars.
+
+**`table-window`**  — A window whose scroll target is a TABLE-VIEW; the desktop saves and restores its scroll offset and selected row via the app's persistence methods.
 
 **`text-edit`**  — A multi-line code-editing widget: a vector-of-lines buffer with a cursor, viewport scrolling, Shift/mark selection, an internal clipboard, snapshot undo/redo, incremental and regex find/replace, optional soft-wrap and a syntax-colour hook.
 
@@ -122,6 +130,10 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`handled-p` (object)**  — Set true once a HANDLE-EVENT method consumes the event, stopping bubbling.
 
+**`hv-on-link` (object)**
+
+**`hv-on-status` (object)**
+
 **`input-caret` (object)**  — Insertion-point column within TEXT (0 = before the first char).
 
 **`input-history-id` (object)**  — Key into *INPUT-HISTORIES* enabling Up/Down recall of past entries, or NIL.
@@ -172,7 +184,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`sb-top` (object)**  — Index of the first visible row (the vertical scroll offset).
 
-**`serialize` (object)**  — A readable representation of OBJECT.  Persistent-class objects become (:object CLASS slot val ...) over their non-transient, bound slots.
+**`serialize` (object)**  — A readable representation of OBJECT (see the notes above): readable atoms pass through, cons/vector/array/hash-table recurse, and persistent-class objects become (:object CLASS slot val ...) over their non-transient, bound slots.  Cycles and unserializable values SIGNAL.  Extend it with methods for an application's own types.
 
 **`session-filter` (object)**  — The saved filter/type-ahead text, persisted across runs.
 
@@ -186,9 +198,13 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`table-columns` (object)**  — Column specs, each a (TITLE WIDTH ACCESSOR) list; ACCESSOR maps a row to its cell value.
 
+**`table-hleft` (object)**
+
 **`table-rows` (object)**  — List of row objects, one per data row (the header is drawn separately).
 
 **`table-selected` (object)**  — Index into ROWS of the currently selected/highlighted data row.
+
+**`table-top` (object)**
 
 **`te-anchor` (object)**  — Selection origin as a (LINE . COL) cons, or NIL when nothing is selected.
 
@@ -224,15 +240,25 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`view-bounds` (object)**  — The view's screen rectangle (a revision TRECT), assigned by LAYOUT.
 
+**`view-key-hints` (view)**  — The (KEY-LABEL . DESCRIPTION) list of keys VIEW handles INTRINSICALLY -- inside its own HANDLE-EVENT rather than through a keymap.  Default: none.  A widget specializes this next to its HANDLE-EVENT, making the widget the single source of truth for its own keys; the keybinding reference and DESCRIBE-VIEW-KEYS read it.
+
 **`view-keymap` (object)**  — The view's KEYMAP (or NIL); its chain turns key events into commands.
 
 **`view-name` (object)**  — Optional symbol identifying the view, used by FIND-VIEW lookups.
 
 **`view-owner` (object)**  — The containing view (NIL for a root window); walk it up via VIEW-ROOT.
 
+**`window-dirty-p` (win)**  — Does WIN hold unsaved changes, so closing it should first prompt to save?  Default NIL; a document/editor window overrides it.
+
+**`window-esc-dismissable-p` (win)**  — May Esc dismiss WIN?  Default T (transient windows -- pickers, output, dialogs -- close on Esc); a document/editor window overrides to NIL so Esc never silently discards it.
+
 **`window-help` (object)**  — Help-topic keyword shown for this window on F1 / the Help menu.
 
 **`window-kind` (object)**  — Builder keyword (e.g. :repl) identifying the window for desktop layout save/restore.
+
+**`window-restore-state` (win state)**  — Apply STATE (as produced by WINDOW-SAVE-STATE) to the freshly-built WIN during layout restore.  Default: ignore.
+
+**`window-save-state` (win)**  — A READ-able value capturing WIN's restorable state beyond its kind and geometry (or NIL for none).  The desktop persists it in the saved layout and hands it back to WINDOW-RESTORE-STATE on the freshly-rebuilt window next launch.
 
 **`window-scroll-target` (object)**  — Scrollable child view whose position drives the window's frame scrollbar, or NIL.
 
@@ -247,6 +273,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`all-focusables` (v)**  — List every focusable leaf in V's subtree, in depth-first paint order -- the window's Tab order.  Flattens nested layout containers so focus is a window-level property.
 
 **`api-markdown`**  — Render the exported public API — every external symbol of :REVISION with its docstring, grouped by kind — as a Markdown reference.  Regenerated by `make api`.
+
+**`async-children` (node view work &key (placeholder   …))**  — A non-blocking lazy loader for a slow OUTLINE-NODE: start WORK (a 0-arg thunk that may block -- a subprocess, a file read -- and returns a list of child nodes) on a worker thread, and return a single PLACEHOLDER child immediately.  DRAW therefore never blocks on the load (OUTLINE-ENSURE-CHILDREN calls the loader, sometimes mid-repaint); when WORK lands, its result replaces the placeholder and VIEW is repainted.  Use it as a node's LOADER:  (setf (outline-node-loader n)                 (lambda () (async-children n tree (lambda () (compute-children n)))))
 
 **`attr-bg` (a)**  — The background colour index (0-7) of legacy DOS attribute A.
 
@@ -264,21 +292,33 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`command-enabled-p` (command)**  — Is COMMAND enabled right now?  ENABLED is a boolean, or a predicate thunk evaluated on demand -- the single enablement check used by PERFORM (and available to menus / buttons), so a guarded command no longer needs a second, hand-rolled check.
 
+**`context-dirty` (instance)**
+
+**`context-dirty-views` (instance)**
+
+**`context-full-redraw` (instance)**
+
+**`context-root` (instance)**
+
 **`copy-point` (p)**  — Return a fresh TPOINT with the same coordinates as P.
 
 **`copy-rect` (r)**  — Return a fresh TRECT with the same corners as R.
 
 **`ctrl` (ch)**  — A binding spec for Ctrl-CH: the (KEYSYM . MODS) cons (CH . +md-ctrl+).  Ctrl lives in the modifier bits -- TRANSLATE normalises the control char terminals send to this form -- so e.g. (ctrl #\o) matches the same token the driver produces for Ctrl-O.
 
-**`deserialize` (form)**  — Reconstruct what SERIALIZE produced.
+**`describe-view-keys` (view)**  — Every key VIEW responds to, as (KEY-LABEL . DESCRIPTION): its intrinsic keys (VIEW-KEY-HINTS, handled inside its own HANDLE-EVENT) followed by the bindings from its keymap chain (each resolved to its command's doc).  The single place to answer "what does a key do for this view" across BOTH dispatch paths.  Keys it ignores bubble to its owner's keymap -- walk VIEW-OWNER for those.
+
+**`deserialize` (form)**  — Reconstruct what SERIALIZE produced (SERIALIZE guarantees acyclic output, so this never needs cycle handling).
 
 **`digits-validator`**  — A validator that allows only digit characters to be typed into the field.
 
 **`disable-command` (command)**  — Mark the command named COMMAND disabled: PERFORM ignores it and its menu/keymap entries grey out.
 
+**`drain-ui-callbacks`**  — Run (on the UI thread) every thunk posted since the last drain.
+
 **`dt-close-window` (dt win)**  — Close WIN on desktop DT: run its cleanup, remove it from the Z-order, and refocus.
 
-**`dt-load-layout` (dt &optional (path (%desktop-file)))**  — Reopen the windows recorded in PATH at their saved positions, restoring saved editor buffer text.
+**`dt-load-layout` (dt &optional (path (%desktop-file)))**  — Reopen the windows recorded in PATH at their saved positions.  Each is rebuilt by its registered builder and then handed its saved state via WINDOW-RESTORE-STATE.
 
 **`dt-open` (dt kind-or-fn)**  — Open a window: KIND-OR-FN is a builder keyword (looked up in *WINDOW-BUILDERS* and recorded so the layout can be saved/restored) or a builder function (used directly, not persisted).  Cascade-positioned, focused on top.
 
@@ -286,7 +326,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`dt-refocus` (dt)**  — Keep the menu live only when no window is open.
 
-**`dt-save-layout` (dt &optional (path (%desktop-file)))**  — Write the open windows (kind + bounds, Z-order) to PATH.  Editors also save their filename and -- for scratch or modified buffers -- their text, so a full session (including unsaved work) is restored.
+**`dt-save-layout` (dt &optional (path (%desktop-file)))**  — Write the open windows -- kind, bounds, Z-order, and each window's own restorable state -- to PATH.  A window contributes state through WINDOW-SAVE-STATE: editors save their filename and any unsaved buffer text, the REPL its package + history, and so on, so relaunching restores the whole session.
 
 **`dt-top` (dt)**  — The topmost (focused) window on desktop DT, or NIL when none are open.
 
@@ -298,7 +338,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`filter-validator` (allowed)**  — Allow only characters in the string ALLOWED.
 
-**`find-view` (root name)**  — Depth-first search for the subview named NAME, or NIL.
+**`find-view` (root name)**  — Depth-first search for the subview named NAME, or NIL.  Names match by NAME string (see VIEW-NAME=), so a lookup works even when NAME is interned in another package.
 
 **`flush-screen` (&optional (s *screen*))**  — Paint the changed cells of screen S to the terminal: diff the back buffer against the front buffer and emit only the cells that changed since the previous frame, then place the hardware cursor where a focused view asked for it.
 
@@ -310,7 +350,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`input-notify` (il)**  — Fire IL's ON-CHANGE closure (if any) to signal that the text changed.
 
-**`invalidate` (object)**  — Mark the UI dirty so the event loop commits a fresh frame next iteration. OBJECT is accepted (and ignored) for a future per-view damage-tracking refinement; today any change triggers a whole-screen redraw.
+**`invalidate` (&optional object slot)**  — Mark the current context (*CONTEXT*) dirty so its event loop commits a fresh frame next iteration.  When OBJECT is a VIEW whose geometry did not change, record it for a partial repaint (only the affected top window is redrawn); anything else -- a non-view, or a BOUNDS change that can vacate cells -- forces a full-screen redraw.  SLOT is the changed slot's name (NIL from explicit callers, which are treated as a localizable view change).
 
 **`key-label` (token)**  — Human label for a (KEYSYM . MODS) keymap TOKEN, e.g. "Ctrl+C", "Shift+Del", "F2", "Alt+X", "Up".
 
@@ -318,7 +358,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`keybinding-markdown` (&optional (ref (keybinding-reference)))**  — Render the keybinding reference (see KEYBINDING-REFERENCE) as a Markdown document.
 
-**`keybinding-reference`**  — A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu accelerators, every named keymap (derived from the live keymaps), and the widget- level keys in *WIDGET-KEY-DOC*.
+**`keybinding-reference`**  — A list of (SECTION-TITLE . ((KEY-LABEL . COMMAND) ...)) covering the menu accelerators, every named keymap (derived from the live keymaps), each widget's intrinsic keys (from its VIEW-KEY-HINTS, via *WIDGET-KEY-VIEWS*), and any application extras in *WIDGET-KEY-DOC*.
 
 **`keymap-entries` (km)**  — Sorted list of (KEY-LABEL . COMMAND-NAME) for KM's own bindings (not inherited).
 
@@ -330,9 +370,14 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`load-object` (path)**  — Read and DESERIALIZE the object previously written to PATH by SAVE-OBJECT. Returns the reconstructed object, or NIL if PATH is missing or unreadable.
 
+**`log-messages`**  — The recent diagnostic lines (oldest first) from the in-memory ring.
+
 **`make-attr` (fg bg &optional (blink nil))**  — Build a legacy DOS attribute from foreground FG (0-15) and background BG (0-7).
 
 **`make-color-dialog`**  — Visual colour customiser: pick a role, then a foreground and background from the swatch strips (with a live sample); Apply previews it on *THEME*.
+
+**`make-context` (&key ((dirty dirty) nil) ((dirty-views dirty-views) 'nil)
+  ((full-redraw full-redraw) t) ((root root) nil))**
 
 **`make-doc-browser` (title html &optional base-url)**  — An HTML browser over arbitrary HTML; with *URL-FETCH-FN* set, clicking a link fetches and renders the target.  Return (values WINDOW FOCUS OPEN).
 
@@ -389,7 +434,7 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`prompt-string` (title label)**  — Modal one-line prompt; return the entered string, or NIL on cancel.
 
-**`pump-input` (s timeout)**  — Wait up to TIMEOUT seconds for input, decode it, and queue events.  If a mouse button is held with nothing else pending, synthesize ev-mouse-auto.
+**`pump-input` (s timeout)**  — Wait up to TIMEOUT seconds for input, decode it, and queue events.  If a mouse button is held with nothing else pending, synthesize ev-mouse-auto. Never blocks while events are already decoded and waiting (so batched/pasted input isn't processed one key per idle-timeout).
 
 **`range-validator` (lo hi)**  — Digits only; the value must parse to an integer in [LO, HI].
 
@@ -425,11 +470,19 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`register-command` (name action &optional doc (enabled t))**  — Register command NAME (ENABLED may be a boolean or a predicate thunk).  Warns if NAME is redefined from a DIFFERENT source file -- an accidental cross-file collision.  A live redefinition from the same file, or from the REPL (source NIL), is silent, so redefining a command interactively still works.
 
+**`register-menu` (name contributor)**  — Register CONTRIBUTOR -- a function of the desktop returning a menu spec (LABEL item...), or NIL to contribute nothing -- under NAME (a keyword), as a desktop menu-bar contribution. A contribution whose title matches a built-in menu merges into it; otherwise it adds a new top-level menu, positioned by *MENU-ORDER*.  Idempotent: re-registering NAME replaces it, so a file reload doesn't duplicate the menu.  Returns NAME.
+
+**`register-window` (kind builder)**  — Register BUILDER -- a 0-arg function returning (values WINDOW FOCUS OPEN) -- under KIND (a keyword), so the desktop can open it by keyword (from a menu, or when restoring a saved layout).  Idempotent: re-registering KIND REPLACES its builder, so reloading the window's file updates it cleanly.  Returns KIND.
+
+**`revision-log` (fmt &rest args)**  — Record a diagnostic line (wall-clock stamped) in the ring, and append it to *LOG-FILE* when set.  Thread-safe and never signals -- safe from any thread.
+
 **`rgb-attr` (fg-rgb bg-rgb &optional (style 0))**  — Intern a true-colour attribute from 24-bit packed FG-RGB and BG-RGB and an optional STYLE bitmask (+STYLE-BOLD+ etc.); return it.
 
 **`role` (key)**  — The colour attribute the current *THEME* assigns to the semantic role KEY (e.g. :normal, :focused, :status, :frame), or a plain grey-on-black default when the role is unset.
 
 **`run`**  — Phase-7 demo: everything from phases 0-6, plus the session (filter + outline line) restored from ~/.revision-session on start and saved on exit (MOP persistence), and a background thread driving the clock through the worker->UI bridge.
+
+**`run-async` (work &key then on-error (label async))**  — Run WORK (a 0-arg thunk that may block -- a subprocess, a file read, a network fetch) on a fresh background thread so the UI loop stays live; when it returns, run (THEN result) back ON THE UI THREAD (via RUN-ON-UI, which wakes the loop).  A signalled ERROR goes to (ON-ERROR condition) on the UI thread, or is logged under LABEL.  This is the default way a window keeps blocking I/O off the UI thread; only the THEN/ON-ERROR closures touch views, so the single-thread rule holds.  Returns the worker thread.
 
 **`run-desktop`**  — Run the revision IDE: a Turbo-Vision-style desktop with a menu bar, a status bar, and movable / resizable / overlapping windows (drag the title bar, drag the bottom-right corner to resize, click [✕] to close; Window menu tiles/cascades). Returns on File→Exit.
 
@@ -523,31 +576,37 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`unknown-command-bindings`**  — Command NAMES bound in the reference keymaps that are NOT registered in *COMMANDS* -- i.e. keymap typos.  PERFORM errors on such a name at runtime; the drift/validation test calls this so a typo is caught at build time instead.
 
+**`unregister-window` (kind)**  — Remove KIND's window builder from the registry; returns T when one was registered.
+
 **`view-focused-p` (v)**  — True when V is the focused widget of its root window.
 
 **`view-root` (v)**  — The topmost owner of V (the root window): follow VIEW-OWNER up until it is NIL.
+
+**`window-kinds`**  — The registered window-builder keywords (e.g. for a picker or introspection).
 
 ## Variables
 
 **`*app-done*`**  — Set by File→Exit to leave the desktop loop.
 
+**`*context*`**  — The current UI context: the frame-invalidation state (dirty flags + dirty-view set) and the ROOT view the event loop targets.  Dynamic and per-thread; INVALIDATE and every loop operate on it.  Rebind it (see WITH-FRESH-CONTEXT) to run an isolated or embedded UI.
+
 **`*desktop*`**  — The running desktop instance (for cross-window actions like eval-in-REPL).
 
 **`*dialog-keys*`**  — The keymap shared by modal dialogs: Enter runs the ACCEPT command, Esc runs CANCEL.
-
-**`*dirty*`**  — Set when reactive state changed since the last frame.
 
 **`*editor-completions-fn*`**  — Default completion hook (TE TOKEN) -> a list of completion strings for the symbol prefix TOKEN at the cursor; a text-edit's TE-COMPLETER slot overrides it.  (revl wires it to its package-aware completer.)
 
 **`*editor-eval-fn*`**  — Default eval hook (TE) for the editor's Eval chip / context item; a text-edit's TE-EVALUATOR slot overrides it.  (revl wires it to evaluate the selection in the REPL.)
 
-**`*extra-menus*`**  — List of (DESKTOP) -> menu-spec functions; a module pushes here to contribute a top-level menu to the desktop menu bar.
+**`*extra-menus*`**  — Alist of NAME (keyword) -> a (DESKTOP) -> menu-spec function.  Managed through REGISTER-MENU; the desktop merges each contribution into its menu bar (see %DESKTOP-MENUS).
 
 **`*global-keys*`**  — The global keymap consulted for every view's keys before its own keymap (quit on q / Esc).
 
 **`*help-pages*`**  — Help topic -> HTML string.
 
 **`*lisp-indenter*`**  — Default indenter hook (TE) -> indent column for a fresh line, used when a text-edit's own TE-INDENTER slot is unset.  An embedding app (e.g. revl) rebinds it to a smarter engine; a Lisp buffer copies it into TE-INDENTER at creation.
+
+**`*log-file*`**  — When set to a pathname, each log line is also appended there.  NIL by default (the in-memory ring is enough for the REPL / LOG-MESSAGES); set it to capture a session's diagnostics to disk.
 
 **`*outline-keys*`**  — The shared keymap for OUTLINE tree widgets: arrow navigation plus expand/collapse.
 
@@ -556,8 +615,6 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`*project-dir*`**  — Default root for file dialogs / new project-manager windows; set by Change-dir.
 
 **`*reference-keymaps*`**  — (SECTION-TITLE . KEYMAP-VAR) pairs for the TOOLKIT's own keymaps.  An application appends its own keymaps (e.g. revl adds Inspector / Project / REPL input / Call-tree). The menu accelerators are added separately, built from the desktop menu tree.
-
-**`*root*`**  — The current top-level window (the modal background).
 
 **`*running*`**  — While non-NIL the active event loop keeps running; setting it NIL exits the loop.
 
@@ -569,9 +626,11 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`*url-fetch-fn*`**  — (url) -> HTML string, or NIL.
 
-**`*widget-key-doc*`**  — Widget-level keys handled inside the widgets (list-box / table-view) rather than a keymap -- listed here so the reference stays complete.
+**`*widget-key-doc*`**  — Extra (SECTION-TITLE . ((KEY-LABEL . DESC) ...)) widget-key groups appended verbatim to the reference, for keys not tied to a toolkit view class (an application may push its own).  The toolkit's own widget keys now come from VIEW-KEY-HINTS via *WIDGET-KEY-VIEWS*.
 
-**`*window-builders*`**  — Alist of KEYWORD -> 0-arg builder returning (values WINDOW FOCUS OPEN).  Windows self-register here; DT-OPEN and layout-restore look a builder up by keyword.
+**`*widget-key-views*`**  — (SECTION-TITLE . VIEW-CLASS) for the widgets whose intrinsic keys -- handled inside HANDLE-EVENT rather than a keymap -- are declared via VIEW-KEY-HINTS.  The reference reads those methods, so each widget's keys are documented once, next to the code that implements them (no separate hand-maintained list to drift).
+
+**`*window-builders*`**  — Alist of KIND (keyword) -> 0-arg builder returning (values WINDOW FOCUS OPEN).  Managed through REGISTER-WINDOW; DT-OPEN and layout save/restore look a builder up by keyword.
 
 ## Constants
 
