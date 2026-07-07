@@ -126,6 +126,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`focusable-p` (view)**  — True if VIEW can hold keyboard focus (a focusable leaf).  Default NIL; interactive widgets override it, and containers use it to enumerate focus stops.
 
+**`frame-indicator` (view)**  — A short string a scroll-target view puts on its window's bottom frame, left of the horizontal scrollbar (classic TV's TIndicator).  NIL for none.
+
 **`handle-event` (view event)**  — Dispatch EVENT to VIEW: the core (view x event) multimethod protocol.  The base VIEW turns a key event into a command via its keymap chain; subclasses add methods and set HANDLED-P once they consume it.  The default method ignores the event.
 
 **`handled-p` (object)**  — Set true once a HANDLE-EVENT method consumes the event, stopping bubbling.
@@ -183,6 +185,22 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`sb-pending` (object)**  — The trailing partial line held until its newline arrives in a later chunk.
 
 **`sb-top` (object)**  — Index of the first visible row (the vertical scroll offset).
+
+**`scroll-hmax` (v)**
+
+**`scroll-hpage` (v)**
+
+**`scroll-hpos` (v)**
+
+**`scroll-hto` (v pos)**
+
+**`scroll-max` (v)**  — Maximum scroll offset (>= 0).
+
+**`scroll-page` (v)**  — Number of visible rows.
+
+**`scroll-pos` (v)**  — First visible row (the scroll offset).
+
+**`scroll-to` (v pos)**  — Set the offset (clamped) and repaint.
 
 **`serialize` (object)**  — A readable representation of OBJECT (see the notes above): readable atoms pass through, cons/vector/array/hash-table recurse, and persistent-class objects become (:object CLASS slot val ...) over their non-transient, bound slots.  Cycles and unserializable values SIGNAL.  Extend it with methods for an application's own types.
 
@@ -316,6 +334,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`drain-ui-callbacks`**  — Run (on the UI thread) every thunk posted since the last drain.
 
+**`draw-text` (view col row string attr)**  — Write STRING at view-local (COL,ROW), clipped to VIEW's width.  Grapheme-aware: a multi-code-point cluster (skin-tone / ZWJ emoji, combining marks) is interned as one display unit, and a double-width glyph reserves its second cell with the +wide-cont+ sentinel (so the flush doesn't overwrite its right half).
+
 **`dt-close-window` (dt win)**  — Close WIN on desktop DT: run its cleanup, remove it from the Z-order, and refocus.
 
 **`dt-load-layout` (dt &optional (path (%desktop-file)))**  — Reopen the windows recorded in PATH at their saved positions.  Each is rebuilt by its registered builder and then handed its saved state via WINDOW-RESTORE-STATE.
@@ -335,6 +355,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`exec-view` (dialog &key (width 48) (height 9))**  — Run DIALOG modally, centred over the current *ROOT* (drawn behind it), until it finishes; return its result value, or :CANCEL.
 
 **`fail-validation` (message)**  — Signal a VALIDATION-ERROR carrying MESSAGE, rejecting the current dialog input and displaying MESSAGE to the user.
+
+**`fill-row` (view col row width attr)**
 
 **`filter-validator` (allowed)**  — Allow only characters in the string ALLOWED.
 
@@ -399,6 +421,10 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 **`make-tpoint` (&optional (x 0) (y 0))**  — Construct a TPOINT at column X and row Y (both default to 0).
 
 **`make-trect` (ax ay bx by)**  — Construct a TRECT from top-left corner (AX,AY) and bottom-right corner (BX,BY).
+
+**`mouse-col` (view e)**
+
+**`mouse-row` (view e)**
 
 **`outline-ensure-children` (n)**  — Lazily populate N's children from its LOADER the first time they are needed. A no-op for ordinary (eager) nodes.  Returns N.
 

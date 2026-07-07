@@ -65,6 +65,13 @@
    ;; ---- Layout (the UI macro + containers) -------------------------------
    #:ui #:layout #:stack #:row
 
+   ;; ---- Widget authoring: primitives for writing your own VIEW subclass --
+   #:draw-text #:fill-row                        ; draw clipped text / clear a row, in view-local coords
+   #:mouse-col #:mouse-row                        ; a mouse event's view-local column / row
+   #:frame-indicator                             ; a scroll-target's bottom-frame indicator string
+   #:scroll-pos #:scroll-max #:scroll-page #:scroll-to           ; the vertical scroll protocol
+   #:scroll-hpos #:scroll-hmax #:scroll-hpage #:scroll-hto       ; the horizontal scroll protocol
+
    ;; ---- Widgets ----------------------------------------------------------
    #:static-text #:static-text-text #:label
    #:button #:button-command #:button-label
