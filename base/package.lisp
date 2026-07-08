@@ -119,7 +119,7 @@
    #:dt-open #:dt-close-window #:dt-top #:dt-windows #:dt-raise #:dt-refocus
    #:dt-save-layout #:dt-load-layout
    #:*before-layout-restore* #:*after-layout-restore*   ; startup hooks around layout restore
-   #:context-menu #:popup-choose
+   #:context-menu #:popup-choose #:message-box
 
    ;; ---- Dialogs & prompts ------------------------------------------------
    #:dialog #:dialog-result #:exec-view #:make-color-dialog #:make-file-dialog

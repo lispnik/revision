@@ -422,6 +422,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`make-trect` (ax ay bx by)**  — Construct a TRECT from top-left corner (AX,AY) and bottom-right corner (BX,BY).
 
+**`message-box` (message &key (title  message ) (width 56))**  — Show MESSAGE -- a string (wrapped to WIDTH, honouring newlines) or a list of pre-formatted lines -- in a modal dialog centred over *ROOT*, dismissed with Esc or Enter.  Returns NIL. Intended for short notices; each line is one row of plain text (no selection highlight).
+
 **`mouse-col` (view e)**
 
 **`mouse-row` (view e)**

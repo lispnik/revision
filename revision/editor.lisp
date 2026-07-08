@@ -773,6 +773,34 @@ wide glyphs (a click lands on the code point whose display cell was clicked)."
     (let ((r (exec-view d :width 40 :height h)))
       (if (eq r :cancel) nil r))))
 
+(defun %wrap-text (text width)
+  "Break TEXT into lines no wider than WIDTH, wrapping on spaces (and honouring newlines);
+a word longer than WIDTH is hard-broken."
+  (let ((width (max 1 width)) (out '()))
+    (dolist (para (uiop:split-string text :separator '(#\Newline)))
+      (let ((line ""))
+        (dolist (word (uiop:split-string para :separator '(#\Space)))
+          (cond ((zerop (length line)) (setf line word))
+                ((<= (+ (length line) 1 (length word)) width) (setf line (concatenate 'string line " " word)))
+                (t (push line out) (setf line word)))
+          (loop while (> (length line) width)                  ; hard-break an over-long word
+                do (push (subseq line 0 width) out) (setf line (subseq line width))))
+        (push line out)))
+    (nreverse out)))
+
+(defun message-box (message &key (title " Message ") (width 56))
+  "Show MESSAGE -- a string (wrapped to WIDTH, honouring newlines) or a list of pre-formatted
+lines -- in a modal dialog centred over *ROOT*, dismissed with Esc or Enter.  Returns NIL.
+Intended for short notices; each line is one row of plain text (no selection highlight)."
+  (let* ((lines (if (listp message) message (%wrap-text message (- width 4))))
+         (d (make-instance 'dialog :title title :keymap *dialog-keys*))
+         (body (make-instance 'stack)))
+    (dolist (ln lines) (add-laid body (make-instance 'static-text :text ln) 1))
+    (add-laid body (make-instance 'static-text :role :status :text " Esc to dismiss ") 1)
+    (add-subview d body)
+    (exec-view d :width width :height (min 20 (+ 3 (length lines))))
+    nil))
+
 (defun %editor-complete (te)
   "Complete the symbol prefix at the cursor via *EDITOR-COMPLETIONS-FN*: insert the
 sole candidate, or pop up a chooser when there are several."
