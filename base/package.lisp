@@ -84,7 +84,7 @@
    ;; ---- Text editor ------------------------------------------------------
    #:text-edit #:editor-window #:make-editor #:edit
    #:te-text #:te-set-text #:te-cx #:te-cy #:te-cur #:te-nlines #:te-offset #:te-pos-at-offset
-   #:te-anchor #:te-clamp #:te-ensure-visible #:te-selected-string #:te-select-all
+   #:te-anchor #:te-clamp #:te-ensure-visible #:te-center #:te-selected-string #:te-select-all
    #:te-insert #:te-copy #:te-cut #:te-paste
    #:te-undo #:te-undo! #:te-redo #:te-redo! #:te-save-undo
    #:te-find #:te-find-regex #:te-replace-all #:te-isearch-start

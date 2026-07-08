@@ -554,6 +554,8 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 **`string-width` (s &optional (start 0) (end (length s)))**  — Total display width of S[START,END) in terminal columns (per code point; for grapheme-aware width use GRAPHEME-WIDTH over clusters).
 
+**`te-center` (te)**  — Scroll so the cursor's line sits near the vertical centre of the viewport (like Emacs `recenter'), accounting for soft-wrap; near the top of the buffer it simply shows from the top.  Handy after a jump (go-to-definition, search) so the target has context above and below.
+
 **`te-clamp` (te)**  — Clamp the cursor (CY, CX) back into the valid range of the current buffer.
 
 **`te-copy` (te)**  — Copy the current selection to the shared clipboard (no-op when nothing is selected).

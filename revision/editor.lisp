@@ -172,6 +172,22 @@ accounting for soft-wrap, the gutter and wide glyphs."
             (cond ((< vc (te-left te)) (setf (te-left te) vc))
                   ((>= vc (+ (te-left te) w)) (setf (te-left te) (1+ (- vc w))))))))))
 
+(defun te-center (te)
+  "Scroll so the cursor's line sits near the vertical centre of the viewport (like Emacs
+`recenter'), accounting for soft-wrap; near the top of the buffer it simply shows from the
+top.  Handy after a jump (go-to-definition, search) so the target has context above and below."
+  (let ((b (view-bounds te)))
+    (when b
+      (let ((half (floor (r-h b) 2)))
+        (if (te-wrap te)
+            (let* ((w (te-vw te))
+                   (curv (+ (te-cum-vrows te (te-cy te) w) (%seg-of (%segs-of (te-cur te) w) (te-cx te))))
+                   (topv (max 0 (- curv half))))
+              (multiple-value-bind (l s) (te-vrow->pos te topv w)
+                (setf (te-top te) l (te-tsub te) s)))
+            (setf (te-top te) (max 0 (- (te-cy te) half)))))
+      (te-ensure-visible te))))    ; fix horizontal scroll (and clamp if we over-scrolled)
+
 (defun te-vmove (te dir)
   "Move the cursor one visual row (DIR -1/+1) in wrap mode, crossing sub-rows
 within a long line and spilling onto the next/previous logical line at the same
