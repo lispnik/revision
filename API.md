@@ -612,7 +612,11 @@ The exported symbols of the `revision` package, with their docstrings.  Generate
 
 ## Variables
 
+**`*after-layout-restore*`**  — A function of no arguments called by RUN-DESKTOP after the saved layout is restored, just before the event loop starts; NIL to do nothing.  An application sets this to run startup code that may inspect or add to the restored windows.  Errors are logged, not fatal.
+
 **`*app-done*`**  — Set by File→Exit to leave the desktop loop.
+
+**`*before-layout-restore*`**  — A function of no arguments called by RUN-DESKTOP after the desktop is built and *DESKTOP* is bound, but before the saved layout is restored; NIL to do nothing.  An application sets this to run early startup code (e.g. load a user config) that should take effect before the previous session's windows reappear.  Errors are logged, not fatal.
 
 **`*context*`**  — The current UI context: the frame-invalidation state (dirty flags + dirty-view set) and the ROOT view the event loop targets.  Dynamic and per-thread; INVALIDATE and every loop operate on it.  Rebind it (see WITH-FRESH-CONTEXT) to run an isolated or embedded UI.
 

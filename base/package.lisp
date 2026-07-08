@@ -118,6 +118,7 @@
    #:register-window #:unregister-window #:window-kinds #:register-menu
    #:dt-open #:dt-close-window #:dt-top #:dt-windows #:dt-raise #:dt-refocus
    #:dt-save-layout #:dt-load-layout
+   #:*before-layout-restore* #:*after-layout-restore*   ; startup hooks around layout restore
    #:context-menu #:popup-choose
 
    ;; ---- Dialogs & prompts ------------------------------------------------

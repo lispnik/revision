@@ -611,6 +611,17 @@ registered builder and then handed its saved state via WINDOW-RESTORE-STATE."
 ;;; ensure-repl (open-or-focus the desktop's REPL) is IDE glue — see revl's
 ;;; ide/desktop-ide.lisp.
 
+(defvar *before-layout-restore* nil
+  "A function of no arguments called by RUN-DESKTOP after the desktop is built and *DESKTOP*
+is bound, but before the saved layout is restored; NIL to do nothing.  An application sets
+this to run early startup code (e.g. load a user config) that should take effect before the
+previous session's windows reappear.  Errors are logged, not fatal.")
+
+(defvar *after-layout-restore* nil
+  "A function of no arguments called by RUN-DESKTOP after the saved layout is restored, just
+before the event loop starts; NIL to do nothing.  An application sets this to run startup
+code that may inspect or add to the restored windows.  Errors are logged, not fatal.")
+
 (defun run-desktop ()
   "Run the revision IDE: a Turbo-Vision-style desktop with a menu bar, a status bar,
 and movable / resizable / overlapping windows (drag the title bar, drag the
@@ -623,7 +634,11 @@ Returns on File→Exit."
       (layout dt (rect 0 0 (revision:screen-width s) (revision:screen-height s)))
       (setf (context-root *context*) dt *desktop* dt *ui-thread* sb-thread:*current-thread* *app-done* nil
             (context-dirty *context*) t (context-full-redraw *context*) t)
+      (when *before-layout-restore*
+        (ignoring-errors ("before-layout-restore") (funcall *before-layout-restore*)))
       (dt-load-layout dt)                                    ; restore the previous session's windows
+      (when *after-layout-restore*
+        (ignoring-errors ("after-layout-restore") (funcall *after-layout-restore*)))
       (loop until *app-done* do
         (drain-ui-callbacks)
         (let ((c *context*) (expired (%expire-tool-message)))  ; auto-clear the status-bar note
