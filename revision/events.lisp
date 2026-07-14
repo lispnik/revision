@@ -37,6 +37,10 @@
 (defclass broadcast-event (event)
   ((id :initarg :id :reader event-id) (info :initarg :info :initform nil :reader event-info)))
 (defclass idle-event (event) ())
+(defclass paste-event (event)
+  ((text :initarg :text :initform "" :reader event-text
+         :documentation "The pasted block as one string (a bracketed-paste payload)."))
+  (:documentation "A bracketed-paste block delivered as a single event; EVENT-TEXT is the payload."))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Terminal -> revision event translation.  Reuse revision's escape-sequence decoder;
@@ -80,6 +84,8 @@
        (make-instance 'mouse-up :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
       ((member ty (list revision::+ev-mouse-move+ revision::+ev-mouse-auto+))
        (make-instance 'mouse-move :where (%where tev) :buttons (revision::iev-mouse-buttons tev)))
+      ((= ty +ev-paste+)
+       (make-instance 'paste-event :text (or (revision::iev-info tev) "")))
       (t nil))))
 
 (defun %where (tev)

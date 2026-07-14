@@ -349,6 +349,12 @@ editor is never silently discarded.  Return T when WIN was closed."
       (t (let ((cmd (menu-accel-command mb ks mods)))         ; no window: accelerators first, then the menu
            (if cmd (perform cmd dt e) (handle-event mb e)))))))
 
+;; A paste has no coordinates, so it routes like a key -- to the focused window's
+;; focused leaf (a terminal-view forwards it to its child; see revision-term).
+(defmethod handle-event ((dt desktop) (e paste-event))
+  (let ((top (dt-top dt)))
+    (when top (handle-event top e))))
+
 (defun dt-window-at (dt x y)
   (loop for w in (reverse (dt-windows dt)) when (point-in-rect-p x y (view-bounds w)) return w))
 

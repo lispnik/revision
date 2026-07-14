@@ -384,6 +384,48 @@
 (check "every *widget-key-views* class declares view-key-hints"
        (every (lambda (pair) (%view-key-section (car pair) (cdr pair))) *widget-key-views*))
 
+;;; 12. bracketed paste: the outer terminal wraps a paste (e.g. a dragged file
+;;; path) in ESC[200~ ... ESC[201~.  The decoder gathers the payload into ONE
+;;; +ev-paste+ event, carried verbatim in the event's INFO slot -- never
+;;; re-parsed as keys -- and it survives a paste split across reads.
+(flet ((->bytes (s) (map '(simple-array (unsigned-byte 8) (*)) #'char-code s))
+       (feed (s chars)                               ; append raw bytes to a screen's input
+         (let ((buf (screen-in-buf s)))
+           (loop for ch across chars do (vector-push-extend (char-code ch) buf)))))
+  (let ((esc (string #\Escape)))
+    ;; a complete paste in one buffer -> one event with the whole path as payload
+    (let* ((s (make-screen))
+           (buf (->bytes (concatenate 'string esc "[200~/tmp/x.png" esc "[201~"))))
+      (multiple-value-bind (evs consumed) (parse-input-buffer buf (length buf) s)
+        (check "bracketed paste decodes to exactly one event" (= 1 (length evs)))
+        (check "the paste event is a +ev-paste+" (and evs (= (iev-type (first evs)) +ev-paste+)))
+        (check "the paste payload is the whole path" (equal (iev-info (first evs)) "/tmp/x.png"))
+        (check "the paste consumes the whole buffer" (= consumed (length buf)))
+        (check "paste mode is cleared after the terminator" (not (screen-pasting s)))))
+    ;; a payload with a newline and an embedded ESC[ is delivered verbatim, NOT decoded
+    (let* ((s (make-screen))
+           (payload (concatenate 'string "a" (string #\Newline) "b" esc "[Cc"))
+           (buf (->bytes (concatenate 'string esc "[200~" payload esc "[201~"))))
+      (check "a paste payload (newline + ESC[) is verbatim, not re-parsed as keys"
+             (equal (iev-info (first (parse-input-buffer buf (length buf) s))) payload)))
+    ;; a paste split across two reads: state on the screen carries the payload over
+    (let ((s (make-screen)))
+      (feed s (concatenate 'string esc "[200~/tmp/i"))
+      (decode-input s)
+      (check "split paste: no event after the first partial read" (null (screen-event-queue s)))
+      (check "split paste: paste mode is active mid-way" (screen-pasting s))
+      (feed s (concatenate 'string "mg.png" esc "[201~"))
+      (decode-input s)
+      (let ((ev (screen-next-event s)))
+        (check "split paste: the second read completes one +ev-paste+"
+               (and ev (= (iev-type ev) +ev-paste+)))
+        (check "split paste: the payload is reassembled across reads"
+               (and ev (equal (iev-info ev) "/tmp/img.png")))))
+    ;; TRANSLATE maps the terminal event to the CLOS paste-event widgets receive
+    (let ((pe (translate (make-input-event :type +ev-paste+ :info "hello"))))
+      (check "translate maps +ev-paste+ to a paste-event" (typep pe 'paste-event))
+      (check "the paste-event carries the payload as EVENT-TEXT" (equal (event-text pe) "hello")))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

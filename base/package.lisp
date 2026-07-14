@@ -40,9 +40,9 @@
    #:screen-cell-set #:screen-next-event #:pump-input          ; low-level: custom host loops
 
    ;; ---- Events -----------------------------------------------------------
-   #:event #:key-event #:mouse-event #:mouse-down #:wheel-event
-   #:event-keysym #:event-modifiers #:event-where #:event-delta #:handled-p
-   #:+md-ctrl+ #:+md-alt+ #:+md-shift+ #:+mb-left+ #:+mb-right+
+   #:event #:key-event #:mouse-event #:mouse-down #:wheel-event #:paste-event
+   #:event-keysym #:event-modifiers #:event-where #:event-delta #:event-text #:handled-p
+   #:+md-ctrl+ #:+md-alt+ #:+md-shift+ #:+mb-left+ #:+mb-right+ #:+ev-paste+
 
    ;; ---- The view protocol & event loop -----------------------------------
    #:view #:container #:handle-event #:draw #:invalidate #:find-view

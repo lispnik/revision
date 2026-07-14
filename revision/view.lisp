@@ -177,6 +177,9 @@ Children are tested front-to-back (last added paints on top)."
 (defun mouse-col (view e) (- (car (event-where e)) (revision::rect-ax (view-bounds view))))
 (defun mouse-row (view e) (- (cdr (event-where e)) (revision::rect-ay (view-bounds view))))
 
+(defmethod handle-event ((c container) (e paste-event))         ; route a paste to the focused leaf
+  (let ((f (container-focus c))) (when f (handle-event f e))))
+
 (defmethod handle-event ((v view) (e mouse-event)) nil)         ; default: ignore
 
 (defmethod handle-event ((c container) (e mouse-event))

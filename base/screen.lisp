@@ -24,6 +24,10 @@ state.  Stands in for Turbo Vision's THardwareInfo / TScreen."
   ;; raw input bytes awaiting decode, and decoded events awaiting delivery
   (in-buf (make-array 256 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0))
   (event-queue '())
+  ;; bracketed-paste accumulation: PASTING is set between ESC[200~ and ESC[201~,
+  ;; while PASTE-BUF gathers the raw payload bytes (which may span several reads).
+  (pasting nil)
+  (paste-buf (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0))
   ;; mouse state for double-click detection and auto-repeat synthesis
   (mouse-buttons 0 :type fixnum)
   (mouse-x 0 :type fixnum)
@@ -108,6 +112,7 @@ LINES/COLUMNS environment variables and finally to a sane 24x80 default."
     (%emit s (ctl "?1000h"))      ; enable mouse button tracking
     (%emit s (ctl "?1002h"))      ; enable drag tracking
     (%emit s (ctl "?1006h"))      ; SGR extended mouse coordinates
+    (%emit s (ctl "?2004h"))      ; enable bracketed paste
     (%emit s (ctl "2J"))          ; clear screen
     (%flush-out s)
     (setf *screen* s)
@@ -116,6 +121,7 @@ LINES/COLUMNS environment variables and finally to a sane 24x80 default."
 (defun done-screen (&optional (s *screen*))
   "Restore the terminal to its original state."
   (when s
+    (%emit s (ctl "?2004l"))      ; disable bracketed paste
     (%emit s (ctl "?1003l"))      ; any-event mouse tracking (DOS cursor), if on
     (%emit s (ctl "?1006l"))
     (%emit s (ctl "?1002l"))
@@ -411,7 +417,7 @@ isn't processed one key per idle-timeout)."
 
 (defun decode-input (s)
   (let ((buf (screen-in-buf s)))
-    (multiple-value-bind (events consumed) (parse-input-buffer buf (fill-pointer buf))
+    (multiple-value-bind (events consumed) (parse-input-buffer buf (fill-pointer buf) s)
       (dolist (e events)
         (%update-mouse-state s e)
         ;; With the DOS mouse cursor on we ask for hover motion (?1003h); consume
@@ -474,24 +480,85 @@ complete in the buffer (wait for more bytes)."
                (values (key-event cp cp) n)
                (values (key-event lead lead) 1)))))))
 
-(defun parse-input-buffer (buf len)
+;;; Bracketed paste: the outer terminal wraps a paste (e.g. a dragged file path)
+;;; in ESC[200~ ... ESC[201~.  The payload is raw bytes -- newlines, UTF-8, even
+;;; escape sequences -- that must NOT be re-parsed as keys, so we scan for the
+;;; literal terminator and gather everything between the markers into one event.
+(defparameter +paste-begin+
+  (coerce #(27 91 50 48 48 126) '(simple-array (unsigned-byte 8) (*)))  ; ESC [ 2 0 0 ~
+  "The bracketed-paste begin marker, as raw bytes.")
+(defparameter +paste-end+
+  (coerce #(27 91 50 48 49 126) '(simple-array (unsigned-byte 8) (*)))  ; ESC [ 2 0 1 ~
+  "The bracketed-paste end marker, as raw bytes.")
+
+(defun %bytes-match-at (buf i len pattern)
+  "T if BUF[I..] begins with the whole PATTERN, all bytes present within LEN."
+  (let ((n (length pattern)))
+    (and (<= (+ i n) len)
+         (loop for k below n always (= (aref buf (+ i k)) (aref pattern k))))))
+
+(defun %find-bytes (buf start len pattern)
+  "Least index >= START at which PATTERN fully occurs in BUF[..LEN), or NIL."
+  (loop for k from start to (- len (length pattern))
+        when (%bytes-match-at buf k len pattern) do (return k)))
+
+(defun %paste-append (s buf from to)
+  "Append BUF[FROM..TO) to screen S's paste accumulator."
+  (let ((pb (screen-paste-buf s)))
+    (loop for k from from below to do (vector-push-extend (aref buf k) pb))))
+
+(defun %paste-take (s)
+  "Decode screen S's accumulated paste payload as UTF-8 and reset it."
+  (let* ((pb (screen-paste-buf s))
+         (bytes (subseq pb 0 (fill-pointer pb)))
+         (str (handler-case (sb-ext:octets-to-string bytes :external-format :utf-8)
+                (error () (map 'string #'code-char bytes)))))
+    (setf (fill-pointer pb) 0)
+    str))
+
+(defun parse-input-buffer (buf len &optional screen)
   "Decode BUF[0,LEN) into a list of events.  Return (values events consumed),
-leaving any trailing partial escape / UTF-8 sequence for the next read."
+leaving any trailing partial escape / UTF-8 / paste sequence for the next read.
+When SCREEN is supplied, bracketed pastes (ESC[200~...ESC[201~) are gathered into
+a single +EV-PASTE+ event whose payload is carried in the event's INFO slot;
+accumulation state on SCREEN lets a paste span several reads."
   (let ((events '()) (i 0))
     (loop while (< i len) do
-      (let ((b (aref buf i)))
-        (cond
-          ((= b 27)
-           (multiple-value-bind (ev consumed) (parse-escape buf i len)
-             (if (null consumed)
-                 (return)                  ; incomplete; wait for more bytes
-                 (progn (when ev (push ev events)) (incf i consumed)))))
-          ((>= b #x80)                      ; UTF-8 lead/continuation byte
-           (multiple-value-bind (ev consumed) (parse-utf8 buf i len)
-             (if (null consumed)
-                 (return)                  ; incomplete multi-byte char
-                 (progn (when ev (push ev events)) (incf i consumed)))))
-          (t (push (parse-plain-byte b) events) (incf i)))))
+      (cond
+        ;; mid-paste: swallow raw bytes until the ESC[201~ terminator
+        ((and screen (screen-pasting screen))
+         (let ((k (%find-bytes buf i len +paste-end+)))
+           (cond
+             (k (%paste-append screen buf i k)
+                (setf i (+ k (length +paste-end+))
+                      (screen-pasting screen) nil)
+                (push (make-input-event :type +ev-paste+ :info (%paste-take screen))
+                      events))
+             (t ;; no terminator yet: keep all but a guard tail (a split ESC[201~),
+                ;; then wait for the rest of the paste on the next read
+                (let ((keep (max i (- len (1- (length +paste-end+))))))
+                  (%paste-append screen buf i keep)
+                  (setf i keep)
+                  (return))))))
+        ;; a complete begin marker starts a paste
+        ((and screen (not (screen-pasting screen))
+              (%bytes-match-at buf i len +paste-begin+))
+         (setf (screen-pasting screen) t
+               i (+ i (length +paste-begin+))))
+        (t
+         (let ((b (aref buf i)))
+           (cond
+             ((= b 27)
+              (multiple-value-bind (ev consumed) (parse-escape buf i len)
+                (if (null consumed)
+                    (return)              ; incomplete; wait for more bytes
+                    (progn (when ev (push ev events)) (incf i consumed)))))
+             ((>= b #x80)                 ; UTF-8 lead/continuation byte
+              (multiple-value-bind (ev consumed) (parse-utf8 buf i len)
+                (if (null consumed)
+                    (return)              ; incomplete multi-byte char
+                    (progn (when ev (push ev events)) (incf i consumed)))))
+             (t (push (parse-plain-byte b) events) (incf i)))))))
     (values (nreverse events) i)))
 
 (defun parse-escape (buf i len)
@@ -585,6 +652,10 @@ or (values nil nil) when more bytes are required."
                               (15 (key-event +kb-f5+)) (17 (key-event +kb-f6+))
                               (18 (key-event +kb-f7+)) (19 (key-event +kb-f8+))
                               (20 (key-event +kb-f9+)) (21 (key-event +kb-f10+))
+                              ;; bracketed-paste markers are intercepted before
+                              ;; parse-escape (see parse-input-buffer); swallow a
+                              ;; stray one that slips through (e.g. no screen).
+                              ((200 201) nil)
                               (t nil)))
                        (t nil))))
             (when (and ev (plusp mods)) (setf (iev-modifiers ev) mods))

@@ -13,6 +13,7 @@
 (defconstant +ev-mouse-auto+  #x0008)
 (defconstant +ev-key-down+    #x0010)
 (defconstant +ev-mouse-wheel+ #x0020)
+(defconstant +ev-paste+       #x0040)   ; a bracketed-paste block (payload in INFO)
 (defconstant +ev-command+     #x0100)
 (defconstant +ev-broadcast+   #x0200)
 
