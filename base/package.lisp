@@ -41,7 +41,7 @@
 
    ;; ---- Events -----------------------------------------------------------
    #:event #:key-event #:mouse-event #:mouse-down #:wheel-event #:paste-event
-   #:event-keysym #:event-modifiers #:event-where #:event-delta #:event-text #:handled-p
+   #:event-keysym #:event-modifiers #:event-where #:event-delta #:event-double #:event-text #:handled-p
    #:+md-ctrl+ #:+md-alt+ #:+md-shift+ #:+mb-left+ #:+mb-right+ #:+ev-paste+
 
    ;; ---- The view protocol & event loop -----------------------------------
