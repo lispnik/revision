@@ -32,6 +32,10 @@
    ;; ---- Colours & display attributes -------------------------------------
    #:attr #:make-attr #:attr-fg #:attr-bg #:attr-rgb-fg #:attr-rgb-bg #:attr-rgb-p
    #:rgb-attr #:pack-rgb #:*theme* #:role
+   ;; text styles (underline/bold/…) — carried by both legacy and RGB attrs
+   #:attr-style #:attr+style
+   #:+style-bold+ #:+style-italic+ #:+style-underline+ #:+style-blink+
+   #:+style-reverse+ #:+style-strike+ #:+style-uline-double+ #:+style-uline-curly+
    #:char-width #:string-width                       ; display-column widths (wide CJK / emoji)
 
    ;; ---- Screen & terminal driver -----------------------------------------

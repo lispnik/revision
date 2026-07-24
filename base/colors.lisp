@@ -23,6 +23,17 @@
 (defun attr-fg (a) "The foreground colour index (0-15) of legacy DOS attribute A." (logand a #x0f))
 (defun attr-bg (a) "The background colour index (0-7) of legacy DOS attribute A." (logand (ash a -4) #x07))
 
+;;; Text styles (underline/bold/…) ride in bits 8-15 of a legacy DOS attribute —
+;;; the same +STYLE-*+ bitmask an RGB attr carries (see below), independent of the
+;;; fg/bg/blink bits.  ATTR->ANSI emits them for both attr kinds.  Existing attrs
+;;; have these bits 0, so this is fully back-compatible.
+(declaim (inline attr-style attr+style))
+(defun attr-style (a) "The text-style bitmask (+STYLE-*+) of legacy DOS attribute A." (ldb (byte 8 8) a))
+(defun attr+style (a style)
+  "A copy of legacy DOS attribute A with STYLE's text-style bits (+STYLE-UNDERLINE+ …)
+added — e.g. (attr+style (role :menu) +style-underline+) underlines a themed cell."
+  (logior a (ash (logand style #xff) 8)))
+
 (defun selection-highlight (normal &optional active)
   "A reverse-video highlight for the currently-selected row/item in a list or
 table: a solid bar (NORMAL's foreground becomes the background) that stays
@@ -223,16 +234,17 @@ attrs emit their exact RGB (downgraded to the cube / nearest-16 when needed)."
        (%sgr-rgb (ldb (byte 8 16) fg) (ldb (byte 8 8) fg) (ldb (byte 8 0) fg)
                  (ldb (byte 8 16) bg) (ldb (byte 8 8) bg) (ldb (byte 8 0) bg)
                  (attr-rgb-style a))))
-    ;; legacy 4-bit attr: keep the exact 16-colour codes (back-compatible)
+    ;; legacy 4-bit attr: keep the exact 16-colour codes (back-compatible), plus
+    ;; any text-style bits (underline/bold/…) carried in bits 8-15.
     ((eq *color-mode* :16)
      (let ((fg (attr-fg a)) (bg (attr-bg a)))
-       (format nil "~c[0;~d;~dm" #\Escape
+       (format nil "~c[0~a;~d;~dm" #\Escape (%style-codes (attr-style a))
                (let ((afg (aref +dos->ansi+ (logand fg 7)))) (if (>= fg 8) (+ 90 afg) (+ 30 afg)))
                (+ 40 (aref +dos->ansi+ bg)))))
     (t
      (multiple-value-bind (fr fg fb) (%theme-rgb (attr-fg a))
        (multiple-value-bind (br bg bb) (%theme-rgb (attr-bg a))
-         (%sgr-rgb fr fg fb br bg bb))))))
+         (%sgr-rgb fr fg fb br bg bb (attr-style a)))))))
 
 (defun set-color-theme (theme)
   "Set the active RGB theme (a name :vga / :modern, or an RGB-THEME vector)."
