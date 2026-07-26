@@ -30,6 +30,33 @@
 (defun %win-builder (&optional (title " Test "))
   (lambda () (values (make-instance 'window :title title) nil nil)))
 
+;;; --- Tier-1 render capture -------------------------------------------------
+;;; The reliable way to snapshot a TUI: draw a laid-out view into a HEADLESS
+;;; screen (whose back buffer is just an in-memory cell array) and read it back.
+;;; No terminal, no PTY, no timing -- and every per-cell attribute (colour,
+;;; underline, the menu-hotkey highlight) is present and assertable, which is
+;;; exactly what a pixel recorder like vhs cannot give you. To drive state, build
+;;; and dispatch CLOS events (any keysym + modifier bits, Alt included), redraw,
+;;; and re-capture.
+
+(defun %capture (view w h)
+  "Lay VIEW out to WxH, draw it into a fresh headless screen, and return the screen."
+  (let ((s (make-screen)))
+    (screen-resize s w h)
+    (let ((*screen* s) (*context* (make-context :full-redraw t)))
+      (layout view (rect 0 0 w h))
+      (draw view))
+    s))
+
+(defun %cell (s x y) (aref (screen-back s) (screen-index s x y)))
+
+(defun %row (s y)
+  "Row Y of screen S as a string (printable chars; blanks and sentinels -> space)."
+  (coerce (loop for x from 0 below (screen-width s)
+                for ch = (cell-char (%cell s x y))
+                collect (if (>= (char-code ch) 32) ch #\Space))
+          'string))
+
 ;;; 1. the window plugin registry: a self-registered builder opens through DT-OPEN
 (let ((*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
   (let ((dt (%make-test-desktop)) (built nil))
@@ -444,6 +471,31 @@
       (f10 dt)
       (check "F10 again hands focus back to the window" (null (menu-active (dt-menubar dt))))
       (check "the window is still open" (= 1 (length (dt-windows dt)))))))
+
+;;; Tier-1 render snapshot: draw the desktop into a headless screen and assert on
+;;; the rendered TEXT and per-cell ATTRIBUTES -- terminal-free, deterministic, and
+;;; able to check styling (the menu-hotkey highlight here; an underline elsewhere)
+;;; that a pixel/gif recorder can neither send input for nor reliably read back.
+(let ((*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
+  (let* ((dt (%make-test-desktop))
+         (s (%capture dt 80 24))
+         (bar (%row s 0)))
+    (check "the menu bar renders every menu title"
+           (and (search "Options" bar) (search "Window" bar) (search "Help" bar)))
+    (let ((wcol (search "Window" bar)))
+      (check "a menu's hotkey letter carries a distinct attribute (per-cell styling)"
+             (/= (cell-attr (%cell s wcol 0))            ; 'W' drawn in the menu-hotkey role
+                 (cell-attr (%cell s (1+ wcol) 0)))))    ; 'i' drawn in the menu-bar role
+    ;; dispatch F10 to open the menu, redraw, and confirm the dropdown item renders
+    (handle-event dt (make-instance 'key-event :keysym :f10 :modifiers 0))
+    (let ((s2 (%capture dt 80 24)))
+      (check "after F10 the first menu's dropdown item is drawn below the bar"
+             (loop for y from 1 below 24 thereis (search "About" (%row s2 y)))))
+    ;; open a window and re-capture: its titled frame draws into the buffer
+    (dt-open dt (%win-builder " Ledger "))
+    (let ((s3 (%capture dt 80 24)))
+      (check "an opened window's title renders in its frame"
+             (loop for y from 1 below 24 thereis (search "Ledger" (%row s3 y)))))))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
