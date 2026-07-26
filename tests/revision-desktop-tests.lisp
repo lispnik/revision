@@ -426,6 +426,25 @@
       (check "translate maps +ev-paste+ to a paste-event" (typep pe 'paste-event))
       (check "the paste-event carries the payload as EVENT-TEXT" (equal (event-text pe) "hello")))))
 
+;;; F10 (MENU-BAR-ACTIVATE): opens the menu bar without an Alt modifier, and does
+;;; so even when a window is focused -- the only menu path for a terminal or
+;;; recorder that can't deliver Alt-<hotkey>, where a bare Esc would instead
+;;; dismiss the window.  (With no window the menu bar rests active at menu 0.)
+(let ((*window-builders* (copy-alist *window-builders*)) (*desktop* nil))
+  (flet ((f10 (dt) (handle-event dt (make-instance 'key-event :keysym :f10 :modifiers 0))))
+    (let ((dt (%make-test-desktop)))
+      (check "the menu bar rests active with no window" (eql (menu-active (dt-menubar dt)) 0))
+      (dt-open dt (%win-builder " W "))
+      (check "opening a window hands the menu bar's focus to it"
+             (null (menu-active (dt-menubar dt))))
+      (f10 dt)
+      (check "F10 opens the menu bar over the focused window"
+             (eql (menu-active (dt-menubar dt)) 0))
+      (check "F10 did not dismiss the window (unlike Esc)" (= 1 (length (dt-windows dt))))
+      (f10 dt)
+      (check "F10 again hands focus back to the window" (null (menu-active (dt-menubar dt))))
+      (check "the window is still open" (= 1 (length (dt-windows dt)))))))
+
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
 (sb-ext:exit :code (if (zerop *fail*) 0 1))

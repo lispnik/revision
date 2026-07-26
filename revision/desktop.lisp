@@ -6,7 +6,9 @@
 ;;;; active window (laid out *between* the bars), the bottom status bar, and the
 ;;;; top menu bar (its dropdown overlays everything).  The menu is "live" whenever
 ;;;; no window is open; opening a window from it hands the window focus, and Esc
-;;;; closes the window back to the menu — so no F10/Alt key decoding is needed.
+;;;; closes the window back to the menu.  Alt-<hotkey> opens a menu at any time;
+;;;; F10 (MENU-BAR-ACTIVATE) does the same without an Alt modifier — the only way
+;;;; in when a window is focused on a terminal that can't send Alt.
 
 (in-package #:revision)
 
@@ -269,6 +271,17 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
 (define-command help-window (dt e)
   "Contextual help for the focused window."
   (dt-help dt))
+(define-command menu-bar-activate (dt e)
+  "Open the menu bar without an Alt modifier (F10).  When a window is focused this
+opens the menu bar at its first menu; F10 again (or Esc) hands focus back to the
+window.  With no window open the menu bar is always live, so F10 just (re)selects
+the first menu.  Arrow keys then move within the bar, Enter selects.  Standard for
+terminals or recorders that can't deliver Alt-<hotkey> — and the only way into the
+menu when a window is focused."
+  (let ((mb (dt-menubar dt)))
+    (setf (menu-active mb) (if (and (menu-active mb) (dt-top dt)) nil 0)
+          (menu-sel mb) 0)
+    (invalidate mb)))
 
 (defkeymap *desktop-keys* ()
   ((cons #\1 revision::+md-alt+) select-window) ((cons #\2 revision::+md-alt+) select-window)
@@ -276,6 +289,7 @@ you're working in).  With no REPL open (a bare toolkit desktop) it just shows th
   ((cons #\5 revision::+md-alt+) select-window) ((cons #\6 revision::+md-alt+) select-window)
   ((cons #\7 revision::+md-alt+) select-window) ((cons #\8 revision::+md-alt+) select-window)
   ((cons #\9 revision::+md-alt+) select-window)
+  (:f10 menu-bar-activate)
   (:f5 zoom-window)
   (:f1 help-window))
 

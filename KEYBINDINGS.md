@@ -26,6 +26,12 @@ _Generated from the keymaps by `revision:keybinding-markdown`. Do not edit by ha
 | Key | Command |
 |-----|---------|
 | `F1` | `Contextual help for the focused window.` |
+| `F10` | `Open the menu bar without an Alt modifier (F10).  When a window is focused this
+opens the menu bar at its first menu; F10 again (or Esc) hands focus back to the
+window.  With no window open the menu bar is always live, so F10 just (re)selects
+the first menu.  Arrow keys then move within the bar, Enter selects.  Standard for
+terminals or recorders that can't deliver Alt-<hotkey> — and the only way into the
+menu when a window is focused.` |
 | `Alt+1` | `Raise/focus the Nth desktop window.` |
 | `Alt+2` | `Raise/focus the Nth desktop window.` |
 | `Alt+3` | `Raise/focus the Nth desktop window.` |
