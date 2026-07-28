@@ -13,6 +13,7 @@
 (asdf:initialize-source-registry
  (list :source-registry (list :tree (uiop:getcwd)) :inherit-configuration))
 (handler-bind ((warning #'muffle-warning)) (asdf:load-system :revision))
+(load "tests/render-capture.lisp")          ; capture-view / capture-row / check-snapshot
 (in-package #:revision)
 
 (defvar *pass* 0) (defvar *fail* 0)
@@ -176,6 +177,22 @@
        (string= (keybinding-markdown) (uiop:read-file-string "KEYBINDINGS.md")))
 (check "no keymap binding names an unregistered command (PERFORM would error)"
        (null (unknown-command-bindings)))
+
+;;; render capture (the shared tests/render-capture.lisp helper, same as the
+;;; desktop suite): draw a laid-out widget into a headless screen and read the
+;;; cells back — here it snapshots a list-box, including wide-glyph (CJK) columns.
+(let ((lb (make-instance 'list-box :items (list "Alpha" "Beta" "Gamma"))))
+  (let ((s (capture-view lb 16 5)))
+    (check "list-box renders its items, one per row"
+           (and (search "Alpha" (capture-row s 0))
+                (search "Beta"  (capture-row s 1))
+                (search "Gamma" (capture-row s 2))))))
+;; a golden snapshot of a list-box whose middle item is two wide (CJK) glyphs —
+;; the display-column layout (each wide glyph reserving a second cell) end to end
+(let ((lb (make-instance 'list-box
+                         :items (list "ab" (coerce (list +cjk+ +cjk+) 'string) "cd"))))
+  (check "the CJK list-box render matches its golden snapshot"
+         (check-snapshot "listbox-cjk" (capture-text (capture-view lb 12 4)))))
 
 ;;; ===========================================================================
 (format t "~%~d passed, ~d failed~%" *pass* *fail*)
